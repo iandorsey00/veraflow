@@ -12,7 +12,7 @@
 - Release 0.2.0: npm audit found zero vulnerabilities; cargo-audit found zero vulnerability-class advisories and seven informational warnings, detailed in privacy-security.md.
 - Native macOS Unicode and embedded-NUL conversion test passed without accessing the clipboard.
 
-Browser tests cover the real frontend workflow but use the browser clipboard, not the native adapters. An accessibility scanner is not a substitute for VoiceOver/NVDA testing. Native hotkey dispatch and cross-app capture/restore have not been fully exercised here. Windows code and CI configuration are present; no Windows runner was available in this workspace. CI has not been dispatched from this task.
+Browser tests cover the real frontend workflow but use the browser clipboard, not the native adapters. An accessibility scanner is not a substitute for VoiceOver/NVDA testing. Native hotkey dispatch and cross-app capture/restore have not been fully exercised here. Windows code and CI configuration are present; no Windows runner was available in this workspace. GitHub Actions validates both platform builds; see the repository Actions page for current results. Native interactive acceptance remains separate from CI.
 
 ## Manual release gates (macOS and Windows)
 

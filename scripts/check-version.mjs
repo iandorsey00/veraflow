@@ -15,7 +15,7 @@ assert.equal(
 );
 assert.equal(
   read("src-tauri/Cargo.lock").match(
-    /name = "veraflow"\nversion = "([^"]+)"/,
+    /name = "veraflow"\r?\nversion = "([^"]+)"/,
   )?.[1],
   version,
 );
