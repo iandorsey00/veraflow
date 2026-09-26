@@ -75,16 +75,21 @@ test("Unicode template, order, duplication, deletion and unsaved guard", async (
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "Keep working" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
   await page
     .getByRole("button", { name: "Save template", exact: true })
     .click();
+  await expect(page.locator(".template-item")).toHaveCount(3);
   await page.getByRole("button", { name: "Duplicate", exact: true }).click();
+  await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
   await page
     .getByRole("button", { name: "Save template", exact: true })
     .click();
   await expect(page.getByLabel("Template name", { exact: true })).toHaveValue(
     "中文 (copy)",
   );
+  await expect(page.locator(".template-item")).toHaveCount(4);
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.locator(".template-item")).toHaveCount(3);

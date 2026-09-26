@@ -341,7 +341,7 @@ async function saveDraft() {
       ? library.templates.map((item) => (item.id === saved.id ? saved : item))
       : [...library.templates, saved],
   });
-  draft = saved;
+  draft = structuredClone(saved);
   dirty = false;
 }
 async function abandonDraft() {
