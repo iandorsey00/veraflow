@@ -55,7 +55,7 @@ export const en = {
   skipped: "Skipped",
   current: "Current",
   captureHelp:
-    "Select text in your source app, then press the capture shortcut.",
+    "Select text in your source app, then press the capture shortcut to copy and advance to the next pending field.",
   verifyHelp:
     "Select the original text again, then press the verification shortcut.",
   verifyStart: "Start verification",
@@ -96,6 +96,9 @@ export const en = {
   launchAtLogin: "Launch at login",
   minimizeToTray: "Close window to menu bar / system tray",
   alwaysOnTop: "Keep capture window on top",
+  verifiedBackground: "Green background when verification succeeds",
+  keyboardHelp:
+    "Cmd/Ctrl+Enter starts the selected template. In a session, it opens manual entry or submits and advances. Alt+Left/Right moves between fields.",
   autoAdvance: "Advance automatically",
   verification: "Verification",
   verificationEnabled: "Verify before copying",

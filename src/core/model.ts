@@ -39,6 +39,7 @@ export type Preferences = {
   minimizeToTray: boolean;
   alwaysOnTop: boolean;
   autoAdvance: boolean;
+  verifiedBackground: boolean;
   verificationDefault: boolean;
   clearAfterCompletion: boolean;
   restoreClipboard: boolean;
@@ -52,6 +53,7 @@ export const defaultPreferences: Preferences = {
   minimizeToTray: true,
   alwaysOnTop: true,
   autoAdvance: true,
+  verifiedBackground: false,
   verificationDefault: true,
   clearAfterCompletion: true,
   restoreClipboard: true,

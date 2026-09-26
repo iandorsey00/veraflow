@@ -1,5 +1,9 @@
 # Release and rollback
 
+## 0.3.0 scope
+
+Recommended release cycle selected RC for focused keyboard workflow and optional verification styling. Version 0.3.0 adds functionality without changing native clipboard adapters or dependencies. Existing schema-1 libraries load with `verifiedBackground` defaulting to false. This remains an unsigned source/local preview release.
+
 ## 0.2.0 scope
 
 Full release cycle (FRC): the complete first MVP was uncommitted, including security-sensitive native capture. This is a source release and unsigned local preview, not a signed public installer release. Version 0.2.0 advances the original 0.1.0 development scaffold; storage schema remains version 1.
@@ -21,4 +25,4 @@ Close VeraFlow, back up `library.json` from the OS app-data directory, then repl
 
 ## Rollback
 
-Quit the app and reinstall the last known-good binary. Keep a backup of the library before any downgrade. This version does not change schema 1; if a future version does, restore its pre-upgrade library backup with the app closed. For source rollback, check out the known-good commit in a separate checkout and rebuild with locked dependencies. Do not delete app data to work around an error; corrupt libraries fail closed for recovery. There is no prior published binary for this initial release.
+Quit the app and reinstall the last known-good binary. Keep a backup of the library before any downgrade. Although the schema number remains 1, version 0.2.0 rejects the new `verifiedBackground` preference. Restore the pre-upgrade library backup with the app closed when downgrading to 0.2.0. For source rollback, check out the known-good commit in a separate checkout and rebuild with locked dependencies. Do not delete app data to work around an error; corrupt libraries fail closed for recovery. There is no prior published binary for this initial release.

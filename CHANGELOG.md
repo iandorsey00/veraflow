@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-09-26
+
+- Start the selected template with Cmd/Ctrl+Enter; open manual entry or submit and advance with the same shortcut.
+- Navigate fields inside VeraFlow with Alt+Left/Right. Global capture and verification shortcuts advance after success even when automatic advancement is off.
+- Optional green background after successful verification, off by default, with English and Simplified Chinese settings.
+- Generic project-update portfolio screenshots and expanded keyboard/persistence regression coverage.
+- Existing libraries load with the new preference disabled. Back up the library before upgrading; 0.2.0 rejects the added preference on downgrade.
+
 ## 0.2.0 — 2026-09-24
 
 Initial MVP preview, advancing the development scaffold from 0.1.0.

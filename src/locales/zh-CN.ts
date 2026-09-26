@@ -54,7 +54,8 @@ export const zh: Record<keyof typeof en, string> = {
   mismatch: "不匹配",
   skipped: "已跳过",
   current: "当前",
-  captureHelp: "在来源应用中选择文本，然后按采集快捷键。",
+  captureHelp:
+    "在来源应用中选择文本，然后按采集快捷键复制并前进到下一个待处理字段。",
   verifyHelp: "再次选择原始文本，然后按核验快捷键。",
   verifyStart: "开始核验",
   verifySelected: "核验选中文本",
@@ -92,6 +93,9 @@ export const zh: Record<keyof typeof en, string> = {
   launchAtLogin: "登录时启动",
   minimizeToTray: "关闭窗口时最小化到菜单栏或系统托盘",
   alwaysOnTop: "采集窗口置顶",
+  verifiedBackground: "核验成功后显示绿色背景",
+  keyboardHelp:
+    "Cmd/Ctrl+Enter 开始所选模板的会话；会话中打开手动输入或提交并前进。Alt+左/右箭头切换字段。",
   autoAdvance: "自动前进到下一字段",
   verification: "核验",
   verificationEnabled: "复制前核验",

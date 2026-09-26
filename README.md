@@ -32,11 +32,13 @@ macOS bundles appear under `src-tauri/target/release/bundle/`. Windows builds pr
 
 1. Create or edit a template with placeholders such as `<ticket_number>`, `<客户姓名>`, or `<地址>`. Repeated names share a field. Use a folder label to organize templates, and arrow buttons to change capture order.
 2. Start a session. The same window becomes a small, resizable, always-on-top panel. Return to the source app and select text.
-3. Press the capture shortcut. The panel stores the text and advances. You can also paste/type manually, or copy in the source app and choose **Use clipboard**. Cmd/Ctrl+Enter submits manual text.
+3. Press the capture shortcut. The panel stores the text and advances. You can also paste/type manually, or copy in the source app and choose **Use clipboard**. Cmd/Ctrl+Enter opens manual entry or submits and advances. Alt+Left/Right moves to the previous/next field within VeraFlow.
 4. After the last field, verification starts if enabled. Select each original value again and press the verification shortcut. A mismatch shows both values and emphasizes the differing span; it never overwrites the captured value.
 5. Preview if desired, then choose **Copy result** or use the finish shortcut. Values are erased by default after successful copying. Skipped fields render as empty text.
 
-Default global shortcuts use **Cmd/Ctrl+Shift+1…8**: capture, previous, next, clear, skip, verify/start verification, cancel, and finish. All are configurable in Settings, registered only during sessions, and paused while the template/settings screen is shown. Registration conflicts leave the previous set in place or report an error. Capture can also verify during the verification pass. Release shortcut modifiers promptly so the copy fallback can run.
+With a template selected, **Cmd/Ctrl+Enter** starts its session. Use Tab/Shift+Tab and Enter/Space to operate the remaining controls. In Settings → Verification, **Green background when verification succeeds** optionally colors the session area after all required fields pass (off by default).
+
+Default global shortcuts use **Cmd/Ctrl+Shift+1…8**: capture, previous, next, clear, skip, verify/start verification, cancel, and finish. All are configurable in Settings, registered only during sessions, and paused while the template/settings screen is shown. Registration conflicts leave the previous set in place or report an error. Capture can also verify during the verification pass. Capture and verification shortcuts always advance after success; the automatic advancement preference controls the manual buttons. Release shortcut modifiers promptly so the copy fallback can run.
 
 The **Verify** shortcut starts the second pass when capture is complete; subsequent presses retrieve source text. Without automatic advancement, use next/previous and start verification explicitly. All populated fields must pass when verification is required. Clear a field to recapture it; corrections invalidate its verification. Cancellation, replacement, quitting an active session, and discarding unsaved changes require confirmation.
 

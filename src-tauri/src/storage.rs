@@ -29,6 +29,8 @@ pub struct Preferences {
     pub minimize_to_tray: bool,
     pub always_on_top: bool,
     pub auto_advance: bool,
+    #[serde(default)]
+    pub verified_background: bool,
     pub verification_default: bool,
     pub clear_after_completion: bool,
     pub restore_clipboard: bool,
@@ -85,10 +87,20 @@ mod tests {
         serde_json::json!({
             "version":1,"templates":[{"id":"test","name":"Example","folder":"","content":"Hello <name>","fieldOrder":["name"],"verificationEnabled":true,
                 "comparison":{"mode":"exact","caseSensitive":true,"unicode":true,"punctuation":false,"collapseLines":false}}],
-            "preferences":{"language":"en","theme":"SYSTEM","launchAtLogin":false,"minimizeToTray":true,"alwaysOnTop":true,"autoAdvance":true,"verificationDefault":true,"clearAfterCompletion":true,"restoreClipboard":true,
+            "preferences":{"language":"en","theme":"SYSTEM","launchAtLogin":false,"minimizeToTray":true,"alwaysOnTop":true,"autoAdvance":true,"verifiedBackground":false,"verificationDefault":true,"clearAfterCompletion":true,"restoreClipboard":true,
                 "comparison":{"mode":"whitespace","caseSensitive":true,"unicode":true,"punctuation":false,"collapseLines":true},
                 "shortcuts":{"capture":"Control+1","previous":"Control+2","next":"Control+3","clear":"Control+4","skip":"Control+5","verify":"Control+6","cancel":"Control+7","finish":"Control+8"}}
         })
+    }
+    #[test]
+    fn old_preferences_default_to_neutral_background() {
+        let mut value = fixture();
+        value["preferences"]
+            .as_object_mut()
+            .unwrap()
+            .remove("verifiedBackground");
+        let library: Library = serde_json::from_value(value).unwrap();
+        assert!(!library.preferences.verified_background);
     }
     #[test]
     fn valid_library_round_trips() {

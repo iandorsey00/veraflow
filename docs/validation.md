@@ -4,8 +4,8 @@
 
 - TypeScript strict checks and optimized Vite production build.
 - Eight core test groups: Unicode/unique placeholders, manual order, literal rendering, normalization combinations, difference spans, verification transitions, skip/clear/navigation, and memory erasure.
-- Four Rust tests: normalized shortcut aliases/invalid keys, plus persistence valid round trip, rejection of session-shaped properties at each boundary, and invalid metadata/rules/duplicate IDs.
-- Six Playwright scenarios: capture → mismatch → verify → copy → erase, template lifecycle/order/unsaved guard, Chinese/dark/narrow layout, session retention/cancel guard, and axe WCAG A/AA checks for light and dark editor/capture views.
+- Five Rust tests: backward-compatible preference default, normalized shortcut aliases/invalid keys, plus persistence valid round trip, rejection of session-shaped properties at each boundary, and invalid metadata/rules/duplicate IDs.
+- Seven Playwright scenarios: keyboard start/entry/navigation with automatic advancement disabled and optional verified background, capture → mismatch → verify → copy → erase, template lifecycle/order/unsaved guard, Chinese/dark/narrow layout, session retention/cancel guard, and axe WCAG A/AA checks for light and dark editor/capture views.
 - macOS native Objective-C and Rust compilation, Rust Clippy with warnings denied, and an unsigned arm64 macOS app bundle.
 - Native macOS launch, session startup without shortcut registration errors, compact-window transition, cancellation guard, and template persistence across app restart.
 - Synthetic screenshot review of editor, mismatch panel, and Chinese dark interface.

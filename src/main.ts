@@ -119,6 +119,18 @@ function applyAppearance() {
 }
 function render() {
   applyAppearance();
+  const verified =
+    view === "session" &&
+    session?.mode === "ready" &&
+    session.template.verificationEnabled &&
+    session.fields.some((f) => f.status === "verified") &&
+    session.fields.every(
+      (f) => f.status === "verified" || f.status === "skipped",
+    );
+  document.body.classList.toggle(
+    "verified-background",
+    !!verified && library.preferences.verifiedBackground,
+  );
   root.className = view === "session" ? "compact" : "";
   root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
@@ -169,7 +181,7 @@ function editorView(): string {
   <div class="metadata"> <div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
   <label for="template-content">${esc(t("content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t("placeholderHelp"))}</p>
   <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
-  <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div>`;
+  <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
 }
 function orderView(): string {
   return (
@@ -350,9 +362,9 @@ async function navigate(next: typeof view) {
 function settingsView(): string {
   const p = (settingsDraft ??= structuredClone(library.preferences));
   return `<main class="settings"><header><h1>${esc(t("settings"))}</h1></header><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}</section>
-  <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${comparisonView(p.comparison, "default")}</section>
+  <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("quitPrivacy"))}</p></section>
-  <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("shortcutHelp"))}</p>${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
+  <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
 }
 function bindSettings() {
   if (desktop)
@@ -372,6 +384,7 @@ function bindSettings() {
     "alwaysOnTop",
     "autoAdvance",
     "verificationDefault",
+    "verifiedBackground",
     "clearAfterCompletion",
     "restoreClipboard",
   ] as const)
@@ -533,12 +546,14 @@ function bindSession() {
     focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
   });
 }
-async function accept(value: string) {
+async function accept(
+  value: string,
+  advance = library.preferences.autoAdvance,
+) {
   if (!session) return;
   if (value.length > 1024 * 1024) throw new Error("invalidText");
-  if (session.mode === "verify")
-    verify(session, value, library.preferences.autoAdvance);
-  else capture(session, value, library.preferences.autoAdvance);
+  if (session.mode === "verify") verify(session, value, advance);
+  else capture(session, value, advance);
   message = "";
   preview = false;
   render();
@@ -563,10 +578,12 @@ async function perform(action: Action) {
       if (s.mode === "verify")
         await accept(
           await platform.capture(library.preferences.restoreClipboard),
+          true,
         );
       else if (s.mode !== "ready")
         await accept(
           await platform.capture(library.preferences.restoreClipboard),
+          true,
         );
       return;
     case "verify":
@@ -577,6 +594,7 @@ async function perform(action: Action) {
       if (s.mode === "verify")
         await accept(
           await platform.capture(library.preferences.restoreClipboard),
+          true,
         );
       return;
     case "previous":
@@ -652,12 +670,47 @@ root.addEventListener("change", () => {
 });
 window.addEventListener("keydown", (event) => {
   if (
+    event.repeat ||
+    event.isComposing ||
+    busy ||
+    document.querySelector("dialog[open]")
+  )
+    return;
+  if (
     (event.metaKey || event.ctrlKey) &&
-    event.key === "Enter" &&
-    view === "session"
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key === "Enter"
   ) {
     event.preventDefault();
-    document.getElementById("apply-value")?.click();
+    if (view === "templates") document.getElementById("start")?.click();
+    else if (
+      view === "session" &&
+      session?.mode !== "ready" &&
+      session?.mode !== "complete"
+    ) {
+      if (!manualOpen) {
+        manualOpen = true;
+        render();
+        focus("manual-value");
+      } else {
+        const value = (
+          document.getElementById("manual-value") as HTMLTextAreaElement
+        ).value;
+        void run(() => accept(value, true));
+      }
+    }
+  }
+  if (
+    view === "session" &&
+    event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    (event.key === "ArrowLeft" || event.key === "ArrowRight")
+  ) {
+    event.preventDefault();
+    dispatch(event.key === "ArrowLeft" ? "previous" : "next");
   }
 });
 window.addEventListener("beforeunload", (event) => {

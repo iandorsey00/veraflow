@@ -139,3 +139,54 @@ test("session remains intact across library navigation and requires cancellation
   await page.getByRole("button", { name: "Keep working" }).click();
   await expect(page.locator(".field-value").first()).toHaveText("483921");
 });
+
+test("keyboard start, capture and navigation; optional verified background", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const green = page.getByLabel("Green background when verification succeeds");
+  await expect(green).not.toBeChecked();
+  await green.check();
+  await page.getByLabel("Advance automatically", { exact: true }).uncheck();
+  await page
+    .getByRole("button", { name: "Save settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await page
+    .getByLabel("Template text", { exact: true })
+    .fill("<name> <reference>");
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator("#field-0")).toBeFocused();
+  await page.keyboard.press("Control+Enter");
+  await expect(page.getByLabel("Paste or type a value")).toBeFocused();
+  await page.keyboard.type("Alex");
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator("#field-1")).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect(page.locator("#field-0")).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await page.keyboard.press("Alt+ArrowRight");
+  await page.keyboard.type("PR-104");
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator("body")).not.toHaveClass(/verified-background/);
+  await page.keyboard.type("Alex");
+  await page.keyboard.press("Control+Enter");
+  await page.keyboard.type("PR-1O4");
+  await page.keyboard.press("Control+Enter");
+  await expect(page.getByRole("heading", { name: "! Mismatch" })).toBeVisible();
+  await expect(page.locator("body")).not.toHaveClass(/verified-background/);
+  await page.getByLabel("Paste or type a value").fill("PR-104");
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator("body")).toHaveClass(/verified-background/);
+  await expect(
+    page.getByRole("button", { name: "Copy result", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Alt+ArrowLeft");
+  await page.getByRole("button", { name: "Clear field", exact: true }).click();
+  await expect(page.locator("body")).not.toHaveClass(/verified-background/);
+});

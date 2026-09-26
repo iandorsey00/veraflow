@@ -687,3 +687,13 @@ dialog::backdrop {
   display: inline-block;
   padding: 6px 0;
 }
+
+/* A calm optional success surface, using the existing light/dark palette. */
+body.verified-background,
+body.verified-background #app,
+body.verified-background .capture-panel {
+  background: var(--success-bg);
+}
+body.verified-background {
+  min-height: 100vh;
+}
