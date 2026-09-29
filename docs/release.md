@@ -1,5 +1,11 @@
 # Release and rollback
 
+## 0.3.1 binary distribution
+
+FRC selected for the first binary distribution. Publish an explicitly unsigned GitHub prerelease, with macOS arm64/x64 application ZIPs and a Windows x64 NSIS installer. No signing credentials are configured by this change. Native interactive acceptance remains outstanding; preview publication does not mark those gates complete.
+
+After reviewing and pushing a version-consistent commit, push its matching `vX.Y.Z` tag. `.github/workflows/release.yml` runs the shared checks on macOS and Windows, builds all three packages, then creates a draft prerelease. It computes SHA-256 checksums, uploads the assets, downloads and verifies them, and only then makes the prerelease public. Any failed check/build blocks publication. A failed upload can be retried while the release is a draft; the workflow refuses to replace a published release. Publish a new patch version to correct published binaries.
+
 ## 0.3.0 scope
 
 Recommended release cycle selected RC for focused keyboard workflow and optional verification styling. Version 0.3.0 adds functionality without changing native clipboard adapters or dependencies. Existing schema-1 libraries load with `verifiedBackground` defaulting to false. This remains an unsigned source/local preview release.
@@ -16,8 +22,8 @@ Full release cycle (FRC): the complete first MVP was uncommitted, including secu
 4. Run `npm audit` and `cargo audit --file src-tauri/Cargo.lock`. Review maintenance warnings separately from vulnerabilities; do not suppress findings silently.
 5. On macOS run `clang -fobjc-arc tests/native/macos-text.m -framework AppKit -framework ApplicationServices -o /tmp/veraflow-text-test && /tmp/veraflow-text-test` to check Unicode/NUL handling without touching the clipboard.
 6. Build local platform packages with `npm run desktop:build`. On macOS `-- --bundles app` builds the app without making a disk image. Vite emits hashed assets, and Tauri bundles them directly; there is no service worker or external asset cache.
-7. Review the native acceptance matrix in validation.md. Sign and notarize macOS artifacts and sign Windows installers before general distribution. Credentials are not part of the repository.
-8. Review staged files and diff hygiene, commit, push, and inspect both platform CI jobs. This workflow does not automatically publish artifacts or create GitHub Releases.
+7. Review the native acceptance matrix in validation.md. Sign and notarize macOS artifacts and sign Windows installers before a stable release; unsigned previews must be labeled explicitly. Credentials are not part of the repository.
+8. Review staged files and diff hygiene, commit, push, and inspect both platform CI jobs. Branch checks do not publish binaries. Version tags invoke the gated release workflow described above.
 
 ## Install and upgrade
 

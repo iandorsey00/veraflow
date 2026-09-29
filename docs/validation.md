@@ -31,3 +31,7 @@ Use synthetic text only. Preserve valuable clipboard data before testing OS-leve
 11. Build, sign, and install release packages on clean macOS and Windows machines. Repeat permission tests using the distributed application identity; development permission grants may not transfer.
 
 Do not mark release gates complete from compilation or browser results alone.
+
+## 0.3.1 distribution validation
+
+Local version consistency, formatting, eight core tests, five Rust tests, Clippy, native macOS text conversion, and seven sequential browser/accessibility scenarios passed. Fresh npm and Rust audits found no vulnerability-class advisories; retained informational advisories are recorded in privacy-security.md. The first concurrent browser run encountered dev-server reloads during native-generated file writes; the sequential rerun after compilation passed. Release CI gates packaging on the same checks, and verifies uploaded/downloaded asset checksums before publication. Compilation and archive integrity do not establish native interactive acceptance on Intel macOS or Windows.

@@ -2,9 +2,17 @@
 
 A local, keyboard-driven desktop utility for turning reusable templates into verified text. Choose a template, capture each value from another app, verify against the original, and copy the finished snippet.
 
-Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, analytics, AI service, or application network API. This is an unsigned MVP; Windows runtime validation and release signing are still required before distribution.
+Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, analytics, AI service, or application network API. Unsigned preview binaries are available below; native runtime acceptance and release signing remain incomplete.
 
 ![VeraFlow template editor with unique fields and capture order](docs/portfolio/screenshots/01-template-library.png)
+
+## Download
+
+Get the [v0.3.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.3.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+
+On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
+
+Back up `library.json` before upgrading. See [release and rollback instructions](docs/release.md) and [preview limitations](docs/binary-release-notes.md).
 
 ## Run
 
@@ -26,7 +34,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 npm run desktop:build    # unsigned local platform bundle
 ```
 
-macOS bundles appear under `src-tauri/target/release/bundle/`. Windows builds produce MSI/NSIS bundles on Windows. Release signing/notarization certificates are intentionally not included. CI builds and checks both platforms; it does not publish releases.
+macOS bundles appear under `src-tauri/target/release/bundle/`. Windows builds produce MSI/NSIS bundles on Windows. Release signing/notarization certificates are intentionally not included. CI checks both platforms. Version tags run the release workflow, which packages three binaries, verifies uploaded checksums, and publishes an unsigned GitHub prerelease.
 
 ## Workflow
 

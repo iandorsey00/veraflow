@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 — 2026-09-28
+
+- First downloadable unsigned preview binaries for macOS Apple Silicon, macOS Intel, and Windows x64.
+- Tag-triggered packaging gated by macOS/Windows checks; SHA-256 checksums and download verification before publishing.
+- Installation, preview limitations, and rollback instructions linked from the README.
+
 ## 0.3.0 — 2026-09-26
 
 - Start the selected template with Cmd/Ctrl+Enter; open manual entry or submit and advance with the same shortcut.

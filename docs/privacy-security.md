@@ -43,3 +43,7 @@ This review covers the code in this repository. It is not an independent securit
 | glib 0.18.5              | RUSTSEC-2024-0429 | unsound        |
 
 The `unic-*` maintenance warnings arrive through Tauri’s `urlpattern` dependency. They remain an upstream maintenance risk; replacing them would require an upstream Tauri/urlpattern update or a separately reviewed fork. The `glib` unsoundness and `proc-macro-error` maintenance findings concern the GTK dependency tree retained in the cross-platform lockfile; glib is absent from both supported target graphs (macOS and Windows). Linux is not a supported VeraFlow target. No advisory-ignore configuration was added. Re-run the audits before distributing signed binaries.
+
+## Dependency and distribution review for 0.3.1 (2026-09-28)
+
+Fresh npm and Rust advisory audits reported zero vulnerabilities. The same six unmaintained-package advisories and one glib unsoundness advisory listed above remain visible; dependencies were not changed. The release workflow grants write access only to its publication job. Packaging jobs run with read-only repository access, and all platform checks/builds must succeed before publication. Release assets are downloaded and checked against their SHA-256 sums before the draft becomes a public prerelease. Checksums verify bytes, not publisher identity; binaries are explicitly unsigned and native interactive acceptance remains incomplete.

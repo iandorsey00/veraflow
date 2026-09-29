@@ -1,0 +1,104 @@
+name: Release binaries
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    uses: ./.github/workflows/check.yml
+  package:
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: macos-arm64
+            bundle: app
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            platform: macos-x64
+            bundle: app
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x64
+            bundle: nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: npm ci
+      - run: npm run check:version
+      - name: Check release tag
+        shell: bash
+        run: test "$GITHUB_REF_NAME" = "v$(node -p 'require("./package.json").version')"
+      - run: npm run desktop:build -- --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
+      - name: Archive macOS application
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          mkdir -p release-assets
+          file "src-tauri/target/$TARGET/release/bundle/macos/VeraFlow.app/Contents/MacOS/veraflow"
+          ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/$TARGET/release/bundle/macos/VeraFlow.app" "release-assets/VeraFlow_${GITHUB_REF_NAME}_${PLATFORM}.zip"
+          unzip -t "release-assets/VeraFlow_${GITHUB_REF_NAME}_${PLATFORM}.zip"
+      - name: Collect Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory release-assets
+          $installers = @(Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one NSIS installer' }
+          Copy-Item $installers[0].FullName "release-assets/VeraFlow_${env:GITHUB_REF_NAME}_windows-x64-setup.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish verified preview assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 3
+          sha256sum VeraFlow_* > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            test "$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
+          else
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --title "VeraFlow $GITHUB_REF_NAME — unsigned preview" --notes-file ../docs/binary-release-notes.md
+          fi
+          gh release upload "$GITHUB_REF_NAME" VeraFlow_* SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+          mkdir downloaded
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir downloaded
+          cd downloaded
+          sha256sum --check ../SHA256SUMS.txt
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
