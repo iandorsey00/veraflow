@@ -1,5 +1,11 @@
 # Release and rollback
 
+## 0.4.0 email mode
+
+FRC selected because this feature introduces native Paste/Tab injection. Review confirms only Paste, Tab, and Shift+Tab are emitted, with modifier-release waiting, external-focus checks, serialized native calls, text-size/NUL validation, and no automatic Send. Clipboard replacement is deliberate. A focus change or partial injection may occur after text is pasted; output index stays unchanged on errors and the UI advises checking the destination before retrying. Native email-client behavior remains a manual acceptance gate, so distribution remains an unsigned preview.
+
+Back up the library before upgrading. Old templates load without email configuration; binaries before 0.4.0 reject saved email properties even though the library version remains 1. Restore the pre-upgrade backup to downgrade.
+
 ## 0.3.1 binary distribution
 
 FRC selected for the first binary distribution. Publish an explicitly unsigned GitHub prerelease, with macOS arm64/x64 application ZIPs and a Windows x64 NSIS installer. No signing credentials are configured by this change. Native interactive acceptance remains outstanding; preview publication does not mark those gates complete.

@@ -195,3 +195,51 @@ test("keyboard start, capture and navigation; optional verified background", asy
   await page.getByRole("button", { name: "Clear field", exact: true }).click();
   await expect(page.locator("body")).not.toHaveClass(/verified-background/);
 });
+
+test("email mode is opt-in, persists template sections, and prepares keyboard output", async ({
+  page,
+}) => {
+  await expect(
+    page.getByLabel("Email mode", { exact: true }),
+  ).not.toBeChecked();
+  await page.getByLabel("Template text", { exact: true }).fill("Hello <name>");
+  await page.getByLabel("Email mode", { exact: true }).check();
+  await expect(
+    page.getByLabel("Include Cc", { exact: true }),
+  ).not.toBeChecked();
+  await expect(
+    page.getByLabel("Include Bcc", { exact: true }),
+  ).not.toBeChecked();
+  await page.getByLabel("Subject", { exact: true }).fill("Update for <name>");
+  await page.getByLabel("To", { exact: true }).fill("alex@example.test");
+  await page.getByLabel("Include Bcc", { exact: true }).check();
+  await page.getByLabel("Bcc", { exact: true }).fill("<secret_recipient>");
+  await expect(page.locator("#field-order li")).toHaveCount(2);
+  await page.getByLabel("Include Bcc", { exact: true }).uncheck();
+  await expect(page.locator("#field-order li")).toHaveCount(1);
+  await page
+    .getByRole("button", { name: "Save template", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(
+    "Update for <name>",
+  );
+  await page.keyboard.press("Control+Enter");
+  await page.keyboard.press("Control+Enter");
+  await page.getByLabel("Paste or type a value").fill("Alex");
+  await page.keyboard.press("Control+Enter");
+  await page.getByLabel("Paste or type a value").fill("Alex");
+  await page.keyboard.press("Control+Enter");
+  await page
+    .getByRole("button", { name: "Prepare email output", exact: true })
+    .press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Paste email sections" }),
+  ).toBeVisible();
+  await expect(page.locator(".output")).toHaveText("Update for Alex");
+  await expect(
+    page.getByRole("button", { name: "Finish email session" }),
+  ).toBeDisabled();
+  await expect(page.locator("#app")).not.toContainText("secret_recipient");
+});

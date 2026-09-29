@@ -9,3 +9,7 @@ Core parsing, rendering, comparison, and state transitions are pure TypeScript. 
 Shared standards: ../guidelines. Product exceptions: the utility uses a compact wordmark and 36px controls to fit a floating panel; the primary action remains keyboard accessible. No shared identity service applies to this offline app.
 
 Framework references: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), [global shortcut plugin](https://v2.tauri.app/plugin/global-shortcut/).
+
+## Email template and output phase
+
+Optional template email metadata holds Subject/To/Cc/Bcc templates and their enabled flags; existing `content` is Body. `templateSource` aggregates only enabled sections for shared placeholder ordering. `renderEmail` applies the common completeness/verification gate and validates resolved headers. The memory-only delivery cursor advances only after native success. Existing finish/previous global shortcuts become Paste+Tab/Shift+Tab in that phase, with no trailing Tab for Body and explicit completion. Native output uses the same clipboard lock as capture, and does not claim delivery or automate Send.

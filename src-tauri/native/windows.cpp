@@ -89,3 +89,25 @@ extern "C" char *vf_capture(int restore,int *error) {
     }
     CloseClipboard();DestroyWindow(owner);if(!value && !*error)*error=1;return value;
 }
+
+// Deliberate output only: Paste and Tab/Shift+Tab, never Return or Send.
+extern "C" int vf_deliver(const char *text, int tab) {
+    HWND target=GetForegroundWindow(); if(!external(target))return 2;
+    for(int i=0;i<100;i++) {
+        if(!((GetAsyncKeyState(VK_CONTROL)|GetAsyncKeyState(VK_SHIFT)|GetAsyncKeyState(VK_MENU)|GetAsyncKeyState(VK_LWIN)|GetAsyncKeyState(VK_RWIN))&0x8000))break;
+        Sleep(10); if(i==99)return 5;
+    }
+    if(GetForegroundWindow()!=target)return 6;
+    if(text && vf_write(text))return 8;
+    if(GetForegroundWindow()!=target)return 6;
+    INPUT keys[4]={}; for(auto &key:keys)key.type=INPUT_KEYBOARD;
+    WORD modifier=text?VK_CONTROL:VK_SHIFT, key=text?'V':VK_TAB;
+    keys[0].ki.wVk=modifier;keys[1].ki.wVk=key;keys[2].ki.wVk=key;keys[2].ki.dwFlags=KEYEVENTF_KEYUP;keys[3].ki.wVk=modifier;keys[3].ki.dwFlags=KEYEVENTF_KEYUP;
+    if(SendInput(4,keys,sizeof(INPUT))!=4){SendInput(2,keys+2,sizeof(INPUT));return 5;}
+    if(text && tab) {
+        Sleep(200); if(GetForegroundWindow()!=target)return 6;
+        INPUT tabs[2]={};tabs[0].type=tabs[1].type=INPUT_KEYBOARD;tabs[0].ki.wVk=tabs[1].ki.wVk=VK_TAB;tabs[1].ki.dwFlags=KEYEVENTF_KEYUP;
+        if(SendInput(2,tabs,sizeof(INPUT))!=2){SendInput(1,tabs+1,sizeof(INPUT));return 5;}
+    }
+    return 0;
+}

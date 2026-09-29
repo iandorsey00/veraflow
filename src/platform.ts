@@ -12,6 +12,10 @@ import {
 export const desktop = isTauri();
 let previewLibrary: Library | null = null;
 export const platform = {
+  async deliver(text: string | null, tab: boolean) {
+    if (!desktop) throw new Error("desktopRequired");
+    await invoke("deliver_email", { text, tab });
+  },
   async openRepository() {
     await invoke("open_repository");
   },

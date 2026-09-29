@@ -12,7 +12,26 @@ export const defaultComparison: Comparison = {
   punctuation: false,
   collapseLines: true,
 };
+export type EmailTemplate = {
+  enabled: boolean;
+  subject: string;
+  to: string;
+  cc: string;
+  bcc: string;
+  ccEnabled: boolean;
+  bccEnabled: boolean;
+};
+export const defaultEmail: EmailTemplate = {
+  enabled: false,
+  subject: "",
+  to: "",
+  cc: "",
+  bcc: "",
+  ccEnabled: false,
+  bccEnabled: false,
+};
 export type Template = {
+  email?: EmailTemplate;
   id: string;
   name: string;
   folder: string;
@@ -84,5 +103,7 @@ export type Session = {
   template: Template;
   fields: Field[];
   active: number;
-  mode: "capture" | "verify" | "ready" | "complete";
+  mode: "capture" | "verify" | "ready" | "delivery" | "complete";
+  deliveryIndex?: number;
+  deliveryDone?: boolean;
 };

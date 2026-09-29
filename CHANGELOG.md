@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-09-29
+
+- Optional per-template email mode with Subject, To, Body, and independently enabled Cc/Bcc, all off by default.
+- Shared placeholders and verification across enabled sections; required Subject/To and single-line header validation.
+- One-section-at-a-time native Paste+Tab using the finish shortcut; previous sends Shift+Tab. Body has no trailing Tab, and the app never sends email.
+- Explicit session completion, clipboard/focus guidance, and backward-compatible loading of plain templates. Older binaries require a pre-email-template library backup when downgrading.
+- Regression coverage for section ordering, disabled recipients, verification gates, failed output, navigation, persistence, and keyboard setup.
+
 ## 0.3.1 — 2026-09-28
 
 - First downloadable unsigned preview binaries for macOS Apple Silicon, macOS Intel, and Windows x64.

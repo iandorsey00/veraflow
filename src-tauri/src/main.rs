@@ -19,6 +19,7 @@ unsafe extern "C" {
     fn vf_capture(restore: c_int, error: *mut c_int) -> *mut c_char;
     fn vf_read(error: *mut c_int) -> *mut c_char;
     fn vf_write(text: *const c_char) -> c_int;
+    fn vf_deliver(text: *const c_char, tab: c_int) -> c_int;
     fn vf_free(text: *mut c_char);
 }
 fn error_code(code: i32) -> String {
@@ -120,6 +121,34 @@ fn write_clipboard(text: String) -> Result<(), String> {
         return Err("clipboardBusy".into());
     }
     Ok(())
+}
+#[tauri::command]
+async fn deliver_email(text: Option<String>, tab: bool) -> Result<(), String> {
+    if text.as_ref().is_some_and(|v| v.len() > 4 * 1024 * 1024) {
+        return Err("invalidText".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lock = CLIPBOARD_LOCK
+            .try_lock()
+            .map_err(|_| "clipboardBusy".to_string())?;
+        let text = text
+            .map(CString::new)
+            .transpose()
+            .map_err(|_| "invalidText".to_string())?;
+        let result = unsafe {
+            vf_deliver(
+                text.as_ref().map_or(std::ptr::null(), |s| s.as_ptr()),
+                tab as i32,
+            )
+        };
+        if result == 0 {
+            Ok(())
+        } else {
+            Err("emailPasteFailed".to_string())
+        }
+    })
+    .await
+    .map_err(|_| "emailPasteFailed".to_string())?
 }
 fn data_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     app.path()
@@ -228,6 +257,7 @@ fn main() {
             capture_selection,
             read_clipboard,
             write_clipboard,
+            deliver_email,
             load_library,
             save_library,
             set_session_active,

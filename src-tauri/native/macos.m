@@ -85,3 +85,39 @@ char *vf_capture(int restore, int *error) {
         return copyString(value, error);
     }
 }
+
+// Deliberate output only: Paste and Tab/Shift+Tab, never Return or Send.
+int vf_deliver(const char *text, int tab) {
+    @autoreleasepool {
+        if (!externalApp()) return 2;
+        if (!AXIsProcessTrusted()) return 3;
+        pid_t target = NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
+        for (int i = 0; i < 100; i++) {
+            CGEventFlags flags = CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState);
+            if (!(flags & (kCGEventFlagMaskCommand | kCGEventFlagMaskControl | kCGEventFlagMaskAlternate | kCGEventFlagMaskShift))) break;
+            usleep(10000); if (i == 99) return 5;
+        }
+        if (NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != target) return 6;
+        CGEventRef down = CGEventCreateKeyboardEvent(NULL, text ? 9 : 48, true);
+        CGEventRef up = CGEventCreateKeyboardEvent(NULL, text ? 9 : 48, false);
+        CGEventRef td = CGEventCreateKeyboardEvent(NULL, 48, true);
+        CGEventRef tu = CGEventCreateKeyboardEvent(NULL, 48, false);
+        if (!down || !up || !td || !tu) {
+            if (down) CFRelease(down); if (up) CFRelease(up); if (td) CFRelease(td); if (tu) CFRelease(tu); return 8;
+        }
+        if (text && vf_write(text)) { CFRelease(down); CFRelease(up); CFRelease(td); CFRelease(tu); return 8; }
+        if (NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != target) { CFRelease(down); CFRelease(up); CFRelease(td); CFRelease(tu); return 6; }
+        CGEventSetFlags(td, 0); CGEventSetFlags(tu, 0);
+        CGEventFlags flags = text ? kCGEventFlagMaskCommand : kCGEventFlagMaskShift;
+        CGEventSetFlags(down, flags); CGEventSetFlags(up, flags);
+        CGEventPost(kCGHIDEventTap, down); CGEventPost(kCGHIDEventTap, up);
+        int result = 0;
+        if (text && tab) {
+            usleep(200000);
+            if (NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != target) result = 6;
+            else { CGEventPost(kCGHIDEventTap, td); CGEventPost(kCGHIDEventTap, tu); }
+        }
+        CFRelease(down); CFRelease(up); CFRelease(td); CFRelease(tu);
+        return result;
+    }
+}

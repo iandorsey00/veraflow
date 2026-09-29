@@ -2,6 +2,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EmailTemplate {
+    pub enabled: bool,
+    pub subject: String,
+    pub to: String,
+    pub cc: String,
+    pub bcc: String,
+    pub cc_enabled: bool,
+    pub bcc_enabled: bool,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Comparison {
     pub mode: String,
     pub case_sensitive: bool,
@@ -12,6 +23,8 @@ pub struct Comparison {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Template {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<EmailTemplate>,
     pub id: String,
     pub name: String,
     pub folder: String,
@@ -72,6 +85,11 @@ impl Library {
                 || t.name.trim().is_empty()
                 || t.name.len() > 1000
                 || t.content.len() > 1024 * 1024
+                || t.email.as_ref().is_some_and(|e| {
+                    [&e.subject, &e.to, &e.cc, &e.bcc]
+                        .iter()
+                        .any(|v| v.len() > 1024 * 1024)
+                })
                 || !valid_comparison(&t.comparison)
             {
                 return Err("invalidLibrary".into());
@@ -101,6 +119,18 @@ mod tests {
             .remove("verifiedBackground");
         let library: Library = serde_json::from_value(value).unwrap();
         assert!(!library.preferences.verified_background);
+    }
+    #[test]
+    fn email_templates_round_trip_and_reject_session_data() {
+        let mut value = fixture();
+        value["templates"][0]["email"] = serde_json::json!({"enabled":true,"subject":"<subject>","to":"<to>","cc":"","bcc":"","ccEnabled":false,"bccEnabled":false});
+        let library: Library = serde_json::from_value(value.clone()).unwrap();
+        assert!(library.validate().is_ok());
+        assert_eq!(serde_json::to_value(library).unwrap(), value);
+        value["templates"][0]["email"]["deliveryIndex"] = serde_json::json!(1);
+        assert!(serde_json::from_value::<Library>(value).is_err());
+        let old: Library = serde_json::from_value(fixture()).unwrap();
+        assert!(old.templates[0].email.is_none());
     }
     #[test]
     fn valid_library_round_trips() {

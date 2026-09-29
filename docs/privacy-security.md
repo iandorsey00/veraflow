@@ -47,3 +47,11 @@ The `unic-*` maintenance warnings arrive through Tauri’s `urlpattern` dependen
 ## Dependency and distribution review for 0.3.1 (2026-09-28)
 
 Fresh npm and Rust advisory audits reported zero vulnerabilities. The same six unmaintained-package advisories and one glib unsoundness advisory listed above remain visible; dependencies were not changed. The release workflow grants write access only to its publication job. Packaging jobs run with read-only repository access, and all platform checks/builds must succeed before publication. Release assets are downloaded and checked against their SHA-256 sums before the draft becomes a public prerelease. Checksums verify bytes, not publisher identity; binaries are explicitly unsigned and native interactive acceptance remains incomplete.
+
+## Email output review for 0.4.0
+
+Email mode adds an explicit delivery phase after the existing verification gate. Header templates are stored as ordinary template text; captured/rendered values and the output cursor remain in memory. Disabled Cc/Bcc sections are omitted from capture and output. Resolved headers reject control characters, and Subject/To cannot be empty. This is not email-address validation.
+
+The native bridge serializes clipboard operations, rejects embedded NUL and oversized output, requires another app to be foreground, waits for shortcut modifiers to release, and rechecks foreground identity. macOS also requires Accessibility permission. Commands only emit Paste plus optional Tab, or Shift+Tab; no Return or Send event is generated. It deliberately replaces the clipboard and does not restore it. It cannot confirm paste consumption, recipient-chip behavior, or destination focus within a window. A fixed 200 ms interval before Tab is best effort, not a delivery guarantee. Partial failures may already have pasted text; retry guidance makes this explicit. The completion message describes requested paste operations rather than email delivery.
+
+Fresh 0.4.0 audits on 2026-09-29 reported zero npm vulnerabilities and zero Rust vulnerability-class advisories. The six unmaintained and one glib unsoundness informational advisories documented above remain unchanged and unsuppressed.

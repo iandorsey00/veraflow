@@ -4,6 +4,7 @@ import { zh } from "./locales/zh-CN";
 import {
   actions,
   defaultPreferences,
+  defaultEmail,
   type Action,
   type Comparison,
   type Library,
@@ -11,6 +12,7 @@ import {
   type Session,
   type Template,
 } from "./core/model";
+import { templateSource } from "./core/template";
 import { orderFields } from "./core/template";
 import { difference } from "./core/compare";
 import {
@@ -22,6 +24,8 @@ import {
   skip,
   beginVerification,
   renderSession,
+  renderEmail,
+  deliverEmailSection,
   eraseSession,
 } from "./core/session";
 import { platform, desktop, bindShortcuts } from "./platform";
@@ -121,7 +125,7 @@ function render() {
   applyAppearance();
   const verified =
     view === "session" &&
-    session?.mode === "ready" &&
+    (session?.mode === "ready" || session?.mode === "delivery") &&
     session.template.verificationEnabled &&
     session.fields.some((f) => f.status === "verified") &&
     session.fields.every(
@@ -167,7 +171,7 @@ function libraryView(): string {
           `<option ${name === folder ? "selected" : ""}>${esc(name)}</option>`,
       )
       .join("")}</select>
-    <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${orderFields(item.content).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
+    <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${orderFields(templateSource(item)).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
     <p class="sidebar-note">${esc(t("workflow"))}</p></aside>
     <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? editorView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
@@ -179,7 +183,9 @@ function editorView(): string {
   const d = draft!;
   return `<div class="section-head"><p class="eyebrow">${esc(t("library"))}</p><div class="toolbar">${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div></div>
   <div class="metadata"> <div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
-  <label for="template-content">${esc(t("content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t("placeholderHelp"))}</p>
+  ${check("email-enabled", "emailMode", d.email?.enabled ?? false)}
+  ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${field("email-subject", "subject", d.email.subject)}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}</section>` : ""}
+  <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t("placeholderHelp"))}</p>
   <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
   <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
 }
@@ -265,7 +271,7 @@ function bindLibrary() {
   });
   on("template-content", "input", (e) => {
     draft!.content = (e.target as HTMLTextAreaElement).value;
-    draft!.fieldOrder = orderFields(draft!.content, draft!.fieldOrder);
+    draft!.fieldOrder = orderFields(templateSource(draft!), draft!.fieldOrder);
     dirty = true;
     document.getElementById("field-order")!.innerHTML = orderView();
     bindOrder();
@@ -274,6 +280,34 @@ function bindLibrary() {
     draft!.verificationEnabled = (e.target as HTMLInputElement).checked;
     dirty = true;
   });
+  for (const [id, key] of [
+    ["email-enabled", "enabled"],
+    ["email-cc-enabled", "ccEnabled"],
+    ["email-bcc-enabled", "bccEnabled"],
+  ] as const) {
+    on(id, "change", (e) => {
+      draft!.email ??= structuredClone(defaultEmail);
+      draft!.email[key] = (e.target as HTMLInputElement).checked;
+      draft!.fieldOrder = orderFields(
+        templateSource(draft!),
+        draft!.fieldOrder,
+      );
+      dirty = true;
+      render();
+      focus(id);
+    });
+  }
+  for (const key of ["subject", "to", "cc", "bcc"] as const)
+    on("email-" + key, "input", (e) => {
+      draft!.email![key] = (e.target as HTMLInputElement).value;
+      draft!.fieldOrder = orderFields(
+        templateSource(draft!),
+        draft!.fieldOrder,
+      );
+      dirty = true;
+      document.getElementById("field-order")!.innerHTML = orderView();
+      bindOrder();
+    });
   bindComparison("template", draft.comparison);
   bindOrder();
   click("save", async () => {
@@ -431,6 +465,11 @@ async function launch(template: Template) {
     !(await confirmAction("sessionConfirm"))
   )
     return;
+  if (
+    template.email?.enabled &&
+    (!template.email.subject.trim() || !template.email.to.trim())
+  )
+    throw new Error("emailRequired");
   await bindShortcuts(library.preferences.shortcuts, dispatch);
   if (session) eraseSession(session);
   session = startSession(template);
@@ -449,7 +488,12 @@ function sessionView(): string {
     p = library.preferences,
     f = s.fields[s.active];
   if (s.mode === "complete")
-    return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t("complete"))}</h1><p>${esc(t("copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion ? "erased" : "retained"))}</p>${button("close-session", "closeSession", "primary")}</main>`;
+    return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion ? "erased" : "retained"))}</p>${button("close-session", "closeSession", "primary")}</main>`;
+  if (s.mode === "delivery") {
+    const parts = renderEmail(s),
+      index = s.deliveryIndex ?? 0;
+    return `<main class="capture-panel"><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", "cancelSession", "quiet danger")}</div></main>`;
+  }
   const mode = s.mode === "verify" ? "verify" : "capture";
   const done = s.fields.filter(
     (f) =>
@@ -467,7 +511,11 @@ function sessionView(): string {
   let rendered = "";
   if (preview) {
     try {
-      rendered = renderSession(s);
+      rendered = s.template.email?.enabled
+        ? renderEmail(s)
+            .map((p) => `${t(p.key)}: ${p.text}`)
+            .join("\n\n")
+        : renderSession(s);
     } catch {
       preview = false;
     }
@@ -478,7 +526,7 @@ function sessionView(): string {
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
   ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form><p class="hint">${esc(t("clipboardHelp"))}</p></details>` : ""}
   <div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("skip", "skip")}</div>
-  ${s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", "finish", "primary") : ""}</div>`}
+  ${s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
   ${preview ? `<pre class="output">${esc(rendered)}</pre>` : ""}
   <details><summary>${esc(t("help"))}</summary><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
   <div class="actions">${button("cancel-session", "cancelSession", "quiet danger")}</div></main>`;
@@ -488,6 +536,20 @@ function mismatchView(a: string, b: string): string {
   return `<section class="mismatch-box" role="alert"><h2>! ${esc(t("mismatch"))}</h2><p>${esc(t("mismatchHelp"))}</p>${diff.map((part, index) => `<h3>${esc(t(index ? "selectedValue" : "capturedValue"))}</h3><pre>${esc(part.before)}<mark>${esc(part.middle) || "∅"}</mark>${esc(part.after)}</pre>`).join("")}${button("correct-value", "editValue")}</section>`;
 }
 function bindSession() {
+  click("email-copy", async () => {
+    await platform.copy(
+      renderEmail(session!)[session!.deliveryIndex ?? 0].text,
+    );
+  });
+  click("email-done", async () => {
+    if (!session?.deliveryDone) return;
+    if (library.preferences.clearAfterCompletion) eraseSession(session);
+    else session.mode = "complete";
+    await bindShortcuts(null, dispatch);
+    await platform.active(false);
+    render();
+    focus("close-session");
+  });
   click("session-back", () => navigate("templates"));
   click("close-session", closeSession);
   root.querySelectorAll<HTMLButtonElement>("[data-field]").forEach(
@@ -566,13 +628,20 @@ async function accept(
   );
 }
 function dispatch(action: Action) {
-  void run(() => perform(action));
+  void run(() => perform(action, true));
 }
-async function perform(action: Action) {
+async function perform(action: Action, global = false) {
   const s = session;
   if (!s || s.mode === "complete") return;
   // Global navigation is frozen while an editor/settings screen or confirmation is open.
   if (view !== "session") return;
+  if (s.mode === "delivery" && action !== "cancel") {
+    if (!global || (action !== "previous" && action !== "finish")) return;
+    await deliverEmailSection(s, action === "previous", platform.deliver);
+    message = "";
+    render();
+    return;
+  }
   switch (action) {
     case "capture":
       if (s.mode === "verify")
@@ -618,6 +687,14 @@ async function perform(action: Action) {
       if (await confirmAction("sessionConfirm")) await closeSession();
       return;
     case "finish": {
+      if (s.template.email?.enabled) {
+        renderEmail(s);
+        s.mode = "delivery";
+        s.deliveryIndex = 0;
+        s.deliveryDone = false;
+        render();
+        return;
+      }
       const output = renderSession(s);
       await platform.copy(output);
       if (library.preferences.clearAfterCompletion) eraseSession(s);
@@ -684,6 +761,8 @@ window.addEventListener("keydown", (event) => {
   ) {
     event.preventDefault();
     if (view === "templates") document.getElementById("start")?.click();
+    else if (view === "session" && session?.mode === "delivery")
+      document.getElementById("email-done")?.click();
     else if (
       view === "session" &&
       session?.mode !== "ready" &&
@@ -710,7 +789,7 @@ window.addEventListener("keydown", (event) => {
     (event.key === "ArrowLeft" || event.key === "ArrowRight")
   ) {
     event.preventDefault();
-    dispatch(event.key === "ArrowLeft" ? "previous" : "next");
+    void run(() => perform(event.key === "ArrowLeft" ? "previous" : "next"));
   }
 });
 window.addEventListener("beforeunload", (event) => {

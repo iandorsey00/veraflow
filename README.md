@@ -8,7 +8,7 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ## Download
 
-Get the [v0.3.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.3.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+Get the [v0.4.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.4.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 
@@ -91,3 +91,13 @@ See [release notes](CHANGELOG.md) and [build, installation, and rollback instruc
 VeraFlow © 2026 Ian Dorsey. Open source under the [MIT license](LICENSE).
 
 [View the repository on GitHub](https://github.com/iandorsey00/veraflow). The app also includes these details under Settings → About; the repository link opens your default browser.
+
+## Email mode
+
+Enable **Email mode** on a template to add Subject and To above the Body. Cc and Bcc have separate toggles and are off initially. Plain templates remain the default. Every enabled section accepts placeholders; repeated names share one captured and verified value. Disabled sections are excluded from capture and output. Subject and To must resolve to nonempty single-line text.
+
+After capture and verification, choose **Prepare email output** (or press the configured finish shortcut once). Focus Subject in the destination email app. Press **Cmd/Ctrl+Shift+8** for each section: Subject → To → enabled Cc → enabled Bcc → Body. Each press pastes once and presses Tab; Body does not press Tab. **Cmd/Ctrl+Shift+2** sends Shift+Tab and returns to the previous section. These use the configurable finish and previous shortcuts. Returning does not undo pasted text: select existing text before repasting. VeraFlow never sends the email.
+
+The destination must expose the same field order and optional fields; adjust focus manually when its Tab order differs. Output replaces the clipboard and does not restore it. Slow editors, recipient chips, or focus changes can prevent the intended result; inspect the destination before retrying any failed paste. After the Body, review your draft, return to VeraFlow, and use **Cmd/Ctrl+Enter** to finish and apply the session-erasure preference. Browser previews cannot inject keys into another app.
+
+Older libraries load with email mode off. Back up `library.json` before saving email templates: older binaries reject the additional template property, so downgrading requires a compatible backup.

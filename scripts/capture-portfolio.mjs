@@ -89,6 +89,32 @@ try {
   await page.screenshot({
     path: "docs/portfolio/screenshots/03-chinese-dark.png",
   });
+  const emailPage = await context.newPage();
+  await emailPage.setViewportSize({ width: 1440, height: 1600 });
+  await emailPage.goto(url);
+  await emailPage
+    .getByLabel("Template name", { exact: true })
+    .fill("Project email");
+  await emailPage
+    .getByLabel("Template text", { exact: true })
+    .fill("Hello <recipient>,\n\n<summary>\n\nThank you!");
+  await emailPage.getByLabel("Email mode", { exact: true }).check();
+  await emailPage
+    .getByLabel("Subject", { exact: true })
+    .fill("<project_name> update");
+  await emailPage.getByLabel("To", { exact: true }).fill("<recipient_email>");
+  await emailPage.getByLabel("Include Cc", { exact: true }).check();
+  await emailPage.getByLabel("Cc", { exact: true }).fill("<team_email>");
+  await emailPage
+    .getByRole("button", { name: "Save template", exact: true })
+    .click();
+  await emailPage
+    .getByRole("button", { name: "Templates", exact: true })
+    .click();
+  await emailPage.screenshot({
+    path: "docs/portfolio/screenshots/04-email-template.png",
+    fullPage: false,
+  });
 } finally {
   await browser.close();
 }

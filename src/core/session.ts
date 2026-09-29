@@ -1,8 +1,13 @@
 import { compare } from "./compare";
-import { orderFields, renderTemplate } from "./template";
+import {
+  orderFields,
+  renderTemplate,
+  templateSource,
+  emailSections,
+} from "./template";
 import type { Session, Template } from "./model";
 export function startSession(template: Template): Session {
-  const fields = orderFields(template.content, template.fieldOrder).map(
+  const fields = orderFields(templateSource(template), template.fieldOrder).map(
     (name) => ({ name, value: null, status: "empty" as const }),
   );
   return {
@@ -114,4 +119,41 @@ export function eraseSession(s: Session): void {
     field.status = "empty";
   }
   s.mode = "complete";
+}
+
+export function renderEmail(s: Session) {
+  renderSession(s); // Apply the same completeness and verification gate to every section.
+  const values = new Map(s.fields.map((f) => [f.name, f.value ?? ""]));
+  const sections = emailSections(s.template).map((part) => ({
+    ...part,
+    text: renderTemplate(part.text, values),
+  }));
+  if (
+    !sections.find((p) => p.key === "subject")?.text.trim() ||
+    !sections.find((p) => p.key === "to")?.text.trim()
+  )
+    throw new Error("emailRequired");
+  if (sections.some((p) => p.key !== "body" && /[\p{Cc}]/u.test(p.text)))
+    throw new Error("emailHeaderInvalid");
+  return sections;
+}
+
+export async function deliverEmailSection(
+  s: Session,
+  back: boolean,
+  send: (text: string | null, tab: boolean) => Promise<void>,
+): Promise<void> {
+  if (s.mode !== "delivery") throw new Error("emailNotReady");
+  const parts = renderEmail(s),
+    index = s.deliveryIndex ?? 0;
+  if (back) {
+    if (index === 0) return;
+    await send(null, false);
+    s.deliveryIndex = index - 1;
+    s.deliveryDone = false;
+  } else if (!s.deliveryDone) {
+    await send(parts[index].text, index < parts.length - 1);
+    if (index < parts.length - 1) s.deliveryIndex = index + 1;
+    else s.deliveryDone = true;
+  }
 }

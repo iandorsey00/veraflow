@@ -1,4 +1,33 @@
 export const en = {
+  emailFinished:
+    "Email session finished. Review the draft in your email app before sending.",
+  emailMode: "Email mode",
+  subject: "Subject",
+  to: "To",
+  cc: "Cc",
+  bcc: "Bcc",
+  body: "Body",
+  enableCc: "Include Cc",
+  enableBcc: "Include Bcc",
+  emailTemplateHelp:
+    "Each section accepts placeholders. Subject and To are required. Disabled Cc/Bcc sections are excluded from capture and output.",
+  emailRequired: "Enter a Subject and To value before preparing the email.",
+  emailHeaderInvalid:
+    "Email headers must be single-line text without tabs or control characters.",
+  emailDelivery: "Paste email sections",
+  emailDeliveryHelp:
+    "Focus Subject in your email app. Its Tab order must be Subject → To → enabled Cc/Bcc → Body. Show only the optional fields you enabled here. Each shortcut pastes one section and presses Tab; Body has no trailing Tab. Adjust focus yourself if your email app uses a different order. Nothing sends the email.",
+  emailPasteNext: "Paste section and advance",
+  emailGoBack: "Previous section (Shift+Tab)",
+  emailBackHelp:
+    "Going back moves focus; it does not undo a paste. Select existing text before repasting. Output replaces the clipboard.",
+  emailBodyPasted:
+    "Body paste requested. Review the email, then return here and finish with Cmd/Ctrl+Enter.",
+  emailCopy: "Copy current section",
+  emailDone: "Finish email session",
+  emailPrepare: "Prepare email output",
+  emailPasteFailed:
+    "Paste or navigation could not be confirmed. Check focus, permissions, and the destination before retrying; text may already have been pasted.",
   manualEntry: "Enter value manually",
   skipConfirm: "Clear this value and skip the field?",
   app: "VeraFlow 核流",

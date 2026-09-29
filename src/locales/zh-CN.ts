@@ -1,5 +1,33 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  emailFinished: "邮件会话已完成。发送前请在邮件应用中检查草稿。",
+  emailMode: "邮件模式",
+  subject: "主题",
+  to: "收件人",
+  cc: "抄送",
+  bcc: "密送",
+  body: "正文",
+  enableCc: "包含抄送",
+  enableBcc: "包含密送",
+  emailTemplateHelp:
+    "每个部分均支持占位符。主题和收件人为必填项。未启用的抄送和密送不参与采集和输出。",
+  emailRequired: "准备邮件前，请填写主题和收件人。",
+  emailHeaderInvalid: "邮件标题字段必须为单行文本，不含制表符或控制字符。",
+  emailDelivery: "粘贴邮件各部分",
+  emailDeliveryHelp:
+    "在邮件应用中聚焦主题。Tab 顺序应为主题 → 收件人 → 已启用的抄送/密送 → 正文。只显示此处已启用的可选字段。每次快捷键粘贴一个部分并按 Tab；正文后不按 Tab。如顺序不同，请自行调整焦点。此操作不会发送邮件。",
+  emailPasteNext: "粘贴此部分并前进",
+  emailGoBack: "上一部分（Shift+Tab）",
+  emailBackHelp:
+    "返回只移动焦点，不撤销粘贴。重新粘贴前请选择原有文本。输出会替换剪贴板。",
+  emailBodyPasted:
+    "已请求粘贴正文。请检查邮件，然后返回此处按 Cmd/Ctrl+Enter 完成。",
+  emailCopy: "复制当前部分",
+  emailDone: "完成邮件会话",
+  emailPrepare: "准备邮件输出",
+  emailPasteFailed:
+    "无法确认粘贴或导航。重试前请检查焦点、权限和目标；文本可能已粘贴。",
+
   manualEntry: "手动输入值",
   skipConfirm: "清空此值并跳过该字段？",
   app: "VeraFlow 核流",
