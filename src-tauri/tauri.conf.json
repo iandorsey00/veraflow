@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "VeraFlow",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "identifier": "com.veraflow.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "VeraFlow 核流",
+        "title": "VeraFlow \u6838\u6d41",
         "width": 1040,
         "height": 740,
         "minWidth": 360,
@@ -40,6 +40,18 @@
     ],
     "macOS": {
       "minimumSystemVersion": "12.0"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJCNjE2Q0E2QTlGRjNEQjEKUldTeFBmK3BwbXhodThPaEx6TFN6ZEc3WEhRSHpLVXpDSWNrejFOOHRUbFRBQm9ZU2Q5eXhMb3QK",
+      "endpoints": [
+        "https://raw.githubusercontent.com/iandorsey00/veraflow/updates/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      },
+      "requireSignedVersion": true
     }
   }
 }

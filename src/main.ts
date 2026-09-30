@@ -28,7 +28,13 @@ import {
   deliverEmailSection,
   eraseSession,
 } from "./core/session";
-import { platform, desktop, bindShortcuts } from "./platform";
+import { parseTemplateArchive, exportTemplateArchive } from "./core/transfer";
+import {
+  platform,
+  desktop,
+  bindShortcuts,
+  ShortcutBindingError,
+} from "./platform";
 
 type Key = keyof typeof en;
 const root = document.querySelector<HTMLDivElement>("#app")!;
@@ -44,6 +50,31 @@ let selected = "",
   session: Session | null = null;
 let pendingFocus: string | null = null;
 let manualOpen = false;
+let mouseMode = false;
+let watchingSource = false;
+let mousePolling = false;
+setInterval(async () => {
+  if (mousePolling) return;
+  const enabled =
+    mouseMode &&
+    view === "session" &&
+    !!session &&
+    ["capture", "verify"].includes(session.mode);
+  if (!enabled && !watchingSource) return;
+  mousePolling = true;
+  try {
+    watchingSource = enabled;
+    const available = await platform.mouseSource(enabled);
+    const transfer = document.getElementById(
+      "mouse-transfer",
+    ) as HTMLButtonElement | null;
+    if (transfer) transfer.disabled = busy || !available;
+  } catch {
+    /* Transfer reports an actionable error when requested. */
+  } finally {
+    mousePolling = false;
+  }
+}, 250);
 let quitting = false;
 let dirty = false,
   busy = false,
@@ -77,7 +108,10 @@ function notify(key: Key, error = false) {
 }
 function report(error: unknown) {
   const key = error instanceof Error ? error.message : String(error);
-  message = tr(key);
+  message =
+    error instanceof ShortcutBindingError
+      ? `${t("shortcutFailed")} ${t(error.action === "cancel" ? "cancelSession" : error.action)}: ${error.shortcut}`
+      : tr(key);
   failure = true;
   render();
 }
@@ -171,8 +205,8 @@ function libraryView(): string {
           `<option ${name === folder ? "selected" : ""}>${esc(name)}</option>`,
       )
       .join("")}</select>
-    <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${orderFields(templateSource(item)).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
-    <p class="sidebar-note">${esc(t("workflow"))}</p></aside>
+    <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${orderFields(templateSource(item), [], item.placeholderStyle).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
+    <div class="toolbar">${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
     <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? editorView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
 function comparisonView(rules: Comparison, prefix: string): string {
@@ -183,9 +217,10 @@ function editorView(): string {
   const d = draft!;
   return `<div class="section-head"><p class="eyebrow">${esc(t("library"))}</p><div class="toolbar">${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div></div>
   <div class="metadata"> <div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
+  <label for="placeholder-style">${esc(t("placeholderStyle"))}</label><select id="placeholder-style"><option value="angle" ${d.placeholderStyle !== "braces" ? "selected" : ""}>${esc(t("angleStyle"))}</option><option value="braces" ${d.placeholderStyle === "braces" ? "selected" : ""}>${esc(t("bracesStyle"))}</option></select><p class="hint">${esc(t("escapeHelp"))}</p>
   ${check("email-enabled", "emailMode", d.email?.enabled ?? false)}
   ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${field("email-subject", "subject", d.email.subject)}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}</section>` : ""}
-  <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t("placeholderHelp"))}</p>
+  <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t(d.placeholderStyle === "braces" ? "bracePlaceholderHelp" : "placeholderHelp"))}</p>
   <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
   <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
 }
@@ -237,6 +272,45 @@ function bindComparison(prefix: string, rules: Comparison) {
     });
 }
 function bindLibrary() {
+  click("export-templates", async () => {
+    await platform.exportTemplates(exportTemplateArchive(library.templates));
+  });
+  click("import-templates", async () => {
+    if (!(await abandonDraft())) return;
+    if (selected) selectTemplate(selected);
+    render();
+    const json = await platform.importTemplates();
+    if (json === null) return;
+    const imported = parseTemplateArchive(json);
+    if (library.templates.length + imported.length > 1000)
+      throw Error("invalidImport");
+    if (
+      !(await confirmAction(
+        "importConfirm",
+        imported
+          .map((t) => t.name)
+          .slice(0, 10)
+          .join("\n") + (imported.length > 10 ? "\n…" : ""),
+      ))
+    )
+      return;
+    const copies = imported.map((t) => ({ ...t, id: crypto.randomUUID() }));
+    await persist({ ...library, templates: [...library.templates, ...copies] });
+    selectTemplate(copies[0].id);
+    notify("imported");
+  });
+  on("placeholder-style", "change", (e) => {
+    draft!.placeholderStyle = (e.target as HTMLSelectElement).value as
+      "angle" | "braces";
+    draft!.fieldOrder = orderFields(
+      templateSource(draft!),
+      draft!.fieldOrder,
+      draft!.placeholderStyle,
+    );
+    dirty = true;
+    render();
+    focus("placeholder-style");
+  });
   click("new", newTemplate);
   click("empty-new", newTemplate);
   on("search", "input", (e) => {
@@ -271,7 +345,11 @@ function bindLibrary() {
   });
   on("template-content", "input", (e) => {
     draft!.content = (e.target as HTMLTextAreaElement).value;
-    draft!.fieldOrder = orderFields(templateSource(draft!), draft!.fieldOrder);
+    draft!.fieldOrder = orderFields(
+      templateSource(draft!),
+      draft!.fieldOrder,
+      draft!.placeholderStyle,
+    );
     dirty = true;
     document.getElementById("field-order")!.innerHTML = orderView();
     bindOrder();
@@ -291,6 +369,7 @@ function bindLibrary() {
       draft!.fieldOrder = orderFields(
         templateSource(draft!),
         draft!.fieldOrder,
+        draft!.placeholderStyle,
       );
       dirty = true;
       render();
@@ -303,6 +382,7 @@ function bindLibrary() {
       draft!.fieldOrder = orderFields(
         templateSource(draft!),
         draft!.fieldOrder,
+        draft!.placeholderStyle,
       );
       dirty = true;
       document.getElementById("field-order")!.innerHTML = orderView();
@@ -348,6 +428,7 @@ async function newTemplate() {
   draft = {
     id: crypto.randomUUID(),
     name: t("untitled"),
+    placeholderStyle: "braces",
     folder: "",
     content: "",
     fieldOrder: [],
@@ -398,9 +479,55 @@ function settingsView(): string {
   return `<main class="settings"><header><h1>${esc(t("settings"))}</h1></header><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}</section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("quitPrivacy"))}</p></section>
-  <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
+  <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><div class="actions">${button("update-app", "updateApp")}</div><p class="hint">${esc(t("updateHelp"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
 }
 function bindSettings() {
+  click("update-app", async () => {
+    if (dirty || (session && session.mode !== "complete"))
+      throw Error("updateBusy");
+    notify("updateChecking");
+    const update = await platform.checkUpdate();
+    if (!update) {
+      notify("updateCurrent");
+      return;
+    }
+    if (
+      !(await confirmAction(
+        "updateConfirm",
+        `VeraFlow ${update.version}\n\n${update.notes}`,
+      ))
+    ) {
+      message = "";
+      render();
+      return;
+    }
+    if (dirty || (session && session.mode !== "complete"))
+      throw Error("updateBusy");
+    notify("updateDownloading");
+    let lastProgress = 0;
+    await platform.installUpdate((event) => {
+      if (event.stage === "installing") {
+        notify("updateInstalling");
+        return;
+      }
+      if (Date.now() - lastProgress < 200) return;
+      lastProgress = Date.now();
+      message = t("updateDownloading");
+      if (event.total && event.downloaded !== undefined)
+        message += ` ${Math.min(100, Math.floor((event.downloaded / event.total) * 100))}%`;
+      failure = false;
+      render();
+    });
+  });
+  click("alternate-shortcuts", () => {
+    actions.forEach((action, index) => {
+      settingsDraft!.shortcuts[action] =
+        `CommandOrControl+Alt+Shift+${index + 1}`;
+    });
+    dirty = true;
+    render();
+    focus("save-settings");
+  });
   if (desktop)
     on("repository-link", "click", (event) => {
       event.preventDefault();
@@ -417,6 +544,7 @@ function bindSettings() {
     "minimizeToTray",
     "alwaysOnTop",
     "autoAdvance",
+    "globalShortcuts",
     "verificationDefault",
     "verifiedBackground",
     "clearAfterCompletion",
@@ -434,18 +562,21 @@ function bindSettings() {
     });
   click("save-settings", async () => {
     const old = structuredClone(library.preferences);
+    const enabled = Object.values(p.shortcuts).filter((s) => s.trim());
     if (
-      new Set(Object.values(p.shortcuts).map((s) => s.toLowerCase())).size !==
-      actions.length
+      p.globalShortcuts &&
+      new Set(enabled.map((s) => s.toLowerCase())).size !== enabled.length
     )
-      throw new Error("shortcutFailed");
-    await bindShortcuts(p.shortcuts, dispatch);
+      throw Error("shortcutFailed");
+    await bindShortcuts(p.globalShortcuts ? p.shortcuts : null, dispatch);
     try {
       await platform.autostart(p.launchAtLogin);
       await persist({ ...library, preferences: structuredClone(p) });
     } catch (error) {
       await bindShortcuts(
-        session && session.mode !== "complete" ? old.shortcuts : null,
+        old.globalShortcuts && session && session.mode !== "complete"
+          ? old.shortcuts
+          : null,
         dispatch,
       );
       await platform.autostart(old.launchAtLogin);
@@ -470,10 +601,23 @@ async function launch(template: Template) {
     (!template.email.subject.trim() || !template.email.to.trim())
   )
     throw new Error("emailRequired");
-  await bindShortcuts(library.preferences.shortcuts, dispatch);
+  let shortcutError: unknown;
+  try {
+    await bindShortcuts(
+      library.preferences.globalShortcuts
+        ? library.preferences.shortcuts
+        : null,
+      dispatch,
+    );
+  } catch (error) {
+    await bindShortcuts(null, dispatch);
+    shortcutError = error;
+  }
   if (session) eraseSession(session);
   session = startSession(template);
   manualOpen = false;
+  mouseMode = false;
+  await platform.mouseSource(false);
   await platform.active(true);
   view = "session";
   preview = false;
@@ -481,6 +625,7 @@ async function launch(template: Template) {
   await platform.compact(true, library.preferences.alwaysOnTop);
   render();
   focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
+  if (shortcutError) report(shortcutError);
 }
 function sessionView(): string {
   if (!session) return "";
@@ -521,6 +666,8 @@ function sessionView(): string {
     }
   }
   return `<main class="capture-panel"><div class="section-head"><span class="wordmark small">VeraFlow <span lang="zh-CN">核流</span></span>${button("session-back", "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p><h1>${esc(s.template.name)}</h1><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
+  ${check("mouse-mode", "mouseMode", mouseMode)}
+  ${mouseMode ? `<p class="hint">${esc(t("mouseHelp"))}</p><div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
   <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li><button id="field-${index}" data-field="${index}" class="capture-field ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button></li>`).join("")}</ol>
   ${f ? `<details class="inspect"><summary>${esc(t("expand"))}: ${esc(f.name)}</summary><pre>${esc(f.value ?? "—")}</pre></details>` : ""}
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
@@ -536,6 +683,19 @@ function mismatchView(a: string, b: string): string {
   return `<section class="mismatch-box" role="alert"><h2>! ${esc(t("mismatch"))}</h2><p>${esc(t("mismatchHelp"))}</p>${diff.map((part, index) => `<h3>${esc(t(index ? "selectedValue" : "capturedValue"))}</h3><pre>${esc(part.before)}<mark>${esc(part.middle) || "∅"}</mark>${esc(part.after)}</pre>`).join("")}${button("correct-value", "editValue")}</section>`;
 }
 function bindSession() {
+  on("mouse-mode", "change", (e) => {
+    mouseMode = (e.target as HTMLInputElement).checked;
+    render();
+    focus("mouse-mode");
+  });
+  click("mouse-transfer", async () => {
+    if (!session || !["capture", "verify"].includes(session.mode)) return;
+    await accept(
+      await platform.mouseTransfer(library.preferences.restoreClipboard),
+    );
+  });
+  click("mouse-back", () => perform("previous"));
+  click("mouse-forward", () => perform("next"));
   click("email-copy", async () => {
     await platform.copy(
       renderEmail(session!)[session!.deliveryIndex ?? 0].text,
@@ -718,12 +878,12 @@ async function closeSession() {
   await platform.active(false);
   await navigate("templates");
 }
-async function confirmAction(key: Key): Promise<boolean> {
+async function confirmAction(key: Key, detail = ""): Promise<boolean> {
   await platform.reveal();
   const prior = document.activeElement as HTMLElement | null;
   const dialog = document.createElement("dialog");
   dialog.setAttribute("aria-labelledby", "confirmation-title");
-  dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(key))}</h2><div class="actions"><button value="no" autofocus>${esc(t("keep"))}</button><button value="yes" class="danger">${esc(t("confirm"))}</button></div></form>`;
+  dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(key))}</h2>${detail ? `<pre>${esc(detail)}</pre>` : ""}<div class="actions"><button value="no" autofocus>${esc(t("keep"))}</button><button value="yes" class="danger">${esc(t("confirm"))}</button></div></form>`;
   document.body.append(dialog);
   dialog.showModal();
   return new Promise((resolve) =>

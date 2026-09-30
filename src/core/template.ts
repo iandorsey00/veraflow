@@ -1,14 +1,36 @@
 import type { Template } from "./model";
-// Names are nonempty Unicode runs excluding whitespace, controls, and delimiters.
-// This excludes HTML attributes and prevents accidental multiline placeholders.
-const placeholder = /<([^<>\s\p{Cc}\p{Cf}]+)>/gu;
-export function parseFields(content: string): string[] {
+type Style = Template["placeholderStyle"];
+// Only backslash-backslash and backslash-opening-delimiter are escapes.
+function tokens(content: string, style: Style = "angle") {
+  const pattern =
+    style === "braces"
+      ? /\\(?:\\|\{\{)|\{\{([^<>{}\s\p{Cc}\p{Cf}]+)\}\}/gu
+      : /\\(?:\\|<)|<([^<>{}\s\p{Cc}\p{Cf}]+)>/gu;
+  const out: { text: string; name?: string }[] = [];
+  let end = 0;
+  for (const match of content.matchAll(pattern)) {
+    if (match.index! > end) out.push({ text: content.slice(end, match.index) });
+    out.push(
+      match[1]
+        ? { text: match[0], name: match[1] }
+        : { text: match[0].slice(1) },
+    );
+    end = match.index! + match[0].length;
+  }
+  if (end < content.length) out.push({ text: content.slice(end) });
+  return out;
+}
+export function parseFields(content: string, style: Style = "angle"): string[] {
   return [
-    ...new Set([...content.matchAll(placeholder)].map((match) => match[1])),
+    ...new Set(tokens(content, style).flatMap((t) => (t.name ? [t.name] : []))),
   ];
 }
-export function orderFields(content: string, order: string[] = []): string[] {
-  const parsed = parseFields(content);
+export function orderFields(
+  content: string,
+  order: string[] = [],
+  style: Style = "angle",
+): string[] {
+  const parsed = parseFields(content, style);
   return [
     ...new Set([...order.filter((name) => parsed.includes(name)), ...parsed]),
   ];
@@ -16,11 +38,15 @@ export function orderFields(content: string, order: string[] = []): string[] {
 export function renderTemplate(
   content: string,
   values: ReadonlyMap<string, string>,
+  style: Style = "angle",
 ): string {
-  return content.replace(placeholder, (_, name: string) => {
-    if (!values.has(name)) throw new Error("missingValue");
-    return values.get(name)!;
-  });
+  return tokens(content, style)
+    .map((token) => {
+      if (!token.name) return token.text;
+      if (!values.has(token.name)) throw new Error("missingValue");
+      return values.get(token.name)!;
+    })
+    .join("");
 }
 
 export function emailSections(

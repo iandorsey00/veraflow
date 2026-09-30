@@ -1,5 +1,25 @@
 # Release and rollback
 
+## 0.5.0 signed update pipeline
+
+FRC selected for in-place software installation and the accumulated template, shortcut, and native mouse-panel changes. The updater runs only after an explicit button click and install confirmation. Frontend and native guards reject installation during unsaved work or active sessions. Tauri verifies HTTPS downloads with the embedded public key and requires an authenticated version in the signature before installation. Source URLs are restricted to this repository’s versioned GitHub Release assets. Release notes are rendered as text. Download progress is shown; installation restarts the application and preserves app-data files.
+
+### One-time signing setup
+
+The private update key is kept in the ignored `.release-keys/updater.key` file with restricted local permissions. Keep an independent encrypted backup; never commit it or paste it into an issue, chat, or release log. Put its complete file contents in the repository Actions secret `TAURI_SIGNING_PRIVATE_KEY`. This key has an empty signing password; access is protected by local permissions and GitHub’s secret store. Only the public key is committed in Tauri configuration. Do not generate a replacement key after shipping the updater: installed apps trust the original key. Key rotation requires an explicit migration release signed by the old key.
+
+Build jobs receive the key only for tagged release packaging, with read-only repository permissions. Pull-request checks never receive it. Release jobs verify all three bundles with the independent minisign CLI and verify the signed version before publication. The updater artifacts flag is enabled only in the release build command so normal development/check builds need no signing key.
+
+### Publish and verify
+
+Push a version-consistent commit and matching tag. The release workflow gates packaging on macOS and Windows checks, produces normal downloads plus signed updater bundles, then verifies signatures and checksums before publishing a preview. A separate final job advertises the already-public release at `https://raw.githubusercontent.com/iandorsey00/veraflow/updates/latest.json`. The `updates` branch is release metadata; do not merge it into development. The feed rejects backwards version changes. If feed publication fails after binaries are public, rerun only that failed job. Do not repackage or overwrite an already-public version.
+
+After publication verify the public feed’s version, all platform URLs, and signatures. Test a real upgrade on clean Windows 11, macOS Apple Silicon, and macOS Intel installations before claiming native acceptance. In particular test writable/unwritable installation locations, macOS permission prompts, Windows installer relaunch, network interruptions, no newer version, invalid signatures, and saved-library retention.
+
+### Migration and rollback
+
+Existing 0.4.0 installations need one manual install of 0.5.0; future releases can be installed from Settings. Back up the library before this upgrade. Older binaries reject newly saved `globalShortcuts` and `placeholderStyle` properties. To roll back, quit, reinstall the previous binary, and restore its compatible library backup. To recover from a bad published release, publish a corrected higher-version release; the updater deliberately rejects downgrades. Publisher signing/notarization remains separate and unconfigured, so these remain labeled previews.
+
 ## 0.4.0 email mode
 
 FRC selected because this feature introduces native Paste/Tab injection. Review confirms only Paste, Tab, and Shift+Tab are emitted, with modifier-release waiting, external-focus checks, serialized native calls, text-size/NUL validation, and no automatic Send. Clipboard replacement is deliberate. A focus change or partial injection may occur after text is pasted; output index stays unchanged on errors and the UI advises checking the destination before retrying. Native email-client behavior remains a manual acceptance gate, so distribution remains an unsigned preview.
@@ -8,7 +28,7 @@ Back up the library before upgrading. Old templates load without email configura
 
 ## 0.3.1 binary distribution
 
-FRC selected for the first binary distribution. Publish an explicitly unsigned GitHub prerelease, with macOS arm64/x64 application ZIPs and a Windows x64 NSIS installer. No signing credentials are configured by this change. Native interactive acceptance remains outstanding; preview publication does not mark those gates complete.
+FRC selected for the first binary distribution. Publish an explicitly unsigned GitHub prerelease, with macOS arm64/x64 application ZIPs and a Windows x64 NSIS installer. No publisher signing credentials were configured by that release. Native interactive acceptance remains outstanding; preview publication does not mark those gates complete.
 
 After reviewing and pushing a version-consistent commit, push its matching `vX.Y.Z` tag. `.github/workflows/release.yml` runs the shared checks on macOS and Windows, builds all three packages, then creates a draft prerelease. It computes SHA-256 checksums, uploads the assets, downloads and verifies them, and only then makes the prerelease public. Any failed check/build blocks publication. A failed upload can be retried while the release is a draft; the workflow refuses to replace a published release. Publish a new patch version to correct published binaries.
 

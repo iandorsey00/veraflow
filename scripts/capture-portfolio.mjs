@@ -15,6 +15,9 @@ try {
   });
   const page = await context.newPage();
   await page.goto(url);
+  await page
+    .getByLabel("Placeholder syntax", { exact: true })
+    .selectOption("braces");
   await page.getByLabel("Template name", { exact: true }).waitFor();
   await page
     .getByLabel("Template name", { exact: true })
@@ -25,7 +28,7 @@ try {
   await page
     .getByLabel("Template text", { exact: true })
     .fill(
-      "Subject: <project_name> update\n\nHello <recipient>,\n\n<summary>\n\nReference: <reference>\n\nThank you!",
+      "Subject: {{project_name}} update\n\nHello {{recipient}},\n\n{{summary}}\n\nReference: {{reference}}\n\nThank you!",
     );
   await page
     .getByRole("button", { name: "Save template", exact: true })
@@ -77,12 +80,13 @@ try {
     .click();
   await page.getByRole("button", { name: "模板", exact: true }).click();
   await page.getByRole("button", { name: /客户跟进/ }).click();
+  await page.locator("#placeholder-style").selectOption("braces");
   await page.getByLabel("模板名称", { exact: true }).fill("项目更新");
   await page.getByRole("textbox", { name: "文件夹", exact: true }).fill("通用");
   await page
     .getByLabel("模板内容", { exact: true })
     .fill(
-      "主题：<项目名称>进展\n\n您好，<收件人>：\n\n<进展摘要>\n\n参考编号：<参考编号>\n\n谢谢！",
+      "主题：{{项目名称}}进展\n\n您好，{{收件人}}：\n\n{{进展摘要}}\n\n参考编号：{{参考编号}}\n\n谢谢！",
     );
   await page.getByRole("button", { name: "保存模板", exact: true }).click();
   await page.getByRole("button", { name: "模板", exact: true }).click();
@@ -93,18 +97,21 @@ try {
   await emailPage.setViewportSize({ width: 1440, height: 1600 });
   await emailPage.goto(url);
   await emailPage
+    .getByLabel("Placeholder syntax", { exact: true })
+    .selectOption("braces");
+  await emailPage
     .getByLabel("Template name", { exact: true })
     .fill("Project email");
   await emailPage
     .getByLabel("Template text", { exact: true })
-    .fill("Hello <recipient>,\n\n<summary>\n\nThank you!");
+    .fill("Hello {{recipient}},\n\n{{summary}}\n\nThank you!");
   await emailPage.getByLabel("Email mode", { exact: true }).check();
   await emailPage
     .getByLabel("Subject", { exact: true })
-    .fill("<project_name> update");
-  await emailPage.getByLabel("To", { exact: true }).fill("<recipient_email>");
+    .fill("{{project_name}} update");
+  await emailPage.getByLabel("To", { exact: true }).fill("{{recipient_email}}");
   await emailPage.getByLabel("Include Cc", { exact: true }).check();
-  await emailPage.getByLabel("Cc", { exact: true }).fill("<team_email>");
+  await emailPage.getByLabel("Cc", { exact: true }).fill("{{team_email}}");
   await emailPage
     .getByRole("button", { name: "Save template", exact: true })
     .click();

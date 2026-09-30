@@ -24,6 +24,8 @@ pub struct Comparison {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Template {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub placeholder_style: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub email: Option<EmailTemplate>,
     pub id: String,
     pub name: String,
@@ -41,6 +43,8 @@ pub struct Preferences {
     pub launch_at_login: bool,
     pub minimize_to_tray: bool,
     pub always_on_top: bool,
+    #[serde(default = "enabled_by_default")]
+    pub global_shortcuts: bool,
     pub auto_advance: bool,
     #[serde(default)]
     pub verified_background: bool,
@@ -57,6 +61,9 @@ pub struct Library {
     pub templates: Vec<Template>,
     pub preferences: Preferences,
 }
+fn enabled_by_default() -> bool {
+    true
+}
 impl Library {
     pub fn validate(&self) -> Result<(), String> {
         let valid_comparison = |c: &Comparison| ["exact", "whitespace"].contains(&c.mode.as_str());
@@ -70,17 +77,18 @@ impl Library {
             || !["SYSTEM", "LIGHT", "DARK"].contains(&p.theme.as_str())
             || !valid_comparison(&p.comparison)
             || p.shortcuts.len() != 8
-            || actions.iter().any(|a| {
-                p.shortcuts
-                    .get(*a)
-                    .is_none_or(|s| s.is_empty() || s.len() > 100)
-            })
+            || actions
+                .iter()
+                .any(|a| p.shortcuts.get(*a).is_none_or(|s| s.len() > 100))
         {
             return Err("invalidLibrary".into());
         }
         let mut ids = std::collections::HashSet::new();
         for t in &self.templates {
-            if t.id.is_empty()
+            if t.placeholder_style
+                .as_ref()
+                .is_some_and(|style| !["angle", "braces"].contains(&style.as_str()))
+                || t.id.is_empty()
                 || !ids.insert(&t.id)
                 || t.name.trim().is_empty()
                 || t.name.len() > 1000
@@ -105,7 +113,7 @@ mod tests {
         serde_json::json!({
             "version":1,"templates":[{"id":"test","name":"Example","folder":"","content":"Hello <name>","fieldOrder":["name"],"verificationEnabled":true,
                 "comparison":{"mode":"exact","caseSensitive":true,"unicode":true,"punctuation":false,"collapseLines":false}}],
-            "preferences":{"language":"en","theme":"SYSTEM","launchAtLogin":false,"minimizeToTray":true,"alwaysOnTop":true,"autoAdvance":true,"verifiedBackground":false,"verificationDefault":true,"clearAfterCompletion":true,"restoreClipboard":true,
+            "preferences":{"language":"en","theme":"SYSTEM","launchAtLogin":false,"minimizeToTray":true,"alwaysOnTop":true,"globalShortcuts":true,"autoAdvance":true,"verifiedBackground":false,"verificationDefault":true,"clearAfterCompletion":true,"restoreClipboard":true,
                 "comparison":{"mode":"whitespace","caseSensitive":true,"unicode":true,"punctuation":false,"collapseLines":true},
                 "shortcuts":{"capture":"Control+1","previous":"Control+2","next":"Control+3","clear":"Control+4","skip":"Control+5","verify":"Control+6","cancel":"Control+7","finish":"Control+8"}}
         })
@@ -117,8 +125,13 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("verifiedBackground");
+        value["preferences"]
+            .as_object_mut()
+            .unwrap()
+            .remove("globalShortcuts");
         let library: Library = serde_json::from_value(value).unwrap();
         assert!(!library.preferences.verified_background);
+        assert!(library.preferences.global_shortcuts);
     }
     #[test]
     fn email_templates_round_trip_and_reject_session_data() {

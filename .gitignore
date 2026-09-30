@@ -8,3 +8,6 @@ playwright-report/
 .env
 
 src-tauri/gen/schemas/
+
+# Local updater signing material; never commit.
+.release-keys/

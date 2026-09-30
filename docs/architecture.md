@@ -13,3 +13,9 @@ Framework references: [Tauri prerequisites](https://v2.tauri.app/start/prerequis
 ## Email template and output phase
 
 Optional template email metadata holds Subject/To/Cc/Bcc templates and their enabled flags; existing `content` is Body. `templateSource` aggregates only enabled sections for shared placeholder ordering. `renderEmail` applies the common completeness/verification gate and validates resolved headers. The memory-only delivery cursor advances only after native success. Existing finish/previous global shortcuts become Paste+Tab/Shift+Tab in that phase, with no trailing Tab for Body and explicit completion. Native output uses the same clipboard lock as capture, and does not claim delivery or automate Send.
+
+## In-place updates and exchange
+
+`src-tauri/src/updater.rs` owns the checked update and install guard. The frontend invokes check/install with a progress channel; no updater URL or key comes from the webview. Tauri handles platform package verification and installation. The release workflow publishes verified assets before updating the separate metadata branch. The private key is outside version control; normal builds do not produce signed update artifacts.
+
+Template archives use a separate versioned JSON envelope validated by `src/core/transfer.ts`. Import adds new IDs through the existing library persistence boundary. Templates can select braces syntax while missing syntax preserves legacy angle brackets; parser and renderer share tokenization and escape behavior. Mouse mode retains only the recent external application/window identity in native memory while enabled.

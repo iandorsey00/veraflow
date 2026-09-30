@@ -31,6 +31,7 @@ export const defaultEmail: EmailTemplate = {
   bccEnabled: false,
 };
 export type Template = {
+  placeholderStyle?: "angle" | "braces";
   email?: EmailTemplate;
   id: string;
   name: string;
@@ -57,6 +58,7 @@ export type Preferences = {
   launchAtLogin: boolean;
   minimizeToTray: boolean;
   alwaysOnTop: boolean;
+  globalShortcuts: boolean;
   autoAdvance: boolean;
   verifiedBackground: boolean;
   verificationDefault: boolean;
@@ -71,6 +73,7 @@ export const defaultPreferences: Preferences = {
   launchAtLogin: false,
   minimizeToTray: true,
   alwaysOnTop: true,
+  globalShortcuts: true,
   autoAdvance: true,
   verifiedBackground: false,
   verificationDefault: true,

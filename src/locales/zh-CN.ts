@@ -1,5 +1,41 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  mouseMode: "鼠标传输面板",
+  mouseHelp:
+    "在来源应用中选中文字，然后点击此处的传输。核流会返回该应用并采集所选内容。可将窗口拖到来源旁边，并在设置中启用置顶。部分应用在失去焦点时会清除选择。此面板不用于粘贴邮件分区。",
+  transfer: "传输",
+
+  placeholderStyle: "占位符语法",
+  angleStyle: "尖括号：<name>（旧版）",
+  bracesStyle: "双花括号：{{name}}（推荐）",
+  bracePlaceholderHelp:
+    "使用 {{字段名}} 表示变量。尖括号中的邮箱地址保持为普通文本。",
+  escapeHelp:
+    "切换语法不会改写文本。在起始定界符前加反斜杠可保留原文：\\<name> 或 \\{{name}}。两个反斜杠表示一个反斜杠。",
+  importTemplates: "导入 JSON",
+  exportTemplates: "导出 JSON",
+  invalidImport:
+    "这不是有效的 VeraFlow 模板导出文件，或超出了大小/模板数量限制。未导入任何模板。",
+  importConfirm: "将这些模板导入为新副本？现有模板将保留。",
+  imported: "模板已导入为新副本。",
+  globalShortcuts: "启用全局快捷键",
+  alternateShortcuts: "使用备用快捷键组合",
+  updateHelp:
+    "检查新版本，确认后在应用内下载并安装，随后重启核流。请先结束会话并保存更改。",
+  updateBusy: "请先完成或取消会话，并保存或放弃更改，再更新应用。",
+  updateChecking: "正在检查更新…",
+  updateCurrent: "你正在使用最新可用版本。",
+  updateConfirm: "安装此更新并重启核流？已保存的模板和设置会保留。",
+  updateDownloading: "正在下载并验证更新…",
+  updateInstalling: "正在安装更新，核流即将重启…",
+  updateCheckFailed: "无法检查更新。请检查网络连接后重试。",
+  updateDownloadFailed:
+    "无法下载或验证更新，未安装任何内容。请检查网络连接后重试。",
+  updateInstallFailed:
+    "无法安装更新。请关闭其他核流实例，确认应用所在位置可写，然后重试。",
+  updateFailed: "无法完成更新，请重试。",
+  updateApp: "更新应用…",
+
   emailFinished: "邮件会话已完成。发送前请在邮件应用中检查草稿。",
   emailMode: "邮件模式",
   subject: "主题",

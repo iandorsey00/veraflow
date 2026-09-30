@@ -66,7 +66,7 @@ test("Unicode template, order, duplication, deletion and unsaved guard", async (
   await page.getByLabel("Template name", { exact: true }).fill("中文");
   await page
     .getByLabel("Template text", { exact: true })
-    .fill("<客户姓名> <工单号> <客户姓名>");
+    .fill("{{客户姓名}} {{工单号}} {{客户姓名}}");
   await expect(page.locator("#field-order li")).toHaveCount(2);
   await page
     .getByRole("button", { name: "Move up 工单号", exact: true })
@@ -242,4 +242,78 @@ test("email mode is opt-in, persists template sections, and prepares keyboard ou
     page.getByRole("button", { name: "Finish email session" }),
   ).toBeDisabled();
   await expect(page.locator("#app")).not.toContainText("secret_recipient");
+});
+
+test("shortcut registration failure still opens a usable session", async ({
+  page,
+}) => {
+  await page.route("**/src/platform.ts*", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace(
+      /if \(!desktop\) return;?/,
+      'if (!desktop && shortcuts) throw new ShortcutBindingError("capture", shortcuts.capture); if (!desktop) return;',
+    );
+    await route.fulfill({ response, body });
+  });
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Cancel session", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/A shortcut is invalid/)).toContainText(
+    "CommandOrControl+Shift+1",
+  );
+  await page.getByText("Enter value manually", { exact: true }).click();
+  await page.getByLabel("Paste or type a value").fill("Synthetic value");
+  await page
+    .getByRole("button", { name: "Capture value", exact: true })
+    .click();
+  await expect(page.locator(".field-value").first()).toHaveText(
+    "Synthetic value",
+  );
+});
+
+test("JSON export imports copies without overwriting the original", async ({
+  page,
+}) => {
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON", exact: true }).click();
+  const download = await downloadPromise;
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Import JSON", exact: true }).click();
+  await (await chooserPromise).setFiles((await download.path())!);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.locator("[data-template]")).toHaveCount(2);
+  const ids = await page
+    .locator("[data-template]")
+    .evaluateAll((nodes) =>
+      nodes.map((n) => (n as HTMLElement).dataset.template),
+    );
+  expect(new Set(ids).size).toBe(2);
+});
+
+test("mouse panel is opt-in and resets for a new session", async ({ page }) => {
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Mouse transfer panel", { exact: true }),
+  ).not.toBeChecked();
+  await page.getByLabel("Mouse transfer panel", { exact: true }).check();
+  await expect(
+    page.getByRole("button", { name: "Transfer", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Cancel session", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Mouse transfer panel", { exact: true }),
+  ).not.toBeChecked();
 });

@@ -7,9 +7,11 @@ import {
 } from "./template";
 import type { Session, Template } from "./model";
 export function startSession(template: Template): Session {
-  const fields = orderFields(templateSource(template), template.fieldOrder).map(
-    (name) => ({ name, value: null, status: "empty" as const }),
-  );
+  const fields = orderFields(
+    templateSource(template),
+    template.fieldOrder,
+    template.placeholderStyle,
+  ).map((name) => ({ name, value: null, status: "empty" as const }));
   return {
     template: structuredClone(template),
     fields,
@@ -110,6 +112,7 @@ export function renderSession(s: Session): string {
   return renderTemplate(
     s.template.content,
     new Map(s.fields.map((f) => [f.name, f.value ?? ""])),
+    s.template.placeholderStyle,
   );
 }
 export function eraseSession(s: Session): void {
@@ -126,7 +129,7 @@ export function renderEmail(s: Session) {
   const values = new Map(s.fields.map((f) => [f.name, f.value ?? ""]));
   const sections = emailSections(s.template).map((part) => ({
     ...part,
-    text: renderTemplate(part.text, values),
+    text: renderTemplate(part.text, values, s.template.placeholderStyle),
   }));
   if (
     !sections.find((p) => p.key === "subject")?.text.trim() ||

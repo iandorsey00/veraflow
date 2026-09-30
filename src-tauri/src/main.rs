@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod storage;
+mod updater;
 use std::{
     ffi::{CStr, CString},
     io::Write,
@@ -20,6 +21,8 @@ unsafe extern "C" {
     fn vf_read(error: *mut c_int) -> *mut c_char;
     fn vf_write(text: *const c_char) -> c_int;
     fn vf_deliver(text: *const c_char, tab: c_int) -> c_int;
+    fn vf_mouse_source(enabled: c_int) -> c_int;
+    fn vf_focus_source() -> c_int;
     fn vf_free(text: *mut c_char);
 }
 fn error_code(code: i32) -> String {
@@ -52,15 +55,13 @@ fn take_text(ptr: *mut c_char, error: i32) -> Result<String, String> {
 // Fixed destination only: the webview cannot launch arbitrary commands or URLs.
 #[tauri::command]
 fn open_repository() -> Result<(), String> {
-    const REPOSITORY: &str = "https://github.com/iandorsey00/veraflow";
+    open_fixed_url("https://github.com/iandorsey00/veraflow")
+}
+fn open_fixed_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
-    let result = std::process::Command::new("/usr/bin/open")
-        .arg(REPOSITORY)
-        .spawn();
+    let result = std::process::Command::new("/usr/bin/open").arg(url).spawn();
     #[cfg(target_os = "windows")]
-    let result = std::process::Command::new("explorer.exe")
-        .arg(REPOSITORY)
-        .spawn();
+    let result = std::process::Command::new("explorer.exe").arg(url).spawn();
     result
         .map(|mut child| {
             // Reap the OS launcher without blocking the UI.
@@ -74,17 +75,45 @@ fn open_repository() -> Result<(), String> {
 #[tauri::command]
 fn validate_shortcuts(shortcuts: Vec<String>) -> Result<(), String> {
     let mut ids = std::collections::HashSet::new();
-    for text in shortcuts {
+    for (index, text) in shortcuts.into_iter().enumerate() {
         let shortcut = text
             .parse::<tauri_plugin_global_shortcut::Shortcut>()
-            .map_err(|_| "shortcutFailed".to_string())?;
+            .map_err(|_| format!("shortcutFailed:{index}"))?;
         if !ids.insert(shortcut.id()) {
-            return Err("shortcutFailed".into());
+            return Err(format!("shortcutFailed:{index}"));
         }
     }
     Ok(())
 }
 
+#[tauri::command]
+async fn mouse_source(enabled: bool) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lock = CLIPBOARD_LOCK
+            .lock()
+            .map_err(|_| "clipboardBusy".to_string())?;
+        Ok(unsafe { vf_mouse_source(enabled as i32) } != 0)
+    })
+    .await
+    .map_err(|_| "captureFailed".to_string())?
+}
+#[tauri::command]
+async fn mouse_transfer(restore: bool) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lock = CLIPBOARD_LOCK
+            .try_lock()
+            .map_err(|_| "clipboardBusy".to_string())?;
+        let focused = unsafe { vf_focus_source() };
+        if focused != 0 {
+            return Err(error_code(focused));
+        }
+        let mut error = 0;
+        let ptr = unsafe { vf_capture(restore as i32, &mut error) };
+        take_text(ptr, error)
+    })
+    .await
+    .map_err(|_| "captureFailed".to_string())?
+}
 #[tauri::command]
 async fn capture_selection(restore: bool) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -202,6 +231,9 @@ fn set_session_active(active: bool) {
 }
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
+    if updater::INSTALLING.load(Ordering::SeqCst) {
+        return;
+    }
     app.exit(0);
 }
 #[tauri::command]
@@ -251,10 +283,19 @@ fn main() {
         }))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(autostart.build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updater::PendingUpdate::default())
         .invoke_handler(tauri::generate_handler![
             open_repository,
+            updater::check_update,
+            updater::install_update,
+            export_templates,
+            import_templates,
             validate_shortcuts,
             capture_selection,
+            mouse_source,
+            mouse_transfer,
             read_clipboard,
             write_clipboard,
             deliver_email,
@@ -309,7 +350,9 @@ fn main() {
         .expect("Unable to initialize VeraFlow")
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
-                if code.is_none() && EXIT_GUARD.load(Ordering::SeqCst) {
+                if updater::INSTALLING.load(Ordering::SeqCst) {
+                    api.prevent_exit();
+                } else if code.is_none() && EXIT_GUARD.load(Ordering::SeqCst) {
                     api.prevent_exit();
                     if let Some(w) = app.get_webview_window("main") {
                         let _ = w.show();
@@ -334,4 +377,56 @@ mod shortcut_tests {
         .is_ok());
         assert!(validate_shortcuts(vec!["not-a-real-key".into()]).is_err());
     }
+}
+
+#[tauri::command]
+async fn export_templates(app: tauri::AppHandle, json: String) -> Result<bool, String> {
+    use tauri_plugin_dialog::DialogExt;
+    if json.len() > 16 * 1024 * 1024 {
+        return Err("invalidImport".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(file) = app
+            .dialog()
+            .file()
+            .add_filter("JSON", &["json"])
+            .set_file_name("veraflow-templates.json")
+            .blocking_save_file()
+        else {
+            return Ok(false);
+        };
+        let path = file.into_path().map_err(|_| "storageFailed")?;
+        let dir = path.parent().ok_or("storageFailed")?;
+        let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| "storageFailed")?;
+        temp.write_all(json.as_bytes())
+            .map_err(|_| "storageFailed")?;
+        temp.as_file().sync_all().map_err(|_| "storageFailed")?;
+        temp.persist(path).map_err(|_| "storageFailed")?;
+        Ok(true)
+    })
+    .await
+    .map_err(|_| "storageFailed".to_string())?
+}
+#[tauri::command]
+async fn import_templates(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(file) = app
+            .dialog()
+            .file()
+            .add_filter("JSON", &["json"])
+            .blocking_pick_file()
+        else {
+            return Ok(None);
+        };
+        let path = file.into_path().map_err(|_| "storageFailed")?;
+        if std::fs::metadata(&path).map_err(|_| "storageFailed")?.len() > 16 * 1024 * 1024 {
+            return Err("invalidImport".into());
+        }
+        std::fs::read_to_string(path)
+            .map(Some)
+            .map_err(|_| "invalidImport".into())
+    })
+    .await
+    .map_err(|_| "storageFailed".to_string())?
 }

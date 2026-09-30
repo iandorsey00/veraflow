@@ -23,6 +23,27 @@ int vf_write(const char *text) {
         NSString *s = [NSString stringWithUTF8String:text]; if (!s) return 1;
         [pb clearContents]; return [pb setString:s forType:NSPasteboardTypeString] ? 0 : 1; }
 }
+// Hold the application identity only while the optional mouse panel is active.
+static NSRunningApplication *mouseSource = nil;
+int vf_mouse_source(int enabled) {
+    @autoreleasepool {
+        if(!enabled){mouseSource=nil;return 0;}
+        NSRunningApplication *current=NSWorkspace.sharedWorkspace.frontmostApplication;
+        if(current && current.processIdentifier!=getpid())mouseSource=current;
+        return mouseSource && !mouseSource.terminated;
+    }
+}
+int vf_focus_source(void) {
+    @autoreleasepool {
+        if(!mouseSource || mouseSource.terminated)return 2;
+        [mouseSource activateWithOptions:0];
+        for(int i=0;i<30;i++){
+            if(NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier==mouseSource.processIdentifier)return 0;
+            usleep(10000);
+        }
+        return 2;
+    }
+}
 char *vf_capture(int restore, int *error) {
     @autoreleasepool {
         if (!externalApp()) { *error = 2; return NULL; }

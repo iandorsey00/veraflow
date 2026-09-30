@@ -33,6 +33,23 @@ extern "C" int vf_write(const char *text) {
     if(!ok)GlobalFree(memory); return ok?0:1;
 }
 static bool external(HWND window) { DWORD pid=0; GetWindowThreadProcessId(window,&pid); return window && pid!=GetCurrentProcessId(); }
+// Access is serialized by the Rust clipboard lock. No selected text is monitored.
+static HWND mouseSource=nullptr;
+static DWORD mousePid=0;
+extern "C" int vf_mouse_source(int enabled) {
+    if(!enabled){mouseSource=nullptr;mousePid=0;return 0;}
+    HWND current=GetForegroundWindow();
+    if(external(current)){mouseSource=current;GetWindowThreadProcessId(current,&mousePid);}
+    DWORD pid=0; if(mouseSource)GetWindowThreadProcessId(mouseSource,&pid);
+    return mouseSource && IsWindow(mouseSource) && pid==mousePid;
+}
+extern "C" int vf_focus_source() {
+    DWORD pid=0; if(mouseSource)GetWindowThreadProcessId(mouseSource,&pid);
+    if(!mouseSource || !IsWindow(mouseSource) || pid!=mousePid || !external(mouseSource))return 2;
+    if(!SetForegroundWindow(mouseSource))return 2;
+    for(int i=0;i<30;i++){if(GetForegroundWindow()==mouseSource)return 0;Sleep(10);}
+    return 2;
+}
 extern "C" char *vf_capture(int restore,int *error) {
     HWND source=GetForegroundWindow(); if(!external(source)){*error=2;return nullptr;}
     if(!openClip()){*error=8;return nullptr;}

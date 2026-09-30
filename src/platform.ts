@@ -1,4 +1,4 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
@@ -11,7 +11,65 @@ import {
 } from "./core/model";
 export const desktop = isTauri();
 let previewLibrary: Library | null = null;
+export class ShortcutBindingError extends Error {
+  constructor(
+    public action: Action,
+    public shortcut: string,
+  ) {
+    super("shortcutFailed");
+  }
+}
 export const platform = {
+  async mouseSource(enabled: boolean): Promise<boolean> {
+    return desktop ? invoke("mouse_source", { enabled }) : false;
+  },
+  async mouseTransfer(restore: boolean): Promise<string> {
+    if (!desktop) throw Error("desktopRequired");
+    return invoke("mouse_transfer", { restore });
+  },
+  async checkUpdate(): Promise<{ version: string; notes: string } | null> {
+    if (!desktop) throw Error("desktopRequired");
+    return invoke("check_update");
+  },
+  async installUpdate(
+    onProgress: (event: {
+      stage: "downloading" | "installing";
+      downloaded?: number;
+      total?: number;
+    }) => void,
+  ) {
+    if (!desktop) throw Error("desktopRequired");
+    const progress = new Channel<Parameters<typeof onProgress>[0]>();
+    progress.onmessage = onProgress;
+    await invoke("install_update", { progress });
+  },
+  async exportTemplates(json: string) {
+    if (desktop) return invoke("export_templates", { json });
+    const url = URL.createObjectURL(
+      new Blob([json], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "veraflow-templates.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+  async importTemplates(): Promise<string | null> {
+    if (desktop) return invoke("import_templates");
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json,application/json";
+      input.oncancel = () => resolve(null);
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        resolve(
+          file ? (file.size > 16 * 1024 * 1024 ? "" : await file.text()) : null,
+        );
+      };
+      input.click();
+    });
+  },
   async deliver(text: string | null, tab: boolean) {
     if (!desktop) throw new Error("desktopRequired");
     await invoke("deliver_email", { text, tab });
@@ -77,25 +135,36 @@ export async function bindShortcuts(
   handler: (action: Action) => void,
 ): Promise<void> {
   if (!desktop) return;
-  if (shortcuts)
-    await invoke("validate_shortcuts", { shortcuts: Object.values(shortcuts) });
+  if (shortcuts) {
+    const active = actions.filter((a) => shortcuts[a].trim());
+    try {
+      await invoke("validate_shortcuts", {
+        shortcuts: active.map((a) => shortcuts[a]),
+      });
+    } catch (error) {
+      const index = Number(String(error).split(":").at(-1));
+      const action = active[Number.isInteger(index) ? index : 0] ?? "capture";
+      throw new ShortcutBindingError(action, shortcuts[action]);
+    }
+  }
   const previous = registered;
   await unregisterAll();
   const bind = async (map: Preferences["shortcuts"]) => {
-    if (
-      new Set(Object.values(map).map((s) => s.toLowerCase())).size !==
-      actions.length
-    )
-      throw new Error("shortcutFailed");
-    for (const action of actions)
-      await register(map[action], (event) => {
-        if (event.state === "Pressed") handler(action);
-      });
+    for (const action of actions) {
+      if (!map[action].trim()) continue;
+      try {
+        await register(map[action], (event) => {
+          if (event.state === "Pressed") handler(action);
+        });
+      } catch {
+        throw new ShortcutBindingError(action, map[action]);
+      }
+    }
   };
   try {
     if (shortcuts) await bind(shortcuts);
     registered = shortcuts ? { ...shortcuts } : null;
-  } catch {
+  } catch (error) {
     await unregisterAll();
     registered = null;
     if (previous) {
@@ -107,6 +176,6 @@ export async function bindShortcuts(
         throw new Error("shortcutFailed");
       }
     }
-    throw new Error("shortcutFailed");
+    throw error;
   }
 }

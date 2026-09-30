@@ -1,7 +1,7 @@
 name: Check
 on:
   push:
-    branches: ["**"]
+    branches-ignore: ["updates"]
   pull_request:
   workflow_call:
 permissions:

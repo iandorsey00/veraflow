@@ -38,7 +38,7 @@ macOS bundles appear under `src-tauri/target/release/bundle/`. Windows builds pr
 
 ## Workflow
 
-1. Create or edit a template with placeholders such as `<ticket_number>`, `<客户姓名>`, or `<地址>`. Repeated names share a field. Use a folder label to organize templates, and arrow buttons to change capture order.
+1. Create or edit a template with placeholders such as `{{ticket_number}}`, `{{客户姓名}}`, or `{{地址}}`. Repeated names share a field. Use a folder label to organize templates, and arrow buttons to change capture order.
 2. Start a session. The same window becomes a small, resizable, always-on-top panel. Return to the source app and select text.
 3. Press the capture shortcut. The panel stores the text and advances. You can also paste/type manually, or copy in the source app and choose **Use clipboard**. Cmd/Ctrl+Enter opens manual entry or submits and advances. Alt+Left/Right moves to the previous/next field within VeraFlow.
 4. After the last field, verification starts if enabled. Select each original value again and press the verification shortcut. A mismatch shows both values and emphasizes the differing span; it never overwrites the captured value.
@@ -46,7 +46,7 @@ macOS bundles appear under `src-tauri/target/release/bundle/`. Windows builds pr
 
 With a template selected, **Cmd/Ctrl+Enter** starts its session. Use Tab/Shift+Tab and Enter/Space to operate the remaining controls. In Settings → Verification, **Green background when verification succeeds** optionally colors the session area after all required fields pass (off by default).
 
-Default global shortcuts use **Cmd/Ctrl+Shift+1…8**: capture, previous, next, clear, skip, verify/start verification, cancel, and finish. All are configurable in Settings, registered only during sessions, and paused while the template/settings screen is shown. Registration conflicts leave the previous set in place or report an error. Capture can also verify during the verification pass. Capture and verification shortcuts always advance after success; the automatic advancement preference controls the manual buttons. Release shortcut modifiers promptly so the copy fallback can run.
+Default global shortcuts use **Cmd/Ctrl+Shift+1…8**: capture, previous, next, clear, skip, verify/start verification, cancel, and finish. All are configurable in Settings, registered only during sessions, and paused while the template/settings screen is shown. A registration conflict identifies the action and combination; a new session still opens with global shortcuts disabled for that session. Use manual entry, clipboard, or the mouse panel. Settings offers an alternate Cmd/Ctrl+Alt+Shift preset, a global-shortcut toggle, and blank combinations to disable individual actions. Capture can also verify during the verification pass. Capture and verification shortcuts always advance after success; the automatic advancement preference controls the manual buttons. Release shortcut modifiers promptly so the copy fallback can run.
 
 The **Verify** shortcut starts the second pass when capture is complete; subsequent presses retrieve source text. Without automatic advancement, use next/previous and start verification explicitly. All populated fields must pass when verification is required. Clear a field to recapture it; corrections invalidate its verification. Cancellation, replacement, quitting an active session, and discarding unsaved changes require confirmation.
 
@@ -54,7 +54,7 @@ The **Verify** shortcut starts the second pass when capture is complete; subsequ
 
 Comparison is deterministic and local. Newlines normalize CRLF and CR to LF. Optional NFC normalization handles canonically equivalent Unicode. Exact mode preserves spaces; whitespace mode trims and collapses whitespace, optionally preserving line boundaries. Case-insensitive comparison uses locale-independent Unicode lowercase, not language-specific case folding. Punctuation tolerance is off by default. Width variants, lookalikes (`0`/`O`), and fuzzy meanings do not match automatically. Comparison never transforms output values.
 
-Names are case-sensitive Unicode runs between `<` and `>`, excluding whitespace, controls, and delimiters. Literal angle-bracket words also count as placeholders; this is a plain-text template format, not HTML. Replacement is literal and preserves surrounding formatting.
+New templates use `{{name}}`; existing templates keep `<name>`. Choose either syntax per template; changing the setting does not rewrite the text. Names are case-sensitive Unicode runs excluding whitespace, controls, and delimiters. Braces preserve display-name addresses such as `Joe Smith <joe.smith@example.com>`. Escape an opening delimiter with a backslash (`\<literal>` or `\{{literal}}`); `\\` produces one literal backslash. Other backslashes are unchanged. Replacement is literal and never reparses inserted values.
 
 ## Architecture and storage
 
@@ -75,7 +75,7 @@ Session values, mismatch candidates, and rendered output are never written to ap
 - **macOS:** grant VeraFlow Accessibility permission in System Settings → Privacy & Security → Accessibility. Capture first reads accessible selected text. If unsupported, it sends Cmd+C, snapshots readable clipboard formats up to 32 MiB, and restores them if the clipboard is unchanged. macOS has no atomic pasteboard compare-and-swap, so restoration remains best effort. Some apps expose neither selection nor Copy.
 - **Windows:** uses Ctrl+C fallback. It preserves supported global-memory formats and refuses unfamiliar formats before copying when restoration is enabled. Elevated/protected apps may block synthetic input. VeraFlow does not request administrator privileges.
 - Clipboard history, Universal Clipboard/cloud clipboard, other clipboard managers, delayed-copy operations, secure input, or another app changing the clipboard can prevent reliable restoration. No copy-result provenance can be guaranteed against another process writing at exactly the same time. Errors leave the field unchanged and offer manual capture.
-- The source app must retain focus. Clicking VeraFlow's panel cannot retrieve a selection from a previously focused app; use the global shortcut from the source or the explicit clipboard/manual route.
+- Global capture requires source focus. The optional session-only **Mouse transfer panel** remembers the most recent external application/window while enabled, restores its focus on Transfer, and captures the selection. It is off on each new session; no selected text is monitored. Drag the floating window beside your source and keep Always on top enabled. Apps that clear selection on focus changes may require the keyboard or clipboard route. Automatic popups beside selections are not implemented.
 - No crash reporting or telemetry is configured. The operating system may independently collect crash information. No guarantee is made against force quit, power loss, OS dumps, or malicious local software.
 
 ## Screenshots
@@ -101,3 +101,11 @@ After capture and verification, choose **Prepare email output** (or press the co
 The destination must expose the same field order and optional fields; adjust focus manually when its Tab order differs. Output replaces the clipboard and does not restore it. Slow editors, recipient chips, or focus changes can prevent the intended result; inspect the destination before retrying any failed paste. After the Body, review your draft, return to VeraFlow, and use **Cmd/Ctrl+Enter** to finish and apply the session-erasure preference. Browser previews cannot inject keys into another app.
 
 Older libraries load with email mode off. Back up `library.json` before saving email templates: older binaries reject the additional template property, so downgrading requires a compatible backup.
+
+## Template exchange and updates
+
+**Export JSON** saves saved templates only, including email sections, comparison settings, and placeholder style. It excludes captured session values and app preferences. **Import JSON** validates a versioned VeraFlow archive, previews template names for confirmation, and adds copies with fresh IDs without overwriting existing templates. Archives are limited to 16 MB and libraries to 1,000 templates. XML is not supported. Templates can themselves contain private literal text; review them before sharing.
+
+**Update app** in Settings checks for a newer version. Review the version and release notes, then confirm to download, verify, install in place, and restart. Save or discard changes and finish or cancel any session first. Saved templates and settings stay in the app-data directory. There is no background installation. Windows shows installer progress; macOS may request permission to replace the app. Install macOS builds in a stable writable location such as Applications.
+
+Version 0.4.0 and earlier need one manual upgrade to 0.5.0 to gain this feature. The preview update feed is published only after all three platform packages pass signature and checksum verification. Update signatures verify package identity and version; they do not replace Apple notarization or Windows publisher signing, which remain unconfigured.

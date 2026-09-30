@@ -1,4 +1,44 @@
 export const en = {
+  mouseMode: "Mouse transfer panel",
+  mouseHelp:
+    "Select text in your source app, then click Transfer here. VeraFlow returns to that app to capture the selection. Drag this window beside your source; keep Always on top enabled in Settings. Some apps may clear selection when focus changes. This panel does not paste email sections.",
+  transfer: "Transfer",
+
+  placeholderStyle: "Placeholder syntax",
+  angleStyle: "Angle brackets: <name> (legacy)",
+  bracesStyle: "Double braces: {{name}} (recommended)",
+  bracePlaceholderHelp:
+    "Use {{field_name}} for a variable. Email addresses in <angle brackets> remain literal text.",
+  escapeHelp:
+    "Changing syntax does not rewrite your text. Prefix an opening delimiter with a backslash to keep it literal: \\<name> or \\{{name}}. Use \\\\ for a literal backslash.",
+  importTemplates: "Import JSON",
+  exportTemplates: "Export JSON",
+  invalidImport:
+    "This is not a valid VeraFlow template export, or it exceeds the size/template limit. No templates were imported.",
+  importConfirm:
+    "Import these templates as new copies? Existing templates will be kept.",
+  imported: "Templates imported as new copies.",
+  globalShortcuts: "Enable global shortcuts",
+  alternateShortcuts: "Use alternate shortcut preset",
+  updateHelp:
+    "Checks for a newer version, then downloads and installs it here after confirmation. VeraFlow restarts to finish. Complete your session and save changes first.",
+  updateBusy:
+    "Finish or cancel your session and save or discard changes before updating.",
+  updateChecking: "Checking for updates…",
+  updateCurrent: "You’re using the latest available version.",
+  updateConfirm:
+    "Install this update and restart VeraFlow? Saved templates and settings will be kept.",
+  updateDownloading: "Downloading and verifying update…",
+  updateInstalling: "Installing update. VeraFlow will restart…",
+  updateCheckFailed:
+    "Could not check for updates. Check your connection and try again.",
+  updateDownloadFailed:
+    "The update could not be downloaded or verified. Nothing was installed. Check your connection and try again.",
+  updateInstallFailed:
+    "The update could not be installed. Close other VeraFlow instances and check that the app is in a writable location, then try again.",
+  updateFailed: "The update could not be completed. Please try again.",
+  updateApp: "Update app…",
+
   emailFinished:
     "Email session finished. Review the draft in your email app before sending.",
   emailMode: "Email mode",
@@ -115,7 +155,7 @@ export const en = {
   shortcut: "Shortcut",
   shortcuts: "Global shortcuts",
   shortcutHelp:
-    "Use CommandOrControl, Alt, Shift, and a key, for example CommandOrControl+Shift+1. Shortcuts are active only during a session.",
+    "Use CommandOrControl, Alt, Shift, and a key, for example CommandOrControl+Shift+1. Shortcuts are active only during a session. Leave a combination blank to disable that action.",
   general: "General",
   language: "Language",
   theme: "Appearance",
