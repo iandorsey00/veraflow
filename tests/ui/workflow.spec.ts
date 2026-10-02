@@ -278,6 +278,11 @@ test("shortcut registration failure still opens a usable session", async ({
 test("JSON export imports copies without overwriting the original", async ({
   page,
 }) => {
+  const originalIds = await page
+    .locator("[data-template]")
+    .evaluateAll((nodes) =>
+      nodes.map((n) => (n as HTMLElement).dataset.template),
+    );
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export JSON", exact: true }).click();
   const download = await downloadPromise;
@@ -286,13 +291,19 @@ test("JSON export imports copies without overwriting the original", async ({
   await (await chooserPromise).setFiles((await download.path())!);
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.locator("[data-template]")).toHaveCount(2);
+  await expect(
+    page.getByText("Templates imported as new copies.", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("[data-template]")).toHaveCount(
+    originalIds.length * 2,
+  );
   const ids = await page
     .locator("[data-template]")
     .evaluateAll((nodes) =>
       nodes.map((n) => (n as HTMLElement).dataset.template),
     );
-  expect(new Set(ids).size).toBe(2);
+  expect(new Set(ids).size).toBe(originalIds.length * 2);
+  for (const id of originalIds) expect(ids).toContain(id);
 });
 
 test("mouse panel is opt-in and resets for a new session", async ({ page }) => {
