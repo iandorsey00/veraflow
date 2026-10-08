@@ -160,3 +160,17 @@ export async function deliverEmailSection(
     else s.deliveryDone = true;
   }
 }
+
+// Manual recovery only changes VeraFlow's section; never injects keys or claims paste success.
+export function moveEmailSection(s: Session, direction: -1 | 1): void {
+  if (s.mode !== "delivery") throw new Error("emailNotReady");
+  const parts = renderEmail(s),
+    index = s.deliveryIndex ?? 0;
+  if (direction === -1) {
+    if (s.deliveryDone) s.deliveryDone = false;
+    else s.deliveryIndex = Math.max(0, index - 1);
+  } else if (!s.deliveryDone) {
+    if (index < parts.length - 1) s.deliveryIndex = index + 1;
+    else s.deliveryDone = true;
+  }
+}

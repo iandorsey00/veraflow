@@ -38,6 +38,14 @@ try {
   await page.screenshot({
     path: "docs/portfolio/screenshots/01-template-library.png",
   });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByLabel("Green background for verified fields", { exact: true })
+    .check();
+  await page
+    .getByRole("button", { name: "Save settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Templates", exact: true }).click();
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();

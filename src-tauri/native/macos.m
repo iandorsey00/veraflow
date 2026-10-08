@@ -80,11 +80,11 @@ char *vf_capture(int restore, int *error) {
         }
         pid_t source = NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
         // Let the user's shortcut modifiers go before synthesizing Cmd+C.
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 300; i++) {
             CGEventFlags flags = CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState);
             if (!(flags & (kCGEventFlagMaskCommand | kCGEventFlagMaskControl | kCGEventFlagMaskAlternate | kCGEventFlagMaskShift))) break;
             usleep(10000);
-            if (i == 99) { *error = 5; return NULL; }
+            if (i == 299) { *error = 10; return NULL; }
         }
         if (pb.changeCount != originalCount || NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != source || !externalApp()) { *error = 6; return NULL; }
         CGEventRef down = CGEventCreateKeyboardEvent(NULL, 8, true), up = CGEventCreateKeyboardEvent(NULL, 8, false);
@@ -113,10 +113,10 @@ int vf_deliver(const char *text, int tab) {
         if (!externalApp()) return 2;
         if (!AXIsProcessTrusted()) return 3;
         pid_t target = NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 300; i++) {
             CGEventFlags flags = CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState);
             if (!(flags & (kCGEventFlagMaskCommand | kCGEventFlagMaskControl | kCGEventFlagMaskAlternate | kCGEventFlagMaskShift))) break;
-            usleep(10000); if (i == 99) return 5;
+            usleep(10000); if (i == 299) return 10;
         }
         if (NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != target) return 6;
         CGEventRef down = CGEventCreateKeyboardEvent(NULL, text ? 9 : 48, true);

@@ -91,7 +91,10 @@ test("Unicode template, order, duplication, deletion and unsaved guard", async (
   );
   await expect(page.locator(".template-item")).toHaveCount(4);
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
   await expect(page.locator(".template-item")).toHaveCount(3);
 });
 test("Chinese, dark appearance, no verification, narrow UI and keyboard form entry", async ({
@@ -149,7 +152,7 @@ test("keyboard start, capture and navigation; optional verified background", asy
   page,
 }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const green = page.getByLabel("Green background when verification succeeds");
+  const green = page.getByLabel("Green background for verified fields");
   await expect(green).not.toBeChecked();
   await green.check();
   await page.getByLabel("Advance automatically", { exact: true }).uncheck();
@@ -181,13 +184,17 @@ test("keyboard start, capture and navigation; optional verified background", asy
   await expect(page.locator("body")).not.toHaveClass(/verified-background/);
   await page.keyboard.type("Alex");
   await page.keyboard.press("Control+Enter");
+  await expect(page.locator("#field-0")).toHaveClass(/verified-background/);
+  await expect(page.locator("#field-1")).not.toHaveClass(/verified-background/);
   await page.keyboard.type("PR-1O4");
   await page.keyboard.press("Control+Enter");
   await expect(page.getByRole("heading", { name: "! Mismatch" })).toBeVisible();
   await expect(page.locator("body")).not.toHaveClass(/verified-background/);
   await page.getByLabel("Paste or type a value").fill("PR-104");
   await page.keyboard.press("Control+Enter");
-  await expect(page.locator("body")).toHaveClass(/verified-background/);
+  await expect(page.locator("#field-0")).toHaveClass(/verified-background/);
+  await expect(page.locator("#field-1")).toHaveClass(/verified-background/);
+  await expect(page.locator("body")).not.toHaveClass(/verified-background/);
   await expect(
     page.getByRole("button", { name: "Copy result", exact: true }),
   ).toBeFocused();
@@ -290,7 +297,10 @@ test("JSON export imports copies without overwriting the original", async ({
   await page.getByRole("button", { name: "Import JSON", exact: true }).click();
   await (await chooserPromise).setFiles((await download.path())!);
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Import JSON", exact: true })
+    .click();
   await expect(
     page.getByText("Templates imported as new copies.", { exact: true }),
   ).toBeVisible();
@@ -320,11 +330,101 @@ test("mouse panel is opt-in and resets for a new session", async ({ page }) => {
   await page
     .getByRole("button", { name: "Cancel session", exact: true })
     .click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Erase session", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();
   await expect(
     page.getByLabel("Mouse transfer panel", { exact: true }),
   ).not.toBeChecked();
+});
+
+test("unsafe clipboard recovery changes only this session and retries mouse transfer", async ({
+  page,
+}) => {
+  await page.route("**/src/platform.ts*", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body:
+        (await response.text()) +
+        `\nplatform.mouseSource=async()=>true; platform.mouseTransfer=async(restore)=>{ if(restore)throw Error("clipboardUnsafe"); return "Recovered"; };`,
+    });
+  });
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await page.getByLabel("Mouse transfer panel", { exact: true }).check();
+  await page.getByRole("button", { name: "Transfer", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "cannot be safely preserved",
+  );
+  await page
+    .getByLabel("Preserve clipboard for this session", { exact: true })
+    .uncheck();
+  await page.getByRole("button", { name: "Transfer", exact: true }).click();
+  await expect(page.locator(".field-value").first()).toHaveText("Recovered");
+  await page
+    .getByRole("button", { name: "Cancel session", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Erase session", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Preserve clipboard for this session", { exact: true }),
+  ).toBeChecked();
+});
+test("failed email paste can be recovered with manual keyboard navigation", async ({
+  page,
+}) => {
+  await page.route("**/src/main.ts*", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body: (await response.text()) + `\nwindow.__dispatch = dispatch;`,
+    });
+  });
+  await page.route("**/src/platform.ts*", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body:
+        (await response.text()) +
+        `\nplatform.deliver=async()=>{window.__deliverCalls=(window.__deliverCalls||0)+1;throw Error("emailPasteFailed");};`,
+    });
+  });
+  await page.reload();
+  await page.getByLabel("Template text", { exact: true }).fill("Body");
+  await page.getByLabel("Email mode", { exact: true }).check();
+  await page.getByLabel("Subject", { exact: true }).fill("Subject text");
+  await page.getByLabel("To", { exact: true }).fill("alex@example.test");
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Prepare email output", exact: true })
+    .click();
+  await page.evaluate(() => (window as any).__dispatch("finish"));
+  await expect(page.getByRole("alert")).toContainText("could not be confirmed");
+  await expect(page.locator(".output")).toHaveText("Subject text");
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect(page.locator(".output")).toHaveText("alex@example.test");
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect(page.locator(".output")).toHaveText("Subject text");
+  await page
+    .getByRole("button", { name: "Next section (manual)", exact: true })
+    .click();
+  await page.keyboard.press("Alt+ArrowRight");
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect(
+    page.getByRole("button", { name: "Finish email session", exact: true }),
+  ).toBeEnabled();
+  expect(await page.evaluate(() => (window as any).__deliverCalls)).toBe(1);
 });

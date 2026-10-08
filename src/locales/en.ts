@@ -1,4 +1,16 @@
 export const en = {
+  updateNow: "Update now",
+  discardChanges: "Discard changes",
+  eraseSession: "Erase session",
+  clearAndSkip: "Clear and skip",
+  preserveClipboard: "Preserve clipboard for this session",
+  preserveClipboardHelp:
+    "If capture cannot preserve your clipboard, turn this off and retry the shortcut or Transfer. Capturing will replace your existing clipboard. This choice resets each session.",
+  emailManualBack: "Previous section (manual)",
+  emailManualNext: "Next section (manual)",
+  modifiersHeld:
+    "Release all shortcut keys, then retry. No paste or navigation was requested.",
+
   mouseMode: "Mouse transfer panel",
   mouseHelp:
     "Select text in your source app, then click Transfer here. VeraFlow returns to that app to capture the selection. Drag this window beside your source; keep Always on top enabled in Settings. Some apps may clear selection when focus changes. This panel does not paste email sections.",
@@ -60,9 +72,9 @@ export const en = {
   emailPasteNext: "Paste section and advance",
   emailGoBack: "Previous section (Shift+Tab)",
   emailBackHelp:
-    "Going back moves focus; it does not undo a paste. Select existing text before repasting. Output replaces the clipboard.",
+    "Going back moves focus; it does not undo a paste. Select existing text before repasting. Output replaces the clipboard. Manual Back/Next and Alt+Left/Right change only the section here; adjust email focus yourself. The global Next shortcut also advances manually.",
   emailBodyPasted:
-    "Body paste requested. Review the email, then return here and finish with Cmd/Ctrl+Enter.",
+    "Review every section in your email app before finishing with Cmd/Ctrl+Enter. Manual advance does not confirm a paste.",
   emailCopy: "Copy current section",
   emailDone: "Finish email session",
   emailPrepare: "Prepare email output",
@@ -155,7 +167,7 @@ export const en = {
   shortcut: "Shortcut",
   shortcuts: "Global shortcuts",
   shortcutHelp:
-    "Use CommandOrControl, Alt, Shift, and a key, for example CommandOrControl+Shift+1. Shortcuts are active only during a session. Leave a combination blank to disable that action.",
+    "Use CommandOrControl, Alt, Shift, and a key, for example CommandOrControl+Shift+1. Cmd/Ctrl+Shift+N may already be assigned by your system or another app; try CommandOrControl+Alt+N for letter bindings. Shortcuts are active only during a session. Leave a combination blank to disable that action.",
   general: "General",
   language: "Language",
   theme: "Appearance",
@@ -165,7 +177,7 @@ export const en = {
   launchAtLogin: "Launch at login",
   minimizeToTray: "Close window to menu bar / system tray",
   alwaysOnTop: "Keep capture window on top",
-  verifiedBackground: "Green background when verification succeeds",
+  verifiedBackground: "Green background for verified fields",
   keyboardHelp:
     "Cmd/Ctrl+Enter starts the selected template. In a session, it opens manual entry or submits and advances. Alt+Left/Right moves between fields.",
   autoAdvance: "Advance automatically",
@@ -203,7 +215,7 @@ export const en = {
   accessibility:
     "Enable VeraFlow in System Settings → Privacy & Security → Accessibility, then retry. You can also copy text yourself and choose Use clipboard.",
   clipboardUnsafe:
-    "The clipboard contains data that cannot be safely preserved. Copy the source text yourself, then choose Use clipboard.",
+    "The existing clipboard cannot be safely preserved. Turn off Preserve clipboard for this session and retry, or copy the source text yourself and choose Use clipboard.",
   copyTimeout:
     "Copy did not complete. Release the shortcut keys, check source-app permissions, and retry, or copy the text yourself.",
   clipboardChanged:

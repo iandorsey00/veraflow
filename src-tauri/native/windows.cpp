@@ -75,9 +75,9 @@ extern "C" char *vf_capture(int restore,int *error) {
         }
     }
     CloseClipboard();
-    for(int i=0;i<100;i++) {
+    for(int i=0;i<300;i++) {
         if(!((GetAsyncKeyState(VK_CONTROL)|GetAsyncKeyState(VK_SHIFT)|GetAsyncKeyState(VK_MENU)|GetAsyncKeyState(VK_LWIN)|GetAsyncKeyState(VK_RWIN))&0x8000))break;
-        Sleep(10); if(i==99){*error=5;return nullptr;}
+        Sleep(10); if(i==299){*error=10;return nullptr;}
     }
     if(GetForegroundWindow()!=source || GetClipboardSequenceNumber()!=sequence){*error=6;return nullptr;}
     INPUT keys[4]={}; for(auto &key:keys)key.type=INPUT_KEYBOARD;
@@ -110,9 +110,9 @@ extern "C" char *vf_capture(int restore,int *error) {
 // Deliberate output only: Paste and Tab/Shift+Tab, never Return or Send.
 extern "C" int vf_deliver(const char *text, int tab) {
     HWND target=GetForegroundWindow(); if(!external(target))return 2;
-    for(int i=0;i<100;i++) {
+    for(int i=0;i<300;i++) {
         if(!((GetAsyncKeyState(VK_CONTROL)|GetAsyncKeyState(VK_SHIFT)|GetAsyncKeyState(VK_MENU)|GetAsyncKeyState(VK_LWIN)|GetAsyncKeyState(VK_RWIN))&0x8000))break;
-        Sleep(10); if(i==99)return 5;
+        Sleep(10); if(i==299)return 10;
     }
     if(GetForegroundWindow()!=target)return 6;
     if(text && vf_write(text))return 8;

@@ -1,5 +1,16 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  updateNow: "立即更新",
+  discardChanges: "放弃更改",
+  eraseSession: "清除会话",
+  clearAndSkip: "清空并跳过",
+  preserveClipboard: "本次会话保留剪贴板",
+  preserveClipboardHelp:
+    "如无法保留剪贴板，可关闭此选项后重试快捷键或转移。捕获将替换剪贴板原有内容。每次新会话会重置此选项。",
+  emailManualBack: "上一部分（手动）",
+  emailManualNext: "下一部分（手动）",
+  modifiersHeld: "请松开所有快捷键后重试。未请求粘贴或导航。",
+
   mouseMode: "鼠标传输面板",
   mouseHelp:
     "在来源应用中选中文字，然后点击此处的传输。核流会返回该应用并采集所选内容。可将窗口拖到来源旁边，并在设置中启用置顶。部分应用在失去焦点时会清除选择。此面板不用于粘贴邮件分区。",
@@ -55,9 +66,9 @@ export const zh: Record<keyof typeof en, string> = {
   emailPasteNext: "粘贴此部分并前进",
   emailGoBack: "上一部分（Shift+Tab）",
   emailBackHelp:
-    "返回只移动焦点，不撤销粘贴。重新粘贴前请选择原有文本。输出会替换剪贴板。",
+    "返回只移动焦点，不撤销粘贴。重新粘贴前请选择原有文本。输出会替换剪贴板。手动上一部分/下一部分和 Alt+左/右仅切换核流中的部分，请自行调整邮件焦点。全局下一字段快捷键也可手动前进。",
   emailBodyPasted:
-    "已请求粘贴正文。请检查邮件，然后返回此处按 Cmd/Ctrl+Enter 完成。",
+    "完成前请检查邮件的每个部分。手动前进并不确认已粘贴。返回此处按 Cmd/Ctrl+Enter 完成。",
   emailCopy: "复制当前部分",
   emailDone: "完成邮件会话",
   emailPrepare: "准备邮件输出",
@@ -157,7 +168,7 @@ export const zh: Record<keyof typeof en, string> = {
   launchAtLogin: "登录时启动",
   minimizeToTray: "关闭窗口时最小化到菜单栏或系统托盘",
   alwaysOnTop: "采集窗口置顶",
-  verifiedBackground: "核验成功后显示绿色背景",
+  verifiedBackground: "已核验字段显示绿色背景",
   keyboardHelp:
     "Cmd/Ctrl+Enter 开始所选模板的会话；会话中打开手动输入或提交并前进。Alt+左/右箭头切换字段。",
   autoAdvance: "自动前进到下一字段",
@@ -192,7 +203,7 @@ export const zh: Record<keyof typeof en, string> = {
   accessibility:
     "请在系统设置 → 隐私与安全性 → 辅助功能中启用 VeraFlow，然后重试。也可自行复制文本，再选择“使用剪贴板”。",
   clipboardUnsafe:
-    "剪贴板包含无法安全保留的数据。请自行复制来源文本，再选择“使用剪贴板”。",
+    "原剪贴板无法安全保留。可关闭“本次会话保留剪贴板”后重试，或自行复制来源文本并选择“使用剪贴板”。",
   copyTimeout:
     "复制未完成。请松开快捷键，检查来源应用权限后重试，或自行复制文本。",
   clipboardChanged:
@@ -204,7 +215,8 @@ export const zh: Record<keyof typeof en, string> = {
   storageFailed: "本地存储不可用。更改尚未保存，请检查磁盘权限后重试。",
   invalidLibrary:
     "无法读取已保存的模板库。请从备份恢复 library.json；原文件未被覆盖。",
-  shortcutFailed: "快捷键无效、重复或已被其他应用占用，请选择其他组合。",
+  shortcutFailed:
+    "快捷键无效、重复或已被其他应用占用，请选择其他组合。Cmd/Ctrl+Shift+N 可能被系统或其他应用占用，可尝试 Cmd/Ctrl+Alt+N。",
   desktopRequired: "请在桌面应用中使用此功能。",
   nameRequired: "请输入模板名称。",
   trayFailed: "无法更新菜单，请重试。",

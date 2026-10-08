@@ -689,11 +689,6 @@ dialog::backdrop {
 }
 
 /* A calm optional success surface, using the existing light/dark palette. */
-body.verified-background,
-body.verified-background #app,
-body.verified-background .capture-panel {
+.capture-field.verified-background {
   background: var(--success-bg);
-}
-body.verified-background {
-  min-height: 100vh;
 }

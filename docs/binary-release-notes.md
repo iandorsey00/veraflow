@@ -1,16 +1,19 @@
-VeraFlow 核流 0.5.0 is a **publisher-unsigned preview** adding signed in-place updates, nonblocking shortcut startup, safer placeholder syntax, JSON template exchange, and an optional mouse transfer panel.
+VeraFlow 核流 0.5.1 is a **publisher-unsigned preview** improving clipboard recovery, email navigation, verification highlighting, dialog clarity, and update discovery.
 
-- **Update app** checks for a new version, shows release notes, and downloads, verifies, installs, and restarts after confirmation. Finish sessions and save changes first. Version 0.4.0 and earlier need this one manual upgrade to gain the updater.
-- Shortcut registration errors identify the affected combination and no longer block starting a session. Disable individual/global shortcuts or try the alternate preset in Settings.
-- New templates use `{{name}}`; existing `<name>` templates keep their syntax. Choose either style per template and escape literal delimiters with a backslash. Display-name email addresses stay literal in braces mode.
-- Import/export saved templates as versioned JSON. Imports add copies and never overwrite existing templates.
-- Mouse transfer panel is off by default. Select text in another app, then click Transfer in the floating panel. Back/Forward navigate fields. Selection retention varies by app; automatic selection popups are not included.
+- If capture cannot safely preserve your clipboard, disable **Preserve clipboard for this session**, then retry the shortcut or Transfer. Capture will replace the existing clipboard; new sessions reset to the saved setting.
+- Optional green backgrounds apply only to individual verified fields, never the whole window.
+- Email output has manual Back/Next buttons and Alt+Left/Right navigation inside VeraFlow. The configured global Next shortcut advances without injecting keys. Inspect or fill the destination first; manual advance does not confirm a paste.
+- Copy/paste waits up to three seconds for shortcut modifiers to release. Held keys, missing Accessibility permission, source focus, and busy clipboard errors now retain specific recovery guidance.
+- Confirmation buttons name the action, such as **Erase session**, **Discard changes**, or **Update now**.
+- Desktop startup quietly checks for an update; **Update now** appears on the main page only when one is available. Installation still requires confirmation and finished/saved work. Version 0.5.0 can use Settings → Update app; 0.4.0 and earlier need a manual upgrade.
+- Cmd/Ctrl+Shift+N may conflict with your system or another app. Use Cmd/Ctrl+Alt+N when available; VeraFlow cannot override an occupied shortcut.
+- Updated source-map-js to the patched 1.2.2 build dependency.
 
 | Platform                | Download                                |
 | ----------------------- | --------------------------------------- |
-| macOS 12+ Apple Silicon | `VeraFlow_v0.5.0_macos-arm64.zip`       |
-| macOS 12+ Intel         | `VeraFlow_v0.5.0_macos-x64.zip`         |
-| Windows x64             | `VeraFlow_v0.5.0_windows-x64-setup.exe` |
+| macOS 12+ Apple Silicon | `VeraFlow_v0.5.1_macos-arm64.zip`       |
+| macOS 12+ Intel         | `VeraFlow_v0.5.1_macos-x64.zip`         |
+| Windows x64             | `VeraFlow_v0.5.1_windows-x64-setup.exe` |
 
 On macOS, extract the archive and move VeraFlow.app to Applications. These builds are not Developer ID signed or notarized. macOS may require per-app approval through System Settings → Privacy & Security → Open Anyway. Grant Accessibility permission for source-text capture. On Windows, run the installer; expect an unrecognized-publisher warning. WebView2 may be installed if absent. Only approve a download you trust; do not disable system-wide security protections.
 

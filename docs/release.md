@@ -1,8 +1,14 @@
 # Release and rollback
 
+## 0.5.1 recovery and usability fixes
+
+FRC selected because these fixes affect native clipboard capture, keyboard delivery, and update discovery. Version 0.5.1 adds an explicit session-only clipboard-preservation choice, manual email Back/Next navigation without injected keys, green backgrounds on verified fields only, specific held-modifier/permission errors, clear confirmation actions, and a main-page Update now action after a quiet startup check. The existing signed-package, downloaded-checksum, and feed-publication gates remain mandatory. Dependencies include the patched source-map-js 1.2.2 build dependency.
+
+No storage-schema change is introduced. Version 0.5.0 can update in place after confirmation; 0.4.0 and earlier need a manual download. Back up the library before installing. Roll back manually with the existing 0.5.0 binary and a compatible library backup; the update feed deliberately does not advertise downgrades. Native cross-app acceptance and publisher signing remain preview limitations.
+
 ## 0.5.0 signed update pipeline
 
-FRC selected for in-place software installation and the accumulated template, shortcut, and native mouse-panel changes. The updater runs only after an explicit button click and install confirmation. Frontend and native guards reject installation during unsaved work or active sessions. Tauri verifies HTTPS downloads with the embedded public key and requires an authenticated version in the signature before installation. Source URLs are restricted to this repository’s versioned GitHub Release assets. Release notes are rendered as text. Download progress is shown; installation restarts the application and preserves app-data files.
+FRC selected for in-place software installation and the accumulated template, shortcut, and native mouse-panel changes. Installation runs only after an explicit button click and install confirmation. Version 0.5.1 also checks quietly for availability at startup. Frontend and native guards reject installation during unsaved work or active sessions. Tauri verifies HTTPS downloads with the embedded public key and requires an authenticated version in the signature before installation. Source URLs are restricted to this repository’s versioned GitHub Release assets. Release notes are rendered as text. Download progress is shown; installation restarts the application and preserves app-data files.
 
 ### One-time signing setup
 

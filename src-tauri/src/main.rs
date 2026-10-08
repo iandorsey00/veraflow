@@ -35,6 +35,7 @@ fn error_code(code: i32) -> String {
         6 => "clipboardChanged",
         7 => "restoreFailed",
         9 => "invalidText",
+        10 => "modifiersHeld",
         _ => "clipboardBusy",
     }
     .into()
@@ -173,7 +174,10 @@ async fn deliver_email(text: Option<String>, tab: bool) -> Result<(), String> {
         if result == 0 {
             Ok(())
         } else {
-            Err("emailPasteFailed".to_string())
+            Err(match result {
+                2 | 3 | 8 | 10 => error_code(result),
+                _ => "emailPasteFailed".to_string(),
+            })
         }
     })
     .await

@@ -26,6 +26,7 @@ import {
   renderSession,
   renderEmail,
   deliverEmailSection,
+  moveEmailSection,
   eraseSession,
 } from "./core/session";
 import { parseTemplateArchive, exportTemplateArchive } from "./core/transfer";
@@ -51,6 +52,11 @@ let selected = "",
 let pendingFocus: string | null = null;
 let manualOpen = false;
 let mouseMode = false;
+let preserveClipboard = true;
+let availableUpdate: Awaited<ReturnType<typeof platform.checkUpdate>> = null;
+let updateCheck: Promise<
+  Awaited<ReturnType<typeof platform.checkUpdate>>
+> | null = null;
 let watchingSource = false;
 let mousePolling = false;
 setInterval(async () => {
@@ -157,24 +163,14 @@ function applyAppearance() {
 }
 function render() {
   applyAppearance();
-  const verified =
-    view === "session" &&
-    (session?.mode === "ready" || session?.mode === "delivery") &&
-    session.template.verificationEnabled &&
-    session.fields.some((f) => f.status === "verified") &&
-    session.fields.every(
-      (f) => f.status === "verified" || f.status === "skipped",
-    );
-  document.body.classList.toggle(
-    "verified-background",
-    !!verified && library.preferences.verifiedBackground,
-  );
   root.className = view === "session" ? "compact" : "";
   root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
+    <div id="update-banner">${view !== "session" && availableUpdate ? button("update-now", "updateNow") : ""}</div>
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
     ${view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
     ${view !== "session" ? `<footer><span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
+  click("update-now", updateApp);
   click("nav-templates", () => navigate("templates"));
   click("nav-settings", () => navigate("settings"));
   click("nav-session", () => navigate("session"));
@@ -481,44 +477,64 @@ function settingsView(): string {
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("quitPrivacy"))}</p></section>
   <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><div class="actions">${button("update-app", "updateApp")}</div><p class="hint">${esc(t("updateHelp"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
 }
-function bindSettings() {
-  click("update-app", async () => {
-    if (dirty || (session && session.mode !== "complete"))
-      throw Error("updateBusy");
-    notify("updateChecking");
-    const update = await platform.checkUpdate();
-    if (!update) {
-      notify("updateCurrent");
+async function checkAvailableUpdate() {
+  if (updateCheck) return updateCheck;
+  updateCheck = (async () => {
+    availableUpdate = await platform.checkUpdate();
+    const banner = document.getElementById("update-banner");
+    if (banner && view !== "session") {
+      banner.innerHTML = availableUpdate
+        ? button("update-now", "updateNow")
+        : "";
+      click("update-now", updateApp);
+    }
+    return availableUpdate;
+  })();
+  try {
+    return await updateCheck;
+  } finally {
+    updateCheck = null;
+  }
+}
+async function updateApp() {
+  if (dirty || (session && session.mode !== "complete"))
+    throw Error("updateBusy");
+  notify("updateChecking");
+  const update = await checkAvailableUpdate();
+  if (!update) {
+    notify("updateCurrent");
+    return;
+  }
+  if (
+    !(await confirmAction(
+      "updateConfirm",
+      `VeraFlow ${update.version}\n\n${update.notes}`,
+    ))
+  ) {
+    message = "";
+    render();
+    return;
+  }
+  if (dirty || (session && session.mode !== "complete"))
+    throw Error("updateBusy");
+  notify("updateDownloading");
+  let lastProgress = 0;
+  await platform.installUpdate((event) => {
+    if (event.stage === "installing") {
+      notify("updateInstalling");
       return;
     }
-    if (
-      !(await confirmAction(
-        "updateConfirm",
-        `VeraFlow ${update.version}\n\n${update.notes}`,
-      ))
-    ) {
-      message = "";
-      render();
-      return;
-    }
-    if (dirty || (session && session.mode !== "complete"))
-      throw Error("updateBusy");
-    notify("updateDownloading");
-    let lastProgress = 0;
-    await platform.installUpdate((event) => {
-      if (event.stage === "installing") {
-        notify("updateInstalling");
-        return;
-      }
-      if (Date.now() - lastProgress < 200) return;
-      lastProgress = Date.now();
-      message = t("updateDownloading");
-      if (event.total && event.downloaded !== undefined)
-        message += ` ${Math.min(100, Math.floor((event.downloaded / event.total) * 100))}%`;
-      failure = false;
-      render();
-    });
+    if (Date.now() - lastProgress < 200) return;
+    lastProgress = Date.now();
+    message = t("updateDownloading");
+    if (event.total && event.downloaded !== undefined)
+      message += ` ${Math.min(100, Math.floor((event.downloaded / event.total) * 100))}%`;
+    failure = false;
+    render();
   });
+}
+function bindSettings() {
+  click("update-app", updateApp);
   click("alternate-shortcuts", () => {
     actions.forEach((action, index) => {
       settingsDraft!.shortcuts[action] =
@@ -617,6 +633,7 @@ async function launch(template: Template) {
   session = startSession(template);
   manualOpen = false;
   mouseMode = false;
+  preserveClipboard = library.preferences.restoreClipboard;
   await platform.mouseSource(false);
   await platform.active(true);
   view = "session";
@@ -637,7 +654,7 @@ function sessionView(): string {
   if (s.mode === "delivery") {
     const parts = renderEmail(s),
       index = s.deliveryIndex ?? 0;
-    return `<main class="capture-panel"><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", "cancelSession", "quiet danger")}</div></main>`;
+    return `<main class="capture-panel"><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", "cancelSession", "quiet danger")}</div></main>`;
   }
   const mode = s.mode === "verify" ? "verify" : "capture";
   const done = s.fields.filter(
@@ -666,9 +683,10 @@ function sessionView(): string {
     }
   }
   return `<main class="capture-panel"><div class="section-head"><span class="wordmark small">VeraFlow <span lang="zh-CN">核流</span></span>${button("session-back", "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p><h1>${esc(s.template.name)}</h1><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
+  ${s.mode !== "ready" ? check("preserve-clipboard", "preserveClipboard", preserveClipboard) + `<p class="hint">${esc(t("preserveClipboardHelp"))}</p>` : ""}
   ${check("mouse-mode", "mouseMode", mouseMode)}
   ${mouseMode ? `<p class="hint">${esc(t("mouseHelp"))}</p><div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
-  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li><button id="field-${index}" data-field="${index}" class="capture-field ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button></li>`).join("")}</ol>
+  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button></li>`).join("")}</ol>
   ${f ? `<details class="inspect"><summary>${esc(t("expand"))}: ${esc(f.name)}</summary><pre>${esc(f.value ?? "—")}</pre></details>` : ""}
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
   ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form><p class="hint">${esc(t("clipboardHelp"))}</p></details>` : ""}
@@ -690,12 +708,17 @@ function bindSession() {
   });
   click("mouse-transfer", async () => {
     if (!session || !["capture", "verify"].includes(session.mode)) return;
-    await accept(
-      await platform.mouseTransfer(library.preferences.restoreClipboard),
-    );
+    await accept(await platform.mouseTransfer(preserveClipboard));
   });
   click("mouse-back", () => perform("previous"));
   click("mouse-forward", () => perform("next"));
+  on("preserve-clipboard", "change", (e) => {
+    preserveClipboard = (e.target as HTMLInputElement).checked;
+    message = "";
+    render();
+  });
+  click("email-back", () => perform("previous"));
+  click("email-next", () => perform("next"));
   click("email-copy", async () => {
     await platform.copy(
       renderEmail(session!)[session!.deliveryIndex ?? 0].text,
@@ -796,8 +819,13 @@ async function perform(action: Action, global = false) {
   // Global navigation is frozen while an editor/settings screen or confirmation is open.
   if (view !== "session") return;
   if (s.mode === "delivery" && action !== "cancel") {
-    if (!global || (action !== "previous" && action !== "finish")) return;
-    await deliverEmailSection(s, action === "previous", platform.deliver);
+    if (!global && (action === "previous" || action === "next")) {
+      moveEmailSection(s, action === "previous" ? -1 : 1);
+    } else if (global && action === "next") {
+      moveEmailSection(s, 1);
+    } else if (global && (action === "previous" || action === "finish")) {
+      await deliverEmailSection(s, action === "previous", platform.deliver);
+    } else return;
     message = "";
     render();
     return;
@@ -805,15 +833,9 @@ async function perform(action: Action, global = false) {
   switch (action) {
     case "capture":
       if (s.mode === "verify")
-        await accept(
-          await platform.capture(library.preferences.restoreClipboard),
-          true,
-        );
+        await accept(await platform.capture(preserveClipboard), true);
       else if (s.mode !== "ready")
-        await accept(
-          await platform.capture(library.preferences.restoreClipboard),
-          true,
-        );
+        await accept(await platform.capture(preserveClipboard), true);
       return;
     case "verify":
       if (s.mode === "capture") {
@@ -821,10 +843,7 @@ async function perform(action: Action, global = false) {
         break;
       }
       if (s.mode === "verify")
-        await accept(
-          await platform.capture(library.preferences.restoreClipboard),
-          true,
-        );
+        await accept(await platform.capture(preserveClipboard), true);
       return;
     case "previous":
       move(s, -1);
@@ -883,7 +902,17 @@ async function confirmAction(key: Key, detail = ""): Promise<boolean> {
   const prior = document.activeElement as HTMLElement | null;
   const dialog = document.createElement("dialog");
   dialog.setAttribute("aria-labelledby", "confirmation-title");
-  dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(key))}</h2>${detail ? `<pre>${esc(detail)}</pre>` : ""}<div class="actions"><button value="no" autofocus>${esc(t("keep"))}</button><button value="yes" class="danger">${esc(t("confirm"))}</button></div></form>`;
+  const labels: Partial<Record<Key, Key>> = {
+    deleteConfirm: "delete",
+    discardConfirm: "discardChanges",
+    sessionConfirm: "eraseSession",
+    quitConfirm: "quit",
+    skipConfirm: "clearAndSkip",
+    importConfirm: "importTemplates",
+    updateConfirm: "updateNow",
+  };
+  const action = labels[key] ?? "confirm";
+  dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(key))}</h2>${detail ? `<pre>${esc(detail)}</pre>` : ""}<div class="actions"><button value="no" autofocus>${esc(t("keep"))}</button><button value="yes" class="${["deleteConfirm", "discardConfirm", "sessionConfirm", "quitConfirm", "skipConfirm"].includes(key) ? "danger" : "primary"}">${esc(t(action))}</button></div></form>`;
   document.body.append(dialog);
   dialog.showModal();
   return new Promise((resolve) =>
@@ -989,6 +1018,10 @@ async function init() {
   }
   if (library.templates[0]) selectTemplate(library.templates[0].id);
   render();
+  if (desktop)
+    void checkAvailableUpdate().catch(() => {
+      /* Settings offers a retry. */
+    });
   await platform.tray(
     (action) =>
       void run(async () => {

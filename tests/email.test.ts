@@ -11,6 +11,7 @@ import {
   verify,
   renderEmail,
   deliverEmailSection,
+  moveEmailSection,
 } from "../src/core/session";
 import { templateSource } from "../src/core/template";
 const template = (): Template => ({
@@ -103,4 +104,29 @@ test("output advances only on success, supports back, and never tabs after Body"
   await deliverEmailSection(s, true, send);
   assert.equal(s.deliveryDone, false);
   assert.equal(s.deliveryIndex, 1);
+});
+
+test("manual recovery moves sections after failed injection without sending any keys", async () => {
+  const t = template();
+  t.content = "Body";
+  t.email!.subject = "Subject";
+  t.email!.to = "alex@example.test";
+  const s = startSession(t);
+  s.mode = "delivery";
+  await assert.rejects(
+    deliverEmailSection(s, false, async () => {
+      throw Error("emailPasteFailed");
+    }),
+  );
+  moveEmailSection(s, 1);
+  assert.equal(s.deliveryIndex, 1);
+  moveEmailSection(s, -1);
+  assert.equal(s.deliveryIndex, 0);
+  moveEmailSection(s, 1);
+  moveEmailSection(s, 1);
+  moveEmailSection(s, 1);
+  assert.equal(s.deliveryDone, true);
+  moveEmailSection(s, -1);
+  assert.equal(s.deliveryDone, false);
+  assert.equal(s.deliveryIndex, 2);
 });
