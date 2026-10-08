@@ -112,4 +112,4 @@ Version 0.4.0 and earlier need one manual upgrade to 0.5.0 to gain this feature.
 
 ## Latest release: v0.5.1
 
-Version 0.5.1 adds session-only clipboard recovery, individual verified-field backgrounds, manual email navigation, clearer confirmation actions, specific held-key/permission errors, and the main-page update action. Version 0.5.0 users can install this release through Settings → Update app. Earlier versions need a manual download.
+Version 0.5.1 adds session-only clipboard recovery, individual verified-field backgrounds, manual email navigation, clearer confirmation actions, specific held-key/permission errors, and the main-page update action. Version 0.5.0 users can install this release through Settings → Update app. Earlier versions need a manual download. All release checks and package signature/checksum verification passed. A live Apple Silicon upgrade verified package replacement and saved-library retention; visible relaunch and Windows/Intel interactive upgrade acceptance remain unconfirmed.
