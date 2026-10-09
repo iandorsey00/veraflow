@@ -121,3 +121,5 @@ Version 0.5.1 adds session-only clipboard recovery, individual verified-field ba
 - Select a populated field and choose **Remove blank lines** to remove empty or whitespace-only lines from an address. Nonblank lines keep their spaces and line breaks. The action invalidates verification; subsequent verification applies the same blank-line removal to source text for that field. Clear and recapture to disable it. Other fields and template text are unchanged.
 
 JSON exports include the optional Subject toggle and paste order. Old libraries and JSON exports still load with the previous behavior. Older binaries reject newly saved email properties, so keep a compatible library backup before downgrading. Version 0.5.x can install this release through Settings → Update app; earlier versions need a manual download.
+
+The v0.6.0 release passed 48 automated tests on each supported CI platform, native compilation checks, and updater signature/checksum verification. Native cross-app acceptance and visible updater relaunch remain the preview limitations recorded in [validation](docs/validation.md).
