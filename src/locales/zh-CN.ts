@@ -1,5 +1,14 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  blankLinesRemoved:
+    "此字段已删除空白行，核验时也会忽略空白行，其他文本保持不变。清空并重新采集可关闭此处理。",
+
+  enableSubject: "包含主题",
+  emailOrder: "邮件粘贴顺序",
+  emailOrderHelp:
+    "调整各部分以匹配邮件应用，正文始终在最后。如需收件人 → 抄送 → 正文，可关闭主题并启用抄送。未包含的部分请自行填写。",
+  removeBlankLines: "删除空白行",
+
   updateNow: "立即更新",
   discardChanges: "放弃更改",
   eraseSession: "清除会话",
@@ -58,11 +67,11 @@ export const zh: Record<keyof typeof en, string> = {
   enableBcc: "包含密送",
   emailTemplateHelp:
     "每个部分均支持占位符。主题和收件人为必填项。未启用的抄送和密送不参与采集和输出。",
-  emailRequired: "准备邮件前，请填写主题和收件人。",
+  emailRequired: "准备邮件前，请填写收件人及已包含的主题。",
   emailHeaderInvalid: "邮件标题字段必须为单行文本，不含制表符或控制字符。",
   emailDelivery: "粘贴邮件各部分",
   emailDeliveryHelp:
-    "在邮件应用中聚焦主题。Tab 顺序应为主题 → 收件人 → 已启用的抄送/密送 → 正文。只显示此处已启用的可选字段。每次快捷键粘贴一个部分并按 Tab；正文后不按 Tab。如顺序不同，请自行调整焦点。此操作不会发送邮件。",
+    "在邮件应用中聚焦第一个已包含的部分。Tab 顺序应与此模板配置的顺序一致。只显示此处已启用的可选字段。每次快捷键粘贴一个部分并按 Tab；正文后不按 Tab。如顺序不同，请自行调整焦点。此操作不会发送邮件。",
   emailPasteNext: "粘贴此部分并前进",
   emailGoBack: "上一部分（Shift+Tab）",
   emailBackHelp:

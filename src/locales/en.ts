@@ -1,4 +1,13 @@
 export const en = {
+  blankLinesRemoved:
+    "Blank lines have been removed from this field. Verification also ignores blank lines here; other text stays unchanged. Clear and recapture to turn this off.",
+
+  enableSubject: "Include Subject",
+  emailOrder: "Email paste order",
+  emailOrderHelp:
+    "Move sections to match your email app. Body stays last. For To → Cc → Body, turn off Include Subject and enable Cc. Handle excluded sections yourself.",
+  removeBlankLines: "Remove blank lines",
+
   updateNow: "Update now",
   discardChanges: "Discard changes",
   eraseSession: "Erase session",
@@ -62,13 +71,14 @@ export const en = {
   enableCc: "Include Cc",
   enableBcc: "Include Bcc",
   emailTemplateHelp:
-    "Each section accepts placeholders. Subject and To are required. Disabled Cc/Bcc sections are excluded from capture and output.",
-  emailRequired: "Enter a Subject and To value before preparing the email.",
+    "Each section accepts placeholders. To and any included Subject are required. Disabled Cc/Bcc sections are excluded from capture and output.",
+  emailRequired:
+    "Enter To and any included Subject before preparing the email.",
   emailHeaderInvalid:
     "Email headers must be single-line text without tabs or control characters.",
   emailDelivery: "Paste email sections",
   emailDeliveryHelp:
-    "Focus Subject in your email app. Its Tab order must be Subject → To → enabled Cc/Bcc → Body. Show only the optional fields you enabled here. Each shortcut pastes one section and presses Tab; Body has no trailing Tab. Adjust focus yourself if your email app uses a different order. Nothing sends the email.",
+    "Focus the first included section in your email app. Its Tab order must match the order configured on this template. Show only the optional fields you enabled here. Each shortcut pastes one section and presses Tab; Body has no trailing Tab. Adjust focus yourself if your email app uses a different order. Nothing sends the email.",
   emailPasteNext: "Paste section and advance",
   emailGoBack: "Previous section (Shift+Tab)",
   emailBackHelp:

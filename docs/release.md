@@ -1,5 +1,11 @@
 # Release and rollback
 
+## 0.6.0 mouse, email order, and field cleanup
+
+FRC selected for persisted email metadata and explicit value transformation. Existing templates default to including Subject in the original paste order; optional new properties store header order and Subject inclusion. Native storage and JSON imports validate all four unique headers. Body stays last. Field cleanup is memory-only, affects only the chosen field, and invalidates verification. Mouse transfer now starts enabled but still retrieves text only on an explicit request.
+
+Version 0.5.x can use the signed updater; earlier versions need a manual download. Back up library.json before installing. To downgrade after saving new email metadata, quit, reinstall the previous binary, and restore a compatible pre-upgrade library backup. Never overwrite a public release or move the feed backwards; corrections require a higher version. Publisher signing and the outstanding cross-app/native acceptance matrix remain preview limitations.
+
 ## 0.5.1 recovery and usability fixes
 
 FRC selected because these fixes affect native clipboard capture, keyboard delivery, and update discovery. Version 0.5.1 adds an explicit session-only clipboard-preservation choice, manual email Back/Next navigation without injected keys, green backgrounds on verified fields only, specific held-modifier/permission errors, clear confirmation actions, and a main-page Update now action after a quiet startup check. The existing signed-package, downloaded-checksum, and feed-publication gates remain mandatory. Dependencies include the patched source-map-js 1.2.2 build dependency.

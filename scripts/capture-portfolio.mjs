@@ -102,7 +102,7 @@ try {
     path: "docs/portfolio/screenshots/03-chinese-dark.png",
   });
   const emailPage = await context.newPage();
-  await emailPage.setViewportSize({ width: 1440, height: 1600 });
+  await emailPage.setViewportSize({ width: 1440, height: 1900 });
   await emailPage.goto(url);
   await emailPage
     .getByLabel("Placeholder syntax", { exact: true })
@@ -129,6 +129,28 @@ try {
   await emailPage.screenshot({
     path: "docs/portfolio/screenshots/04-email-template.png",
     fullPage: false,
+  });
+  await emailPage.getByLabel("Include Subject", { exact: true }).uncheck();
+  await emailPage.getByLabel("To", { exact: true }).fill("alex@example.test");
+  await emailPage.getByLabel("Cc", { exact: true }).fill("team@example.test");
+  await emailPage
+    .getByLabel("Body", { exact: true })
+    .fill(
+      "Hello Alex,\n\nThe project update is ready for review.\n\nThank you!",
+    );
+  await emailPage
+    .getByRole("button", { name: "Save template", exact: true })
+    .click();
+  await emailPage
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await emailPage
+    .getByRole("button", { name: "Prepare email output", exact: true })
+    .click();
+  await emailPage.setViewportSize({ width: 440, height: 650 });
+  await emailPage.screenshot({
+    path: "docs/portfolio/screenshots/05-email-delivery.png",
+    fullPage: true,
   });
 } finally {
   await browser.close();

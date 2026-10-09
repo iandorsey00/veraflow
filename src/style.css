@@ -692,3 +692,11 @@ dialog::backdrop {
 .capture-field.verified-background {
   background: var(--success-bg);
 }
+
+.email-template .field-order {
+  max-width: 600px;
+}
+.email-template .field-order li {
+  display: grid;
+  grid-template-columns: 1fr 36px 36px;
+}

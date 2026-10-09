@@ -130,3 +130,39 @@ test("manual recovery moves sections after failed injection without sending any 
   assert.equal(s.deliveryDone, false);
   assert.equal(s.deliveryIndex, 2);
 });
+
+test("custom paste order excludes Subject values and requires only included headers", async () => {
+  const t = template();
+  t.content = "Body";
+  t.email!.subject = "<omitted>";
+  t.email!.subjectEnabled = false;
+  t.email!.to = "alex@example.test";
+  t.email!.ccEnabled = true;
+  t.email!.cc = "team@example.test";
+  t.email!.order = ["to", "cc", "bcc", "subject"];
+  const s = startSession(t);
+  assert.deepEqual(s.fields, []);
+  assert.deepEqual(
+    renderEmail(s).map((p) => p.key),
+    ["to", "cc", "body"],
+  );
+  s.mode = "delivery";
+  const sent: [string | null, boolean][] = [];
+  const send = async (text: string | null, tab: boolean) => {
+    sent.push([text, tab]);
+  };
+  await deliverEmailSection(s, false, send);
+  await deliverEmailSection(s, false, send);
+  await deliverEmailSection(s, false, send);
+  assert.deepEqual(sent, [
+    ["alex@example.test", true],
+    ["team@example.test", true],
+    ["Body", false],
+  ]);
+  t.email!.subjectEnabled = true;
+  t.email!.subject = "Subject";
+  assert.deepEqual(
+    renderEmail(startSession(t)).map((p) => p.key),
+    ["to", "cc", "subject", "body"],
+  );
+});

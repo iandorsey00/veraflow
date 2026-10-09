@@ -32,7 +32,7 @@ export function capture(s: Session, value: string, advance = true): void {
   if (!value.trim()) throw new Error("emptySelection");
   const field = s.fields[s.active];
   if (!field) throw new Error("noField");
-  field.value = value;
+  field.value = field.removeBlankLines ? stripBlankLines(value) : value;
   field.status = "captured";
   delete field.candidate;
   s.mode = "capture";
@@ -44,6 +44,7 @@ export function clear(s: Session): void {
   if (!field) return;
   field.value = null;
   field.status = "empty";
+  delete field.removeBlankLines;
   delete field.candidate;
   s.mode = "capture";
 }
@@ -89,6 +90,7 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   const field = s.fields[s.active];
   if (!field || field.value === null) throw new Error("noValue");
   if (!candidate.trim()) throw new Error("emptySelection");
+  if (field.removeBlankLines) candidate = stripBlankLines(candidate);
   const matches = compare(field.value, candidate, s.template.comparison);
   field.status = matches ? "verified" : "mismatch";
   if (!matches) {
@@ -120,6 +122,7 @@ export function eraseSession(s: Session): void {
     field.value = null;
     delete field.candidate;
     field.status = "empty";
+    delete field.removeBlankLines;
   }
   s.mode = "complete";
 }
@@ -132,7 +135,8 @@ export function renderEmail(s: Session) {
     text: renderTemplate(part.text, values, s.template.placeholderStyle),
   }));
   if (
-    !sections.find((p) => p.key === "subject")?.text.trim() ||
+    (s.template.email?.subjectEnabled !== false &&
+      !sections.find((p) => p.key === "subject")?.text.trim()) ||
     !sections.find((p) => p.key === "to")?.text.trim()
   )
     throw new Error("emailRequired");
@@ -172,5 +176,28 @@ export function moveEmailSection(s: Session, direction: -1 | 1): void {
   } else if (!s.deliveryDone) {
     if (index < parts.length - 1) s.deliveryIndex = index + 1;
     else s.deliveryDone = true;
+  }
+}
+
+export function stripBlankLines(value: string): string {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+    .join("\n");
+}
+export function cleanBlankLines(s: Session): void {
+  editable(s);
+  const field = s.fields[s.active];
+  if (!field || field.value === null) throw new Error("noValue");
+  const cleaned = stripBlankLines(field.value);
+  if (cleaned === field.value) return;
+  field.removeBlankLines = true;
+  capture(s, cleaned, false);
+  if (
+    s.template.verificationEnabled &&
+    s.fields.every((f) => f.status !== "empty")
+  ) {
+    s.mode = "verify";
   }
 }

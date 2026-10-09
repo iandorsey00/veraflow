@@ -316,17 +316,24 @@ test("JSON export imports copies without overwriting the original", async ({
   for (const id of originalIds) expect(ids).toContain(id);
 });
 
-test("mouse panel is opt-in and resets for a new session", async ({ page }) => {
+test("mouse panel starts enabled and resets after opting out", async ({
+  page,
+}) => {
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();
   await expect(
     page.getByLabel("Mouse transfer panel", { exact: true }),
-  ).not.toBeChecked();
+  ).toBeChecked();
+  await page.getByLabel("Mouse transfer panel", { exact: true }).uncheck();
+  await expect(
+    page.getByRole("button", { name: "Transfer", exact: true }),
+  ).toHaveCount(0);
   await page.getByLabel("Mouse transfer panel", { exact: true }).check();
   await expect(
     page.getByRole("button", { name: "Transfer", exact: true }),
   ).toBeVisible();
+  await page.getByLabel("Mouse transfer panel", { exact: true }).uncheck();
   await page
     .getByRole("button", { name: "Cancel session", exact: true })
     .click();
@@ -338,7 +345,7 @@ test("mouse panel is opt-in and resets for a new session", async ({ page }) => {
     .click();
   await expect(
     page.getByLabel("Mouse transfer panel", { exact: true }),
-  ).not.toBeChecked();
+  ).toBeChecked();
 });
 
 test("unsafe clipboard recovery changes only this session and retries mouse transfer", async ({
@@ -427,4 +434,69 @@ test("failed email paste can be recovered with manual keyboard navigation", asyn
     page.getByRole("button", { name: "Finish email session", exact: true }),
   ).toBeEnabled();
   expect(await page.evaluate(() => (window as any).__deliverCalls)).toBe(1);
+});
+
+test("email paste order and omitted Subject persist and control delivery", async ({
+  page,
+}) => {
+  await page.getByLabel("Template text", { exact: true }).fill("Body text");
+  await page.getByLabel("Email mode", { exact: true }).check();
+  await page.getByLabel("Subject", { exact: true }).fill("Subject text");
+  await page.getByLabel("To", { exact: true }).fill("alex@example.test");
+  await page.getByLabel("Include Cc", { exact: true }).check();
+  await page.getByLabel("Cc", { exact: true }).fill("team@example.test");
+  await page
+    .getByRole("button", { name: "Move up To", exact: true })
+    .press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Move down To", exact: true }),
+  ).toBeFocused();
+  await expect(
+    page.locator(".email-template .field-order li").first(),
+  ).toContainText("To");
+  await page.getByLabel("Include Subject", { exact: true }).uncheck();
+  await page
+    .getByRole("button", { name: "Save template", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await expect(
+    page.getByLabel("Include Subject", { exact: true }),
+  ).not.toBeChecked();
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Prepare email output", exact: true })
+    .click();
+  await expect(page.locator(".output")).toHaveText("alex@example.test");
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect(page.locator(".output")).toHaveText("team@example.test");
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect(page.locator(".output")).toHaveText("Body text");
+});
+test("removing address blank lines invalidates verification and verifies cleaned output", async ({
+  page,
+}) => {
+  await page.getByLabel("Template text", { exact: true }).fill("<address>");
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await page.keyboard.press("Control+Enter");
+  const address = "12 Example Road\n\n  Suite 4\n   \nTown";
+  await page.getByLabel("Paste or type a value").fill(address);
+  await page.keyboard.press("Control+Enter");
+  await page.getByLabel("Paste or type a value").fill(address);
+  await page.keyboard.press("Control+Enter");
+  await page
+    .getByRole("button", { name: "Remove blank lines", exact: true })
+    .click();
+  await expect(page.locator("#field-0")).toHaveClass(/captured/);
+  await expect(page.locator("#field-0")).not.toHaveClass(/verified/);
+  await expect(page.locator(".field-value")).toHaveText(
+    "12 Example Road\n  Suite 4\nTown",
+  );
+  await page.getByLabel("Paste or type a value").fill(address);
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator("#field-0")).toHaveClass(/verified/);
 });

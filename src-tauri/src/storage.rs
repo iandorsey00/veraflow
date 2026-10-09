@@ -1,8 +1,20 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum EmailHeader {
+    Subject,
+    To,
+    Cc,
+    Bcc,
+}
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EmailTemplate {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order: Option<Vec<EmailHeader>>,
     pub enabled: bool,
     pub subject: String,
     pub to: String,
@@ -94,9 +106,14 @@ impl Library {
                 || t.name.len() > 1000
                 || t.content.len() > 1024 * 1024
                 || t.email.as_ref().is_some_and(|e| {
-                    [&e.subject, &e.to, &e.cc, &e.bcc]
+                    let invalid_order = e.order.as_ref().is_some_and(|order| {
+                        order.len() != 4
+                            || order.iter().collect::<std::collections::HashSet<_>>().len() != 4
+                    });
+                    let oversized = [&e.subject, &e.to, &e.cc, &e.bcc]
                         .iter()
-                        .any(|v| v.len() > 1024 * 1024)
+                        .any(|v| v.len() > 1024 * 1024);
+                    invalid_order || oversized
                 })
                 || !valid_comparison(&t.comparison)
             {
@@ -132,6 +149,19 @@ mod tests {
         let library: Library = serde_json::from_value(value).unwrap();
         assert!(!library.preferences.verified_background);
         assert!(library.preferences.global_shortcuts);
+    }
+    #[test]
+    fn email_order_round_trips_and_rejects_invalid_orders() {
+        let mut value = fixture();
+        value["templates"][0]["email"] = serde_json::json!({"enabled":true,"subject":"","subjectEnabled":false,"order":["to","cc","bcc","subject"],"to":"to@example.test","cc":"","bcc":"","ccEnabled":false,"bccEnabled":false});
+        let library: Library = serde_json::from_value(value.clone()).unwrap();
+        assert!(library.validate().is_ok());
+        assert_eq!(serde_json::to_value(library).unwrap(), value);
+        value["templates"][0]["email"]["order"] = serde_json::json!(["to", "cc", "to", "subject"]);
+        let invalid: Library = serde_json::from_value(value.clone()).unwrap();
+        assert!(invalid.validate().is_err());
+        value["templates"][0]["email"]["order"] = serde_json::json!(["body"]);
+        assert!(serde_json::from_value::<Library>(value).is_err());
     }
     #[test]
     fn email_templates_round_trip_and_reject_session_data() {

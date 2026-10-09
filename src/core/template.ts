@@ -1,4 +1,4 @@
-import type { Template } from "./model";
+import { defaultEmailOrder, type Template } from "./model";
 type Style = Template["placeholderStyle"];
 // Only backslash-backslash and backslash-opening-delimiter are escapes.
 function tokens(content: string, style: Style = "angle") {
@@ -54,11 +54,19 @@ export function emailSections(
 ): { key: "subject" | "to" | "cc" | "bcc" | "body"; text: string }[] {
   if (!t.email?.enabled) return [{ key: "body", text: t.content }];
   const e = t.email;
+  const headers = [
+    ...new Set([...(e.order ?? defaultEmailOrder), ...defaultEmailOrder]),
+  ];
   return [
-    { key: "subject" as const, text: e.subject },
-    { key: "to" as const, text: e.to },
-    ...(e.ccEnabled ? [{ key: "cc" as const, text: e.cc }] : []),
-    ...(e.bccEnabled ? [{ key: "bcc" as const, text: e.bcc }] : []),
+    ...headers
+      .filter(
+        (key) =>
+          key === "to" ||
+          (key === "subject" && e.subjectEnabled !== false) ||
+          (key === "cc" && e.ccEnabled) ||
+          (key === "bcc" && e.bccEnabled),
+      )
+      .map((key) => ({ key, text: e[key] })),
     { key: "body" as const, text: t.content },
   ];
 }

@@ -73,3 +73,9 @@ Clipboard preservation remains enabled by default and still refuses formats that
 Fresh 2026-10-07 npm auditing identified GHSA-68fv-2mgg-jv7q in source-map-js 1.2.1. The lockfile now uses patched 1.2.2, and the refreshed npm audit reports zero vulnerabilities. This dependency is in the build-tool chain. See the [upstream advisory](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
 
 The fresh Rust advisory audit reports zero vulnerability-class advisories. The six unmaintained-package findings and one unsupported-Linux glib unsoundness finding documented above remain visible and unsuppressed.
+
+## 0.6.0 mouse, email-order, and blank-line changes
+
+Mouse mode starts enabled per the user's requested default, and can be turned off in each session. Polling still reads external application/window identity only; selection text is retrieved only on explicit Transfer or capture. Email order and Subject inclusion are template metadata stored/exported as optional backward-readable fields. Required To and final Body cannot be omitted or duplicated; both native storage and JSON import validate the header permutation. Excluded Subject text is omitted from field collection and output. No Send event is introduced. Explicit blank-line cleanup affects only the selected session field, invalidates its verification, and applies the same cleanup to later candidates for that field. Clearing or session erasure removes the cleanup flag; it is never persisted or exported.
+
+Fresh 2026-10-09 audits report zero npm vulnerabilities and zero Rust vulnerability-class advisories. The same six unmaintained-package advisories and unsupported-Linux glib unsoundness advisory remain visible and unsuppressed.

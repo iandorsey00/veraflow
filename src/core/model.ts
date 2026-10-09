@@ -12,7 +12,11 @@ export const defaultComparison: Comparison = {
   punctuation: false,
   collapseLines: true,
 };
+export type EmailHeader = "subject" | "to" | "cc" | "bcc";
+export const defaultEmailOrder: EmailHeader[] = ["subject", "to", "cc", "bcc"];
 export type EmailTemplate = {
+  subjectEnabled?: boolean;
+  order?: EmailHeader[];
   enabled: boolean;
   subject: string;
   to: string;
@@ -97,6 +101,7 @@ export type Library = {
   preferences: Preferences;
 };
 export type Field = {
+  removeBlankLines?: boolean;
   name: string;
   value: string | null;
   status: "empty" | "captured" | "verified" | "mismatch" | "skipped";

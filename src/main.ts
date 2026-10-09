@@ -5,6 +5,7 @@ import {
   actions,
   defaultPreferences,
   defaultEmail,
+  defaultEmailOrder,
   type Action,
   type Comparison,
   type Library,
@@ -12,7 +13,7 @@ import {
   type Session,
   type Template,
 } from "./core/model";
-import { templateSource } from "./core/template";
+import { templateSource, emailSections } from "./core/template";
 import { orderFields } from "./core/template";
 import { difference } from "./core/compare";
 import {
@@ -27,6 +28,7 @@ import {
   renderEmail,
   deliverEmailSection,
   moveEmailSection,
+  cleanBlankLines,
   eraseSession,
 } from "./core/session";
 import { parseTemplateArchive, exportTemplateArchive } from "./core/transfer";
@@ -215,10 +217,21 @@ function editorView(): string {
   <div class="metadata"> <div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
   <label for="placeholder-style">${esc(t("placeholderStyle"))}</label><select id="placeholder-style"><option value="angle" ${d.placeholderStyle !== "braces" ? "selected" : ""}>${esc(t("angleStyle"))}</option><option value="braces" ${d.placeholderStyle === "braces" ? "selected" : ""}>${esc(t("bracesStyle"))}</option></select><p class="hint">${esc(t("escapeHelp"))}</p>
   ${check("email-enabled", "emailMode", d.email?.enabled ?? false)}
-  ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${field("email-subject", "subject", d.email.subject)}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}</section>` : ""}
+  ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${check("email-subject-enabled", "enableSubject", d.email.subjectEnabled !== false)}${d.email.subjectEnabled !== false ? field("email-subject", "subject", d.email.subject) : ""}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}<h2>${esc(t("emailOrder"))}</h2><p class="hint">${esc(t("emailOrderHelp"))}</p><ol class="field-order">${emailOrderView(d)}</ol></section>` : ""}
   <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t(d.placeholderStyle === "braces" ? "bracePlaceholderHelp" : "placeholderHelp"))}</p>
   <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
   <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
+}
+function emailOrderView(template: Template): string {
+  const parts = emailSections(template).filter((p) => p.key !== "body");
+  return (
+    parts
+      .map(
+        (part, index) =>
+          `<li><span>${esc(t(part.key))}</span><button id="email-order-${part.key}-up" data-email-key="${part.key}" data-email-move="-1" aria-label="${esc(t("moveUp"))} ${esc(t(part.key))}" ${index === 0 ? "disabled" : ""}>↑</button><button id="email-order-${part.key}-down" data-email-key="${part.key}" data-email-move="1" aria-label="${esc(t("moveDown"))} ${esc(t(part.key))}" ${index === parts.length - 1 ? "disabled" : ""}>↓</button></li>`,
+      )
+      .join("") + `<li><span>${esc(t("body"))}</span></li>`
+  );
 }
 function orderView(): string {
   return (
@@ -356,6 +369,7 @@ function bindLibrary() {
   });
   for (const [id, key] of [
     ["email-enabled", "enabled"],
+    ["email-subject-enabled", "subjectEnabled"],
     ["email-cc-enabled", "ccEnabled"],
     ["email-bcc-enabled", "bccEnabled"],
   ] as const) {
@@ -372,6 +386,41 @@ function bindLibrary() {
       focus(id);
     });
   }
+  root
+    .querySelectorAll<HTMLButtonElement>("[data-email-move]")
+    .forEach((el) => {
+      el.onclick = () =>
+        void run(() => {
+          const parts = emailSections(draft!)
+            .filter((p) => p.key !== "body")
+            .map((p) => p.key);
+          const index = parts.indexOf(
+            el.dataset.emailKey as (typeof parts)[number],
+          );
+          const other = parts[index + Number(el.dataset.emailMove)];
+          if (!other || index < 0) return;
+          const order = [
+            ...new Set([
+              ...(draft!.email!.order ?? defaultEmailOrder),
+              ...defaultEmailOrder,
+            ]),
+          ];
+          const a = order.indexOf(parts[index] as (typeof order)[number]),
+            b = order.indexOf(other as (typeof order)[number]);
+          [order[a], order[b]] = [order[b], order[a]];
+          draft!.email!.order = order;
+          dirty = true;
+          render();
+          const desired = document.querySelector<HTMLButtonElement>(
+            `[data-email-key="${el.dataset.emailKey}"][data-email-move="${el.dataset.emailMove}"]`,
+          );
+          focus(
+            desired && !desired.disabled
+              ? desired.id
+              : `email-order-${el.dataset.emailKey}-${Number(el.dataset.emailMove) === -1 ? "down" : "up"}`,
+          );
+        });
+    });
   for (const key of ["subject", "to", "cc", "bcc"] as const)
     on("email-" + key, "input", (e) => {
       draft!.email![key] = (e.target as HTMLInputElement).value;
@@ -614,7 +663,9 @@ async function launch(template: Template) {
     return;
   if (
     template.email?.enabled &&
-    (!template.email.subject.trim() || !template.email.to.trim())
+    ((template.email.subjectEnabled !== false &&
+      !template.email.subject.trim()) ||
+      !template.email.to.trim())
   )
     throw new Error("emailRequired");
   let shortcutError: unknown;
@@ -632,7 +683,7 @@ async function launch(template: Template) {
   if (session) eraseSession(session);
   session = startSession(template);
   manualOpen = false;
-  mouseMode = false;
+  mouseMode = true;
   preserveClipboard = library.preferences.restoreClipboard;
   await platform.mouseSource(false);
   await platform.active(true);
@@ -688,9 +739,10 @@ function sessionView(): string {
   ${mouseMode ? `<p class="hint">${esc(t("mouseHelp"))}</p><div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
   <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button></li>`).join("")}</ol>
   ${f ? `<details class="inspect"><summary>${esc(t("expand"))}: ${esc(f.name)}</summary><pre>${esc(f.value ?? "—")}</pre></details>` : ""}
+  ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
   ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form><p class="hint">${esc(t("clipboardHelp"))}</p></details>` : ""}
-  <div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("skip", "skip")}</div>
+  <div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>
   ${s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
   ${preview ? `<pre class="output">${esc(rendered)}</pre>` : ""}
   <details><summary>${esc(t("help"))}</summary><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
@@ -780,6 +832,13 @@ function bindSession() {
     focus("finish");
   });
   click("cancel-session", () => perform("cancel"));
+  click("clean-lines", () => {
+    cleanBlankLines(session!);
+    preview = false;
+    message = "";
+    render();
+    focus(`field-${session!.active}`);
+  });
   click("correct-value", () => {
     session!.mode = "capture";
     manualOpen = true;

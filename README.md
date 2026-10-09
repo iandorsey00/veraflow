@@ -8,7 +8,7 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ## Download
 
-Get the [v0.5.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.5.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+Get the [v0.6.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.6.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 
@@ -75,7 +75,7 @@ Session values, mismatch candidates, and rendered output are never written to ap
 - **macOS:** grant VeraFlow Accessibility permission in System Settings → Privacy & Security → Accessibility. Capture first reads accessible selected text. If unsupported, it sends Cmd+C, snapshots readable clipboard formats up to 32 MiB, and restores them if the clipboard is unchanged. macOS has no atomic pasteboard compare-and-swap, so restoration remains best effort. Some apps expose neither selection nor Copy.
 - **Windows:** uses Ctrl+C fallback. It preserves supported global-memory formats and refuses unfamiliar formats before copying when restoration is enabled. Elevated/protected apps may block synthetic input. VeraFlow does not request administrator privileges.
 - Clipboard history, Universal Clipboard/cloud clipboard, other clipboard managers, delayed-copy operations, secure input, or another app changing the clipboard can prevent reliable restoration. No copy-result provenance can be guaranteed against another process writing at exactly the same time. Errors leave the field unchanged and offer manual capture. If preservation prevents capture, turn off **Preserve clipboard for this session** in the capture panel, then retry the shortcut or Transfer. This explicitly lets capture replace the current clipboard. New sessions reset to the saved restoration preference.
-- Global capture requires source focus. The optional session-only **Mouse transfer panel** remembers the most recent external application/window while enabled, restores its focus on Transfer, and captures the selection. It is off on each new session; no selected text is monitored. Drag the floating window beside your source and keep Always on top enabled. Apps that clear selection on focus changes may require the keyboard or clipboard route. Automatic popups beside selections are not implemented.
+- Global capture requires source focus. The optional session-only **Mouse transfer panel** remembers the most recent external application/window while enabled, restores its focus on Transfer, and captures the selection. It starts enabled on each new session and can be turned off; no selected text is monitored. Drag the floating window beside your source and keep Always on top enabled. Apps that clear selection on focus changes may require the keyboard or clipboard route. Automatic popups beside selections are not implemented.
 - No crash reporting or telemetry is configured. The operating system may independently collect crash information. No guarantee is made against force quit, power loss, OS dumps, or malicious local software.
 
 ## Screenshots
@@ -94,13 +94,13 @@ VeraFlow © 2026 Ian Dorsey. Open source under the [MIT license](LICENSE).
 
 ## Email mode
 
-Enable **Email mode** on a template to add Subject and To above the Body. Cc and Bcc have separate toggles and are off initially. Plain templates remain the default. Every enabled section accepts placeholders; repeated names share one captured and verified value. Disabled sections are excluded from capture and output. Subject and To must resolve to nonempty single-line text.
+Enable **Email mode** on a template to add Subject and To above the Body. Cc and Bcc have separate toggles and are off initially. Plain templates remain the default. Every enabled section accepts placeholders; repeated names share one captured and verified value. Disabled sections are excluded from capture and output. To and any included Subject must resolve to nonempty single-line text.
 
-After capture and verification, choose **Prepare email output** (or press the configured finish shortcut once). Focus Subject in the destination email app. Press **Cmd/Ctrl+Shift+8** for each section: Subject → To → enabled Cc → enabled Bcc → Body. Each press pastes once and presses Tab; Body does not press Tab. **Cmd/Ctrl+Shift+2** sends Shift+Tab and returns to the previous section. These use the configurable finish and previous shortcuts. Returning does not undo pasted text: select existing text before repasting. VeraFlow never sends the email.
+After capture and verification, choose **Prepare email output** (or press the configured finish shortcut once). Focus the first included section in the destination email app. Press **Cmd/Ctrl+Shift+8** for each section in the template’s configured paste order. The default is Subject → To → enabled Cc → enabled Bcc → Body. Each press pastes once and presses Tab; Body does not press Tab. **Cmd/Ctrl+Shift+2** sends Shift+Tab and returns to the previous section. These use the configurable finish and previous shortcuts. Returning does not undo pasted text: select existing text before repasting. VeraFlow never sends the email.
 
 The destination must expose the same field order and optional fields; adjust focus manually when its Tab order differs. Output replaces the clipboard and does not restore it. Slow editors, recipient chips, or focus changes can prevent the intended result; inspect the destination before retrying any failed paste. **Next section (manual)** and **Previous section (manual)**, or Alt+Right/Left inside VeraFlow, change only VeraFlow’s section without sending Paste or Tab. The configured global Next shortcut (default Cmd/Ctrl+Shift+3) also advances manually while your email app stays focused. Use these after inspecting or manually filling a section if injection fails. At Body, manual Next enables finishing; this does not claim the body was pasted. Adjust destination focus yourself. After the Body, review your draft, return to VeraFlow, and use **Cmd/Ctrl+Enter** to finish and apply the session-erasure preference. Browser previews cannot inject keys into another app.
 
-Older libraries load with email mode off. Back up `library.json` before saving email templates: older binaries reject the additional template property, so downgrading requires a compatible backup.
+Templates without email configuration load with email mode off. Back up `library.json` before saving email templates: older binaries reject the additional template property, so downgrading requires a compatible backup.
 
 ## Template exchange and updates
 
@@ -110,6 +110,14 @@ Desktop startup checks once for a newer version without interrupting editing. Wh
 
 Version 0.4.0 and earlier need one manual upgrade to 0.5.0 to gain this feature. The preview update feed is published only after all three platform packages pass signature and checksum verification. Update signatures verify package identity and version; they do not replace Apple notarization or Windows publisher signing, which remain unconfigured.
 
-## Latest release: v0.5.1
+## v0.5.1 recovery improvements
 
 Version 0.5.1 adds session-only clipboard recovery, individual verified-field backgrounds, manual email navigation, clearer confirmation actions, specific held-key/permission errors, and the main-page update action. Version 0.5.0 users can install this release through Settings → Update app. Earlier versions need a manual download. All release checks and package signature/checksum verification passed. A live Apple Silicon upgrade verified package replacement and saved-library retention; visible relaunch and Windows/Intel interactive upgrade acceptance remain unconfirmed.
+
+## Latest release: v0.6.0
+
+- Mouse transfer starts enabled in each session; uncheck **Mouse transfer panel** to use keyboard-only capture. It still remembers application/window identity only and never monitors selected text.
+- Templates now have **Email paste order** with keyboard-accessible up/down controls. Body stays last. To use To → Cc → Body, disable **Include Subject**, enable Cc, and move To above Cc. Fill any excluded Subject yourself in the email app. The default and older templates keep Subject → To → Cc → Bcc → Body. Enabled sections are shown and pasted in the saved order.
+- Select a populated field and choose **Remove blank lines** to remove empty or whitespace-only lines from an address. Nonblank lines keep their spaces and line breaks. The action invalidates verification; subsequent verification applies the same blank-line removal to source text for that field. Clear and recapture to disable it. Other fields and template text are unchanged.
+
+JSON exports include the optional Subject toggle and paste order. Old libraries and JSON exports still load with the previous behavior. Older binaries reject newly saved email properties, so keep a compatible library backup before downgrading. Version 0.5.x can install this release through Settings → Update app; earlier versions need a manual download.

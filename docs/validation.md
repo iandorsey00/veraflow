@@ -57,3 +57,7 @@ The first Windows 0.5.0 CI run caught an import-test race: the assertion observe
 The v0.5.1 release workflow published Windows x64 and macOS arm64/x64 packages after verifying all updater signatures, authenticated versions, and downloaded checksums. The public feed reports 0.5.1 with matching public release URLs for all three platforms. The README download link and release notes target v0.5.1.
 
 A live macOS arm64 test upgraded the existing 0.5.0 test bundle through Settings → Update app. Its Info.plist and the relaunched process identify 0.5.1. The saved library remained byte-for-byte identical to its pre-upgrade backup. The new process reached the AppKit event loop, but desktop automation could not find its window; Finder access was not approved, so window reappearance could not be verified. Do not treat this as a complete visible-relaunch acceptance pass. Windows 11 and Intel macOS interactive upgrades also remain unverified.
+
+## 0.6.0 release (2026-10-09)
+
+Regression tests cover mouse mode starting enabled and resetting after opt-out; custom email header order and omitted Subject in delivery, capture, and JSON archives; rejected malformed header orders; keyboard focus after reordering; and address blank-line removal preserving nonblank spacing, invalidating verification, and leaving other fields intact. 18 core tests and 22 browser/accessibility tests pass locally. Local Rust compilation is unavailable; tagged release CI must verify the added native storage compatibility test on both platforms before publication.

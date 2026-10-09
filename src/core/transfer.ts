@@ -1,4 +1,4 @@
-import type { Comparison, Template } from "./model";
+import { defaultEmailOrder, type Comparison, type Template } from "./model";
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 function keys(v: Record<string, unknown>, allowed: string[]) {
@@ -84,10 +84,32 @@ export function parseTemplateArchive(json: string): Template[] {
         "to",
         "cc",
         "bcc",
+        "subjectEnabled",
+        "order",
         "ccEnabled",
         "bccEnabled",
       ]);
+      if (
+        e.order !== undefined &&
+        (!Array.isArray(e.order) ||
+          e.order.length !== 4 ||
+          new Set(e.order).size !== 4 ||
+          !e.order.every(
+            (k) =>
+              typeof k === "string" &&
+              defaultEmailOrder.includes(
+                k as (typeof defaultEmailOrder)[number],
+              ),
+          ))
+      )
+        throw Error("invalidImport");
       t.email = {
+        ...(e.subjectEnabled !== undefined
+          ? { subjectEnabled: bool(e.subjectEnabled) }
+          : {}),
+        ...(e.order !== undefined
+          ? { order: e.order as typeof defaultEmailOrder }
+          : {}),
         enabled: bool(e.enabled),
         subject: string(e.subject),
         to: string(e.to),

@@ -5,6 +5,8 @@ import { compare, normalize, difference } from "../src/core/compare";
 import { defaultComparison as rules, type Template } from "../src/core/model";
 import {
   startSession,
+  cleanBlankLines,
+  stripBlankLines,
   capture,
   clear,
   skip,
@@ -133,4 +135,32 @@ test("no verification, manual advancement, zero fields, and erasure", () => {
   assert.ok(s.fields.every((f) => f.value === null && !f.candidate));
   assert.throws(() => capture(s, "z"), /sessionComplete/);
   assert.equal(renderSession(startSession(template("constant"))), "constant");
+});
+
+test("blank-line removal is field-local, preserves nonblank spacing, and requires re-verification", () => {
+  const t: Template = {
+    id: "address",
+    name: "Address",
+    folder: "",
+    content: "<address> / <note>",
+    fieldOrder: [],
+    verificationEnabled: true,
+    comparison: { ...rules, mode: "exact" },
+  };
+  const s = startSession(t),
+    raw = "\r\n12 Example Road\r\n\t \r\n  Suite 4\r\nTown\r\n";
+  capture(s, raw);
+  capture(s, "Keep\n\nparagraphs");
+  verify(s, raw);
+  verify(s, "Keep\n\nparagraphs");
+  s.active = 0;
+  cleanBlankLines(s);
+  assert.equal(s.mode, "verify");
+  assert.equal(s.fields[0].status, "captured");
+  assert.equal(s.fields[0].value, "12 Example Road\n  Suite 4\nTown");
+  assert.equal(s.fields[1].value, "Keep\n\nparagraphs");
+  assert.equal(verify(s, raw), true);
+  clear(s);
+  assert.equal(s.fields[0].removeBlankLines, undefined);
+  assert.equal(stripBlankLines("A\n\n B  "), "A\n B  ");
 });
