@@ -2,7 +2,7 @@
 
 Updater signatures are already enforced for every release. They authenticate VeraFlow update packages and versions; they do not establish Apple or Windows publisher trust.
 
-Publisher signing is not configured: no signing identity is available locally, and the project owner has confirmed that neither platform's signing credentials are available. Current binaries must remain labeled publisher-unsigned previews.
+Publisher signing is not configured. The required signing identities and notarization or service credentials have not been provisioned for release jobs. Current binaries must remain labeled publisher-unsigned previews.
 
 ## macOS
 

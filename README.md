@@ -131,3 +131,5 @@ Clipboard preservation starts off for new and existing installations. Existing p
 Email output removes surrounding header whitespace and trims the edges of values substituted into headers, including copied trailing newlines and tabs. Captured values, verification input, and Body text remain unchanged. Genuine internal header line breaks, tabs, controls, and Unicode line/paragraph separators are still blocked; errors now identify the affected section (Subject, To, Cc, or Bcc). Keep recipient lists on one line, separated with commas.
 
 Publisher signing requires credentials that are not yet available. Updater signatures remain enforced, but these binaries are still publisher-unsigned previews. See [publisher signing setup](docs/signing.md). Back up library.json before upgrading: the new clipboard migration marker is rejected by older binaries, so downgrading requires a compatible pre-upgrade backup.
+
+Release verification: all 54 tests passed on each CI platform, along with native compilation, update-signature verification, and downloaded-checksum verification. The v0.6.1 update feed is live for Windows x64 and both Mac architectures.
