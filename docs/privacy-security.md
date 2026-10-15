@@ -79,3 +79,13 @@ The fresh Rust advisory audit reports zero vulnerability-class advisories. The s
 Mouse mode starts enabled per the user's requested default, and can be turned off in each session. Polling still reads external application/window identity only; selection text is retrieved only on explicit Transfer or capture. Email order and Subject inclusion are template metadata stored/exported as optional backward-readable fields. Required To and final Body cannot be omitted or duplicated; both native storage and JSON import validate the header permutation. Excluded Subject text is omitted from field collection and output. No Send event is introduced. Explicit blank-line cleanup affects only the selected session field, invalidates its verification, and applies the same cleanup to later candidates for that field. Clearing or session erasure removes the cleanup flag; it is never persisted or exported.
 
 Fresh 2026-10-09 audits report zero npm vulnerabilities and zero Rust vulnerability-class advisories. The same six unmaintained-package advisories and unsupported-Linux glib unsoundness advisory remain visible and unsuppressed.
+
+## 0.6.1 clipboard defaults and header validation
+
+Clipboard restoration becomes explicit opt-in. A one-time persisted marker turns the old enabled default off for existing libraries without overwriting templates or other preferences. Once configured, future explicit opt-in is retained. The UI explains that capture replaces the clipboard by default. Restoration's existing unsupported-format protection remains available when opted in.
+
+Only rendered email headers and their substituted values lose surrounding whitespace after verification. Raw captured fields and Body remain untouched. Internal control characters and Unicode line/paragraph separators remain blocked rather than being flattened into ambiguous recipient lists. A typed error identifies the section without exposing its text in logs. No Paste/Tab/Send behavior or recipient identity is rewritten.
+
+Publisher credentials are absent on both platforms. Existing updater signatures remain mandatory; preview labeling stays accurate. The signing setup guide links current primary platform integration guidance without storing credentials or enabling unverified fallback signing.
+
+The 2026-10-14 audit identified RUSTSEC-2026-0346 through RUSTSEC-2026-0349 in rustls 0.23.45. A targeted lockfile update to 0.23.46 fixes these findings without updating unrelated dependencies. Refreshed npm and Rust audits report zero vulnerabilities; the same six unmaintained-package and unsupported-Linux glib unsoundness informational findings remain unsuppressed. See the [upstream rustls release](https://github.com/rustls/rustls/releases/tag/v%2F0.23.46).

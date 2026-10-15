@@ -1,5 +1,8 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  clipboardDefaultHelp:
+    "默认采集可能替换剪贴板。仅在需要时启用恢复；不支持的剪贴板格式可能阻止采集。",
+
   blankLinesRemoved:
     "此字段已删除空白行，核验时也会忽略空白行，其他文本保持不变。清空并重新采集可关闭此处理。",
 
@@ -68,7 +71,8 @@ export const zh: Record<keyof typeof en, string> = {
   emailTemplateHelp:
     "每个部分均支持占位符。主题和收件人为必填项。未启用的抄送和密送不参与采集和输出。",
   emailRequired: "准备邮件前，请填写收件人及已包含的主题。",
-  emailHeaderInvalid: "邮件标题字段必须为单行文本，不含制表符或控制字符。",
+  emailHeaderInvalid:
+    "此部分包含内部换行、制表符或控制字符。请改为单行，多个收件人用逗号分隔。首尾空白会自动去除。",
   emailDelivery: "粘贴邮件各部分",
   emailDeliveryHelp:
     "在邮件应用中聚焦第一个已包含的部分。Tab 顺序应与此模板配置的顺序一致。只显示此处已启用的可选字段。每次快捷键粘贴一个部分并按 Tab；正文后不按 Tab。如顺序不同，请自行调整焦点。此操作不会发送邮件。",

@@ -8,7 +8,7 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ## Download
 
-Get the [v0.6.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.6.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+Get the [v0.6.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.6.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 
@@ -74,7 +74,7 @@ Session values, mismatch candidates, and rendered output are never written to ap
 
 - **macOS:** grant VeraFlow Accessibility permission in System Settings → Privacy & Security → Accessibility. Capture first reads accessible selected text. If unsupported, it sends Cmd+C, snapshots readable clipboard formats up to 32 MiB, and restores them if the clipboard is unchanged. macOS has no atomic pasteboard compare-and-swap, so restoration remains best effort. Some apps expose neither selection nor Copy.
 - **Windows:** uses Ctrl+C fallback. It preserves supported global-memory formats and refuses unfamiliar formats before copying when restoration is enabled. Elevated/protected apps may block synthetic input. VeraFlow does not request administrator privileges.
-- Clipboard history, Universal Clipboard/cloud clipboard, other clipboard managers, delayed-copy operations, secure input, or another app changing the clipboard can prevent reliable restoration. No copy-result provenance can be guaranteed against another process writing at exactly the same time. Errors leave the field unchanged and offer manual capture. If preservation prevents capture, turn off **Preserve clipboard for this session** in the capture panel, then retry the shortcut or Transfer. This explicitly lets capture replace the current clipboard. New sessions reset to the saved restoration preference.
+- Clipboard history, Universal Clipboard/cloud clipboard, other clipboard managers, delayed-copy operations, secure input, or another app changing the clipboard can prevent reliable restoration. No copy-result provenance can be guaranteed against another process writing at exactly the same time. Errors leave the field unchanged and offer manual capture. If preservation prevents capture, turn off **Preserve clipboard for this session** in the capture panel, then retry the shortcut or Transfer. This explicitly lets capture replace the current clipboard. Clipboard preservation is off by default, including a one-time migration of existing preferences. Capture therefore replaces the clipboard unless you explicitly opt in to restoration in Settings. New sessions reset to that saved choice.
 - Global capture requires source focus. The optional session-only **Mouse transfer panel** remembers the most recent external application/window while enabled, restores its focus on Transfer, and captures the selection. It starts enabled on each new session and can be turned off; no selected text is monitored. Drag the floating window beside your source and keep Always on top enabled. Apps that clear selection on focus changes may require the keyboard or clipboard route. Automatic popups beside selections are not implemented.
 - No crash reporting or telemetry is configured. The operating system may independently collect crash information. No guarantee is made against force quit, power loss, OS dumps, or malicious local software.
 
@@ -114,7 +114,7 @@ Version 0.4.0 and earlier need one manual upgrade to 0.5.0 to gain this feature.
 
 Version 0.5.1 adds session-only clipboard recovery, individual verified-field backgrounds, manual email navigation, clearer confirmation actions, specific held-key/permission errors, and the main-page update action. Version 0.5.0 users can install this release through Settings → Update app. Earlier versions need a manual download. All release checks and package signature/checksum verification passed. A live Apple Silicon upgrade verified package replacement and saved-library retention; visible relaunch and Windows/Intel interactive upgrade acceptance remain unconfirmed.
 
-## Latest release: v0.6.0
+## v0.6.0 workflow features
 
 - Mouse transfer starts enabled in each session; uncheck **Mouse transfer panel** to use keyboard-only capture. It still remembers application/window identity only and never monitors selected text.
 - Templates now have **Email paste order** with keyboard-accessible up/down controls. Body stays last. To use To → Cc → Body, disable **Include Subject**, enable Cc, and move To above Cc. Fill any excluded Subject yourself in the email app. The default and older templates keep Subject → To → Cc → Bcc → Body. Enabled sections are shown and pasted in the saved order.
@@ -123,3 +123,11 @@ Version 0.5.1 adds session-only clipboard recovery, individual verified-field ba
 JSON exports include the optional Subject toggle and paste order. Old libraries and JSON exports still load with the previous behavior. Older binaries reject newly saved email properties, so keep a compatible library backup before downgrading. Version 0.5.x can install this release through Settings → Update app; earlier versions need a manual download.
 
 The v0.6.0 release passed 48 automated tests on each supported CI platform, native compilation checks, and updater signature/checksum verification. Native cross-app acceptance and visible updater relaunch remain the preview limitations recorded in [validation](docs/validation.md).
+
+## Latest release: v0.6.1
+
+Clipboard preservation starts off for new and existing installations. Existing preferences migrate once; later explicit opt-in in Settings is respected. Capture replaces the clipboard while restoration is off.
+
+Email output removes surrounding header whitespace and trims the edges of values substituted into headers, including copied trailing newlines and tabs. Captured values, verification input, and Body text remain unchanged. Genuine internal header line breaks, tabs, controls, and Unicode line/paragraph separators are still blocked; errors now identify the affected section (Subject, To, Cc, or Bcc). Keep recipient lists on one line, separated with commas.
+
+Publisher signing requires credentials that are not yet available. Updater signatures remain enforced, but these binaries are still publisher-unsigned previews. See [publisher signing setup](docs/signing.md). Back up library.json before upgrading: the new clipboard migration marker is rejected by older binaries, so downgrading requires a compatible pre-upgrade backup.

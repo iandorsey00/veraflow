@@ -1,5 +1,13 @@
 # Release and rollback
 
+## 0.6.1 clipboard defaults and email headers
+
+FRC selected for persisted preference migration and email output validation. The first load of a library without the migration marker disables clipboard preservation and atomically saves the marker. Later explicit opt-in is preserved. Email output trims only edge whitespace from headers and their substituted values after the existing verification gate; captured values and Body remain unchanged. Internal controls and line separators still fail with the affected section identified.
+
+No publisher credentials are available. The release remains a publisher-unsigned preview with the existing mandatory update signatures and checksum verification. [Publisher signing setup](signing.md) records the prerequisites and required future verification gates; no signing identity is fabricated and the update key is unchanged.
+
+Back up library.json before upgrading. Version 0.5.x and later can use the updater. Older binaries reject the new clipboard migration marker, so rollback requires quitting, reinstalling the previous binary, and restoring the compatible pre-upgrade backup. Corrections to published binaries require a higher version; do not overwrite public release assets.
+
 ## 0.6.0 mouse, email order, and field cleanup
 
 FRC selected for persisted email metadata and explicit value transformation. Existing templates default to including Subject in the original paste order; optional new properties store header order and Subject inclusion. Native storage and JSON imports validate all four unique headers. Body stays last. Field cleanup is memory-only, affects only the chosen field, and invalidates verification. Mouse transfer now starts enabled but still retrieves text only on an explicit request.

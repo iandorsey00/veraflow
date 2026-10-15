@@ -365,6 +365,12 @@ test("unsafe clipboard recovery changes only this session and retries mouse tran
     .getByRole("button", { name: "Start session", exact: true })
     .click();
   await page.getByLabel("Mouse transfer panel", { exact: true }).check();
+  await expect(
+    page.getByLabel("Preserve clipboard for this session", { exact: true }),
+  ).not.toBeChecked();
+  await page
+    .getByLabel("Preserve clipboard for this session", { exact: true })
+    .check();
   await page.getByRole("button", { name: "Transfer", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(
     "cannot be safely preserved",
@@ -386,7 +392,7 @@ test("unsafe clipboard recovery changes only this session and retries mouse tran
     .click();
   await expect(
     page.getByLabel("Preserve clipboard for this session", { exact: true }),
-  ).toBeChecked();
+  ).not.toBeChecked();
 });
 test("failed email paste can be recovered with manual keyboard navigation", async ({
   page,
@@ -499,4 +505,87 @@ test("removing address blank lines invalidates verification and verifies cleaned
   await page.getByLabel("Paste or type a value").fill(address);
   await page.keyboard.press("Control+Enter");
   await expect(page.locator("#field-0")).toHaveClass(/verified/);
+});
+
+test("legacy clipboard preservation migrates off and explicit opt-in survives restart", async ({
+  page,
+}) => {
+  await page.route("**/src/platform.ts*", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body:
+        (await response.text()) +
+        `\nplatform.load=async()=>{const saved=localStorage.getItem("clipboard-fixture");if(saved)return JSON.parse(saved);const model=await import("/src/core/model.ts");const preferences=structuredClone(model.defaultPreferences);delete preferences.clipboardPreservationConfigured;preferences.restoreClipboard=true;return {version:1,templates:[],preferences};};platform.save=async(data)=>{localStorage.setItem("clipboard-fixture",JSON.stringify(data));};`,
+    });
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const setting = page.getByLabel("Restore clipboard after temporary capture", {
+    exact: true,
+  });
+  await expect(setting).not.toBeChecked();
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("clipboard-fixture")!).preferences
+          .clipboardPreservationConfigured,
+    ),
+  ).toBe(true);
+  await setting.check();
+  await page
+    .getByRole("button", { name: "Save settings", exact: true })
+    .click();
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(setting).toBeChecked();
+});
+test("email headers accept trailing clipboard whitespace and report internal errors by section", async ({
+  page,
+}) => {
+  await page.getByLabel("Template text", { exact: true }).fill("Body");
+  await page.getByLabel("Email mode", { exact: true }).check();
+  await page
+    .getByLabel("Subject", { exact: true })
+    .fill("Update for <address> / review");
+  await page.getByLabel("To", { exact: true }).fill("<address>");
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await page.keyboard.press("Control+Enter");
+  await page.getByLabel("Paste or type a value").fill("alex@example.test\n");
+  await page.keyboard.press("Control+Enter");
+  await page.getByLabel("Paste or type a value").fill("alex@example.test\n");
+  await page.keyboard.press("Control+Enter");
+  await page
+    .getByRole("button", { name: "Prepare email output", exact: true })
+    .click();
+  await expect(page.locator(".output")).toHaveText(
+    "Update for alex@example.test / review",
+  );
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect(page.locator(".output")).toHaveText("alex@example.test");
+  await page
+    .getByRole("button", { name: "Cancel session", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Erase session", exact: true })
+    .click();
+  await page.getByLabel("Subject", { exact: true }).fill("Subject");
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await page.keyboard.press("Control+Enter");
+  const bad = "a@example.test\nb@example.test";
+  await page.getByLabel("Paste or type a value").fill(bad);
+  await page.keyboard.press("Control+Enter");
+  await page.getByLabel("Paste or type a value").fill(bad);
+  await page.keyboard.press("Control+Enter");
+  await page
+    .getByRole("button", { name: "Prepare email output", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "To: This section contains an internal line break",
+  );
 });

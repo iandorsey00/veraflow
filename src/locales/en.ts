@@ -1,4 +1,7 @@
 export const en = {
+  clipboardDefaultHelp:
+    "Capture can replace the clipboard by default. Enable restoration only if you need it; unsupported clipboard formats can prevent capture.",
+
   blankLinesRemoved:
     "Blank lines have been removed from this field. Verification also ignores blank lines here; other text stays unchanged. Clear and recapture to turn this off.",
 
@@ -75,7 +78,7 @@ export const en = {
   emailRequired:
     "Enter To and any included Subject before preparing the email.",
   emailHeaderInvalid:
-    "Email headers must be single-line text without tabs or control characters.",
+    "This section contains an internal line break, tab, or control character. Put it on one line; separate multiple recipients with commas. Surrounding whitespace is removed automatically.",
   emailDelivery: "Paste email sections",
   emailDeliveryHelp:
     "Focus the first included section in your email app. Its Tab order must match the order configured on this template. Show only the optional fields you enabled here. Each shortcut pastes one section and presses Tab; Body has no trailing Tab. Adjust focus yourself if your email app uses a different order. Nothing sends the email.",

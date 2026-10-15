@@ -10,6 +10,7 @@ import {
   capture,
   verify,
   renderEmail,
+  EmailHeaderError,
   deliverEmailSection,
   moveEmailSection,
 } from "../src/core/session";
@@ -165,4 +166,45 @@ test("custom paste order excludes Subject values and requires only included head
     renderEmail(startSession(t)).map((p) => p.key),
     ["to", "cc", "subject", "body"],
   );
+});
+
+test("email output trims copied edge whitespace without changing captured values or Body", () => {
+  const t = template();
+  t.verificationEnabled = false;
+  t.content = "\nBody <name>\n\n";
+  t.email!.subject = "\t Update for <name> / follow-up \r\n";
+  t.email!.to = " \n<address>\t\r\n";
+  const s = startSession(t);
+  capture(s, "\tAlex\r\n");
+  capture(s, "\tJoe Smith <joe@example.test>\r\n");
+  const original = structuredClone(s.fields);
+  assert.deepEqual(
+    renderEmail(s).map((p) => p.text),
+    [
+      "Update for Alex / follow-up",
+      "Joe Smith <joe@example.test>",
+      "\nBody \tAlex\r\n\n\n",
+    ],
+  );
+  assert.deepEqual(s.fields, original);
+});
+test("internal header controls remain blocked and identify the exact section", () => {
+  const t = template();
+  t.content = "Body";
+  t.email!.subject = "Subject";
+  t.email!.to = "alex@example.test";
+  t.email!.ccEnabled = true;
+  for (const invalid of [
+    "a@example.test\nb@example.test",
+    "a@example.test\tBcc: bad@example.test",
+    "bad\0@example.test",
+    "a@example.test\u2028b@example.test",
+  ]) {
+    t.email!.cc = invalid;
+    const s = startSession(t);
+    assert.throws(
+      () => renderEmail(s),
+      (e: unknown) => e instanceof EmailHeaderError && e.section === "cc",
+    );
+  }
 });

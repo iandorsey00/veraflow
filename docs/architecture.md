@@ -25,3 +25,9 @@ Template archives use a separate versioned JSON envelope validated by `src/core/
 Optional `subjectEnabled` and `order` template properties preserve old-library defaults. Header order is a validated permutation; the frontend displays enabled headers in that order and always appends Body. Disabled Subject is excluded from the aggregate placeholder source and resolved-header checks. Delivery and manual recovery share this ordered section list.
 
 A session field may carry an in-memory `removeBlankLines` flag after explicit cleanup. It strips whitespace-only lines from that value and later verification candidates, invalidates the previous verification, and is erased on clear or completion. Template text and other fields are unchanged. Mouse mode starts enabled per session and can be disabled; application identity polling remains separate from explicit text capture.
+
+## Clipboard preference migration and email header boundaries
+
+`clipboardPreservationConfigured` is an optional native-compatible preference marker. The frontend migrates libraries without a true marker once, sets restoration false, and persists atomically through the existing storage command. Later saved opt-in is retained. Fresh preferences start configured and off.
+
+Rendered email headers and the values substituted into them are trimmed at their edges after completeness/verification checks. `EmailHeaderError` carries only a typed section key for localized recovery guidance. Interior controls and line separators stay invalid; captured values and Body are unchanged.

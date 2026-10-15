@@ -68,6 +68,7 @@ export type Preferences = {
   verificationDefault: boolean;
   clearAfterCompletion: boolean;
   restoreClipboard: boolean;
+  clipboardPreservationConfigured?: boolean;
   comparison: Comparison;
   shortcuts: Record<Action, string>;
 };
@@ -82,7 +83,8 @@ export const defaultPreferences: Preferences = {
   verifiedBackground: false,
   verificationDefault: true,
   clearAfterCompletion: true,
-  restoreClipboard: true,
+  restoreClipboard: false,
+  clipboardPreservationConfigured: true,
   comparison: { ...defaultComparison },
   shortcuts: {
     capture: "CommandOrControl+Shift+1",
@@ -115,3 +117,12 @@ export type Session = {
   deliveryIndex?: number;
   deliveryDone?: boolean;
 };
+
+// One-time migration: existing installations must receive the new opt-in default too.
+export function migrateClipboardPreference(library: Library): boolean {
+  if (library.preferences.clipboardPreservationConfigured === true)
+    return false;
+  library.preferences.restoreClipboard = false;
+  library.preferences.clipboardPreservationConfigured = true;
+  return true;
+}

@@ -4,6 +4,7 @@ import { zh } from "./locales/zh-CN";
 import {
   actions,
   defaultPreferences,
+  migrateClipboardPreference,
   defaultEmail,
   defaultEmailOrder,
   type Action,
@@ -29,6 +30,7 @@ import {
   deliverEmailSection,
   moveEmailSection,
   cleanBlankLines,
+  EmailHeaderError,
   eraseSession,
 } from "./core/session";
 import { parseTemplateArchive, exportTemplateArchive } from "./core/transfer";
@@ -119,7 +121,9 @@ function report(error: unknown) {
   message =
     error instanceof ShortcutBindingError
       ? `${t("shortcutFailed")} ${t(error.action === "cancel" ? "cancelSession" : error.action)}: ${error.shortcut}`
-      : tr(key);
+      : error instanceof EmailHeaderError
+        ? `${t(error.section)}: ${t("emailHeaderInvalid")}`
+        : tr(key);
   failure = true;
   render();
 }
@@ -523,7 +527,7 @@ function settingsView(): string {
   const p = (settingsDraft ??= structuredClone(library.preferences));
   return `<main class="settings"><header><h1>${esc(t("settings"))}</h1></header><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}</section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
-  <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("quitPrivacy"))}</p></section>
+  <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("clipboardDefaultHelp"))}</p><p class="hint">${esc(t("quitPrivacy"))}</p></section>
   <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><div class="actions">${button("update-app", "updateApp")}</div><p class="hint">${esc(t("updateHelp"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
 }
 async function checkAvailableUpdate() {
@@ -1048,8 +1052,10 @@ window.addEventListener("beforeunload", (event) => {
 async function init() {
   try {
     const saved = await platform.load();
-    if (saved) library = saved;
-    else {
+    if (saved) {
+      library = saved;
+      if (migrateClipboardPreference(library)) await persist(library);
+    } else {
       library.templates = [
         {
           id: crypto.randomUUID(),

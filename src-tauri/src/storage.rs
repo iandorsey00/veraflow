@@ -63,6 +63,8 @@ pub struct Preferences {
     pub verification_default: bool,
     pub clear_after_completion: bool,
     pub restore_clipboard: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clipboard_preservation_configured: Option<bool>,
     pub comparison: Comparison,
     pub shortcuts: BTreeMap<String, String>,
 }
@@ -149,6 +151,19 @@ mod tests {
         let library: Library = serde_json::from_value(value).unwrap();
         assert!(!library.preferences.verified_background);
         assert!(library.preferences.global_shortcuts);
+    }
+    #[test]
+    fn clipboard_migration_marker_is_optional_and_round_trips() {
+        let value = fixture();
+        let old: Library = serde_json::from_value(value.clone()).unwrap();
+        assert!(old.preferences.clipboard_preservation_configured.is_none());
+        assert_eq!(serde_json::to_value(old).unwrap(), value);
+        let mut configured = value;
+        configured["preferences"]["clipboardPreservationConfigured"] = serde_json::json!(true);
+        configured["preferences"]["restoreClipboard"] = serde_json::json!(false);
+        let new: Library = serde_json::from_value(configured.clone()).unwrap();
+        assert!(new.validate().is_ok());
+        assert_eq!(serde_json::to_value(new).unwrap(), configured);
     }
     #[test]
     fn email_order_round_trips_and_rejects_invalid_orders() {

@@ -5,7 +5,7 @@ import {
   templateSource,
   emailSections,
 } from "./template";
-import type { Session, Template } from "./model";
+import type { Session, Template, EmailHeader } from "./model";
 export function startSession(template: Template): Session {
   const fields = orderFields(
     templateSource(template),
@@ -127,12 +127,29 @@ export function eraseSession(s: Session): void {
   s.mode = "complete";
 }
 
+export class EmailHeaderError extends Error {
+  constructor(public section: EmailHeader) {
+    super("emailHeaderInvalid");
+  }
+}
 export function renderEmail(s: Session) {
   renderSession(s); // Apply the same completeness and verification gate to every section.
   const values = new Map(s.fields.map((f) => [f.name, f.value ?? ""]));
+  const headerValues = new Map(
+    [...values].map(([name, value]) => [name, value.trim()]),
+  );
   const sections = emailSections(s.template).map((part) => ({
     ...part,
-    text: renderTemplate(part.text, values, s.template.placeholderStyle),
+    // Selection tools commonly include a trailing newline/tab. Remove edge whitespace only;
+    // never flatten interior lines or alter Body, recipient identity, or captured values.
+    text:
+      part.key === "body"
+        ? renderTemplate(part.text, values, s.template.placeholderStyle)
+        : renderTemplate(
+            part.text,
+            headerValues,
+            s.template.placeholderStyle,
+          ).trim(),
   }));
   if (
     (s.template.email?.subjectEnabled !== false &&
@@ -140,8 +157,10 @@ export function renderEmail(s: Session) {
     !sections.find((p) => p.key === "to")?.text.trim()
   )
     throw new Error("emailRequired");
-  if (sections.some((p) => p.key !== "body" && /[\p{Cc}]/u.test(p.text)))
-    throw new Error("emailHeaderInvalid");
+  for (const part of sections) {
+    if (part.key !== "body" && /[\p{Cc}\p{Zl}\p{Zp}]/u.test(part.text))
+      throw new EmailHeaderError(part.key);
+  }
   return sections;
 }
 

@@ -2,7 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseFields, orderFields, renderTemplate } from "../src/core/template";
 import { compare, normalize, difference } from "../src/core/compare";
-import { defaultComparison as rules, type Template } from "../src/core/model";
+import {
+  defaultComparison as rules,
+  defaultPreferences,
+  migrateClipboardPreference,
+  type Library,
+  type Template,
+} from "../src/core/model";
 import {
   startSession,
   cleanBlankLines,
@@ -163,4 +169,20 @@ test("blank-line removal is field-local, preserves nonblank spacing, and require
   clear(s);
   assert.equal(s.fields[0].removeBlankLines, undefined);
   assert.equal(stripBlankLines("A\n\n B  "), "A\n B  ");
+});
+
+test("clipboard migration turns old defaults off once and preserves later explicit opt-in", () => {
+  const library: Library = {
+    version: 1,
+    templates: [],
+    preferences: structuredClone(defaultPreferences),
+  };
+  assert.equal(library.preferences.restoreClipboard, false);
+  delete library.preferences.clipboardPreservationConfigured;
+  library.preferences.restoreClipboard = true;
+  assert.equal(migrateClipboardPreference(library), true);
+  assert.equal(library.preferences.restoreClipboard, false);
+  library.preferences.restoreClipboard = true;
+  assert.equal(migrateClipboardPreference(library), false);
+  assert.equal(library.preferences.restoreClipboard, true);
 });
