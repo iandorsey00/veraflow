@@ -132,7 +132,7 @@ Capture order retains header fields while email mode or individual headers are d
 
 Leaving or completing a session restores the pre-session window bounds. Windows uses the saved normal window placement to leave a session that was snapped or maximized; macOS restores its saved size and position. Windows 11 top/bottom Snap behavior still needs an interactive check on a real Windows desktop.
 
-The release workflow checks both platforms, packages all three architectures, and verifies updater signatures and download checksums before publication. Binaries remain publisher-unsigned previews.
+Release verification: all 56 core, Rust, and browser/accessibility tests passed on each CI platform, along with native compilation and the platform-specific native checks. All three binary packages passed updater-signature and downloaded-checksum verification. The v0.6.2 update feed is live for Windows x64 and both Mac architectures. Binaries remain publisher-unsigned previews.
 
 ## Previous release: v0.6.1
 
