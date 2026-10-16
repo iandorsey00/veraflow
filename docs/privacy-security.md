@@ -89,3 +89,11 @@ Only rendered email headers and their substituted values lose surrounding whites
 Publisher credentials are absent on both platforms. Existing updater signatures remain mandatory; preview labeling stays accurate. The signing setup guide links current primary platform integration guidance without storing credentials or enabling unverified fallback signing.
 
 The 2026-10-14 audit identified RUSTSEC-2026-0346 through RUSTSEC-2026-0349 in rustls 0.23.45. A targeted lockfile update to 0.23.46 fixes these findings without updating unrelated dependencies. Refreshed npm and Rust audits report zero vulnerabilities; the same six unmaintained-package and unsupported-Linux glib unsoundness informational findings remain unsuppressed. See the [upstream rustls release](https://github.com/rustls/rustls/releases/tag/v%2F0.23.46).
+
+## 0.6.2 window and ordering changes
+
+Window restoration is limited to the invoking app window. The native command accepts a boolean transition, obtains the HWND internally, and serializes placement access. It does not inspect or resize external source windows. The only new frontend window permission is setting VeraFlow's position; size/position reads are already in the existing core permission set.
+
+Dormant field names are template metadata, retained without captured values. Active field collection still excludes disabled email sections. No schema, clipboard, network, or update-trust changes are introduced. The 2026-10-15 audits found zero npm vulnerabilities and zero Rust vulnerability-class advisories. The six existing unmaintained-package warnings and unsupported-Linux glib warning remain unsuppressed.
+
+The audit also identified two newly yanked transitive releases. yoke-derive was updated from 0.8.3 to compatible 0.8.4. The updater requires zip ^4, whose entire available 4.x series is yanked; its existing checksum-locked 4.6.1 is retained pending an upstream compatible replacement. This is a visible dependency warning, not a vulnerability advisory; no audit suppression or updater trust change is applied.

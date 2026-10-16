@@ -357,7 +357,7 @@ footer {
 }
 .notice {
   padding: 12px 24px;
-  margin: 16px 24px 0;
+  margin: 16px 24px;
   border-radius: 6px;
   overflow-wrap: anywhere;
 }
@@ -533,7 +533,7 @@ pre {
   margin: 0;
 }
 .compact .notice {
-  margin: 12px 20px 0;
+  margin: 12px 20px;
   padding: 10px;
   font-size: 12px;
 }
@@ -699,4 +699,23 @@ dialog::backdrop {
 .email-template .field-order li {
   display: grid;
   grid-template-columns: 1fr 36px 36px;
+}
+
+.template-transfer {
+  margin-top: 20px;
+}
+.capture-panel .session-heading {
+  margin-bottom: 8px;
+  gap: 12px;
+}
+.session-heading h1 {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.session-options {
+  margin-top: 12px;
+}
+#manual-entry {
+  margin: 12px 0;
 }

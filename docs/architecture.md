@@ -31,3 +31,9 @@ A session field may carry an in-memory `removeBlankLines` flag after explicit cl
 `clipboardPreservationConfigured` is an optional native-compatible preference marker. The frontend migrates libraries without a true marker once, sets restoration false, and persists atomically through the existing storage command. Later saved opt-in is retained. Fresh preferences start configured and off.
 
 Rendered email headers and the values substituted into them are trimmed at their edges after completeness/verification checks. `EmailHeaderError` carries only a typed section key for localized recovery guidance. Interior controls and line separators stay invalid; captured values and Body are unchanged.
+
+## Session geometry and inactive fields (0.6.2)
+
+The desktop adapter records bounds only when entering compact mode and restores them when the session completes or is left. A fixed native command uses the invoking Tauri window's HWND on Windows; the frontend cannot supply handles. GetWindowPlacement/SetWindowPlacement share workspace coordinates, avoiding taskbar-offset drift. Placement access is serialized; the record is cleared only after successful restoration. macOS stores physical size and position through Tauri APIs.
+
+Template fieldOrder may include placeholders in disabled email headers. Editor normalization reads all stored header text; session construction and the visible ordering controls use only enabled sections. Reordering swaps active names in the full sequence, preserving dormant positions. No captured values enter this metadata.

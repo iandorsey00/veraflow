@@ -75,3 +75,16 @@ export function templateSource(t: Template): string {
     .map((s) => s.text)
     .join("\n");
 }
+
+// Keep inactive header fields in the saved order; sessions still use templateSource.
+export function rememberedFieldOrder(template: Template): string[] {
+  const email = template.email;
+  return orderFields(
+    [
+      template.content,
+      ...(email ? [email.subject, email.to, email.cc, email.bcc] : []),
+    ].join("\n"),
+    template.fieldOrder,
+    template.placeholderStyle,
+  );
+}

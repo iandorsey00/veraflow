@@ -8,7 +8,7 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ## Download
 
-Get the [v0.6.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.6.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+Get the [v0.6.2 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.6.2): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 
@@ -124,7 +124,17 @@ JSON exports include the optional Subject toggle and paste order. Old libraries 
 
 The v0.6.0 release passed 48 automated tests on each supported CI platform, native compilation checks, and updater signature/checksum verification. Native cross-app acceptance and visible updater relaunch remain the preview limitations recorded in [validation](docs/validation.md).
 
-## Latest release: v0.6.1
+## Latest release: v0.6.2
+
+Sessions use a compact heading, with manual entry directly below it and expandable session options and guidance. Status notices have balanced spacing, and template import/export controls are separated from the list.
+
+Capture order retains header fields while email mode or individual headers are disabled, including across saves and template JSON transfers. Only enabled fields appear in a session. Deleted placeholders are removed from the remembered order.
+
+Leaving or completing a session restores the pre-session window bounds. Windows uses the saved normal window placement to leave a session that was snapped or maximized; macOS restores its saved size and position. Windows 11 top/bottom Snap behavior still needs an interactive check on a real Windows desktop.
+
+The release workflow checks both platforms, packages all three architectures, and verifies updater signatures and download checksums before publication. Binaries remain publisher-unsigned previews.
+
+## Previous release: v0.6.1
 
 Clipboard preservation starts off for new and existing installations. Existing preferences migrate once; later explicit opt-in in Settings is respected. Capture replaces the clipboard while restoration is off.
 

@@ -11,6 +11,13 @@ import {
 } from "./core/model";
 export const desktop = isTauri();
 let previewLibrary: Library | null = null;
+let compactWindow = false;
+let normalBounds: {
+  size: Awaited<ReturnType<ReturnType<typeof getCurrentWindow>["innerSize"]>>;
+  position: Awaited<
+    ReturnType<ReturnType<typeof getCurrentWindow>["outerPosition"]>
+  >;
+} | null = null;
 export class ShortcutBindingError extends Error {
   constructor(
     public action: Action,
@@ -101,10 +108,26 @@ export const platform = {
   async compact(compact: boolean, top: boolean) {
     if (desktop) {
       const w = getCurrentWindow();
+      if (compact === compactWindow) {
+        await w.setAlwaysOnTop(compact && top);
+        return;
+      }
+      const nativePlacement = await invoke<boolean>("session_window", {
+        compact,
+      });
+      if (compact) {
+        normalBounds = {
+          size: await w.innerSize(),
+          position: await w.outerPosition(),
+        };
+        await w.setSize(new LogicalSize(440, 690));
+      } else if (!nativePlacement && normalBounds) {
+        await w.setSize(normalBounds.size);
+        await w.setPosition(normalBounds.position);
+      }
+      compactWindow = compact;
       await w.setAlwaysOnTop(compact && top);
-      await w.setSize(
-        new LogicalSize(compact ? 440 : 1040, compact ? 690 : 740),
-      );
+      if (!compact) normalBounds = null;
     }
   },
   async reveal() {

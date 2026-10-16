@@ -128,3 +128,27 @@ extern "C" int vf_deliver(const char *text, int tab) {
     }
     return 0;
 }
+
+// Get/SetWindowPlacement use the same workspace coordinates, including taskbar offsets.
+// Save once before compact sizing, not after a session has been snapped/resized.
+static WINDOWPLACEMENT sessionPlacement = {};
+static HWND placementWindow = nullptr;
+extern "C" int vf_session_placement(void *handle, int compact) {
+    HWND window = static_cast<HWND>(handle);
+    if (compact) {
+        if (placementWindow == window) return 1;
+        WINDOWPLACEMENT placement = {};
+        placement.length = sizeof(placement);
+        if (!GetWindowPlacement(window, &placement)) return 0;
+        sessionPlacement = placement;
+        placementWindow = window;
+        return 1;
+    }
+    if (placementWindow != window) return 1;
+    WINDOWPLACEMENT placement = sessionPlacement;
+    placement.flags = 0;
+    placement.showCmd = SW_SHOWNORMAL;
+    if (!SetWindowPlacement(window, &placement)) return 0;
+    placementWindow = nullptr;
+    return 1;
+}

@@ -325,14 +325,38 @@ test("mouse panel starts enabled and resets after opting out", async ({
   await expect(
     page.getByLabel("Mouse transfer panel", { exact: true }),
   ).toBeChecked();
+  if (
+    !(await page
+      .getByLabel("Mouse transfer panel", { exact: true })
+      .isVisible())
+  )
+    await page
+      .getByText("Session options and guidance", { exact: true })
+      .click();
   await page.getByLabel("Mouse transfer panel", { exact: true }).uncheck();
   await expect(
     page.getByRole("button", { name: "Transfer", exact: true }),
   ).toHaveCount(0);
+  if (
+    !(await page
+      .getByLabel("Mouse transfer panel", { exact: true })
+      .isVisible())
+  )
+    await page
+      .getByText("Session options and guidance", { exact: true })
+      .click();
   await page.getByLabel("Mouse transfer panel", { exact: true }).check();
   await expect(
     page.getByRole("button", { name: "Transfer", exact: true }),
   ).toBeVisible();
+  if (
+    !(await page
+      .getByLabel("Mouse transfer panel", { exact: true })
+      .isVisible())
+  )
+    await page
+      .getByText("Session options and guidance", { exact: true })
+      .click();
   await page.getByLabel("Mouse transfer panel", { exact: true }).uncheck();
   await page
     .getByRole("button", { name: "Cancel session", exact: true })
@@ -364,6 +388,14 @@ test("unsafe clipboard recovery changes only this session and retries mouse tran
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();
+  if (
+    !(await page
+      .getByLabel("Mouse transfer panel", { exact: true })
+      .isVisible())
+  )
+    await page
+      .getByText("Session options and guidance", { exact: true })
+      .click();
   await page.getByLabel("Mouse transfer panel", { exact: true }).check();
   await expect(
     page.getByLabel("Preserve clipboard for this session", { exact: true }),
@@ -588,4 +620,37 @@ test("email headers accept trailing clipboard whitespace and report internal err
   await expect(page.getByRole("alert")).toContainText(
     "To: This section contains an internal line break",
   );
+});
+
+test("capture order survives email toggles, saving and a new session", async ({
+  page,
+}) => {
+  await page.getByLabel("Template text", { exact: true }).fill("<body>");
+  await page.locator("#email-enabled").check();
+  await page.locator("#email-subject").fill("<subject>");
+  await page.locator("#email-to").fill("<recipient>");
+  await page
+    .getByRole("button", { name: "Move up subject", exact: true })
+    .click();
+  const original = await page.locator("#field-order code").allTextContents();
+  await page.locator("#email-enabled").uncheck();
+  await expect(page.locator("#field-order code")).toHaveText(["body"]);
+  await page.locator("#email-enabled").check();
+  await expect(page.locator("#field-order code")).toHaveText(original);
+  await page
+    .getByRole("button", { name: "Save template", exact: true })
+    .click();
+  await page.locator("[data-template]").last().click();
+  await page.locator("[data-template]").first().click();
+  await expect(page.locator("#field-order code")).toHaveText(original);
+  await page
+    .getByRole("button", { name: "Start session", exact: true })
+    .click();
+  await expect(page.locator(".capture-field strong")).toHaveText(original);
+  await expect(page.locator("#session-options")).not.toHaveAttribute(
+    "open",
+    "",
+  );
+  const manual = await page.locator("#manual-entry").boundingBox();
+  expect(manual!.y).toBeLessThan(250);
 });

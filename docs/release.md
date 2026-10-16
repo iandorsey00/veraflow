@@ -1,5 +1,13 @@
 # Release and rollback
 
+## 0.6.2 session layout, capture order, and window restoration
+
+FRC selected because native window placement and persisted capture order change. No new library properties or migrations. Dormant email fields remain in fieldOrder while active session fields are filtered from enabled sections. Deleted placeholders are pruned. Import/export retains the same schema.
+
+Windows saves WINDOWPLACEMENT before compact sizing and restores its normal rectangle with SetWindowPlacement on completion or departure. Repeated transitions do not overwrite the saved bounds. The native test covers resizing, maximization, repeated entry/exit, and subsequent sessions; real Windows 11 top/bottom Snap, taskbar offsets, display removal, and mixed-DPI acceptance remain manual gates. macOS saves physical size/position. No source window is resized.
+
+Back up library.json before upgrading. Existing updater signatures and publisher-unsigned preview labeling remain. Rollback is a manual reinstall with a compatible library backup; never move the update feed backwards or replace public assets.
+
 ## 0.6.1 clipboard defaults and email headers
 
 FRC selected for persisted preference migration and email output validation. The first load of a library without the migration marker disables clipboard preservation and atomically saves the marker. Later explicit opt-in is preserved. Email output trims only edge whitespace from headers and their substituted values after the existing verification gate; captured values and Body remain unchanged. Internal controls and line separators still fail with the affected section identified.

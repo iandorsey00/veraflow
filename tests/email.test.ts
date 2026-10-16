@@ -208,3 +208,34 @@ test("internal header controls remain blocked and identify the exact section", (
     );
   }
 });
+
+test("inactive email fields retain their capture positions without entering body-only sessions", async () => {
+  const { rememberedFieldOrder } = await import("../src/core/template");
+  const t = template();
+  t.email!.subject = "<subject>";
+  t.fieldOrder = ["subject", "address", "name"];
+  t.fieldOrder = rememberedFieldOrder(t);
+  t.email!.enabled = false;
+  t.fieldOrder = rememberedFieldOrder(t);
+  assert.deepEqual(
+    startSession(t).fields.map((f) => f.name),
+    ["name"],
+  );
+  t.email!.enabled = true;
+  t.fieldOrder = rememberedFieldOrder(t);
+  const reloaded = JSON.parse(JSON.stringify(t));
+  assert.deepEqual(
+    startSession(reloaded).fields.map((f) => f.name),
+    ["subject", "address", "name"],
+  );
+  t.email!.subjectEnabled = false;
+  t.fieldOrder = rememberedFieldOrder(t);
+  assert.deepEqual(
+    startSession(t).fields.map((f) => f.name),
+    ["address", "name"],
+  );
+  t.email!.subjectEnabled = true;
+  t.email!.subject = "No placeholder";
+  t.fieldOrder = rememberedFieldOrder(t);
+  assert.ok(!t.fieldOrder.includes("subject"));
+});

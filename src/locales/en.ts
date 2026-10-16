@@ -1,4 +1,7 @@
 export const en = {
+  windowPlacement:
+    "The window position could not be restored. Please try again.",
+  sessionOptions: "Session options and guidance",
   clipboardDefaultHelp:
     "Capture can replace the clipboard by default. Enable restoration only if you need it; unsupported clipboard formats can prevent capture.",
 

@@ -1,17 +1,17 @@
-VeraFlow 核流 0.6.1 is a **publisher-unsigned preview** fixing recurring clipboard-preservation and email-header errors.
+VeraFlow 核流 0.6.2 is a **publisher-unsigned preview** improving session layout, window restoration, and capture-order persistence.
 
-- Clipboard preservation is **off by default**, including for existing installations. Preferences migrate once, so unsupported clipboard formats no longer prevent normal capture. Capture replaces the clipboard. Explicitly re-enable restoration in Settings only if needed; later opt-in is respected.
-- Email output trims surrounding Subject/To/Cc/Bcc whitespace and the edges of header placeholder values, including trailing newlines and tabs copied with source text. Body and captured values remain unchanged. Internal multiline/tab/control content still produces an actionable error naming its section; use one-line recipient lists separated by commas.
-- Updated rustls to 0.23.46 to resolve four newly audited TLS security findings.
-- Existing mouse mode, configurable email paste order, optional Subject, and field blank-line cleanup remain available.
-- All update bundles retain verified updater signatures. Apple Developer ID/notarization and Windows publisher credentials are not yet available, so publisher signing remains pending. See the repository's publisher-signing setup guide.
-- Version 0.5.x or 0.6.0 can use Settings → Update app. Earlier versions need a manual download.
+- Restore pre-session window bounds on completion or departure. Windows restores the saved normal placement after session resizing/maximization; Windows 11 top/bottom Snap still needs interactive verification.
+- Preserve custom capture order across email-mode and optional-header toggles, saving, and JSON transfers. Disabled fields stay out of active sessions.
+- Compact the session heading and collapse guidance into Session options. Manual entry is directly beneath the heading.
+- Balance status-notice padding and add space before template import/export controls.
+- Update bundles retain verified updater signatures. Publisher signing remains pending.
+- Version 0.5.x and later can use Update app. Earlier versions need a manual download.
 
 | Platform                | Download                                |
 | ----------------------- | --------------------------------------- |
-| macOS 12+ Apple Silicon | `VeraFlow_v0.6.1_macos-arm64.zip`       |
-| macOS 12+ Intel         | `VeraFlow_v0.6.1_macos-x64.zip`         |
-| Windows x64             | `VeraFlow_v0.6.1_windows-x64-setup.exe` |
+| macOS 12+ Apple Silicon | `VeraFlow_v0.6.2_macos-arm64.zip`       |
+| macOS 12+ Intel         | `VeraFlow_v0.6.2_macos-x64.zip`         |
+| Windows x64             | `VeraFlow_v0.6.2_windows-x64-setup.exe` |
 
 On macOS, extract the archive and move VeraFlow.app to Applications. These builds are not Developer ID signed or notarized. macOS may require per-app approval through System Settings → Privacy & Security → Open Anyway. Grant Accessibility permission for source-text capture. On Windows, run the installer; expect an unrecognized-publisher warning. WebView2 may be installed if absent. Only approve a download you trust; do not disable system-wide security protections.
 

@@ -14,7 +14,11 @@ import {
   type Session,
   type Template,
 } from "./core/model";
-import { templateSource, emailSections } from "./core/template";
+import {
+  templateSource,
+  emailSections,
+  rememberedFieldOrder,
+} from "./core/template";
 import { orderFields } from "./core/template";
 import { difference } from "./core/compare";
 import {
@@ -55,6 +59,7 @@ let selected = "",
   session: Session | null = null;
 let pendingFocus: string | null = null;
 let manualOpen = false;
+let sessionOptionsOpen = false;
 let mouseMode = false;
 let preserveClipboard = true;
 let availableUpdate: Awaited<ReturnType<typeof platform.checkUpdate>> = null;
@@ -208,7 +213,7 @@ function libraryView(): string {
       )
       .join("")}</select>
     <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${orderFields(templateSource(item), [], item.placeholderStyle).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
-    <div class="toolbar">${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
+    <div class="toolbar template-transfer">${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
     <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? editorView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
 function comparisonView(rules: Comparison, prefix: string): string {
@@ -239,10 +244,14 @@ function emailOrderView(template: Template): string {
 }
 function orderView(): string {
   return (
-    draft!.fieldOrder
+    orderFields(
+      templateSource(draft!),
+      draft!.fieldOrder,
+      draft!.placeholderStyle,
+    )
       .map(
         (name, index) =>
-          `<li><code>${esc(name)}</code><span><button data-up="${index}" aria-label="${esc(t("moveUp") + " " + name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-down="${index}" aria-label="${esc(t("moveDown") + " " + name)}" ${index === draft!.fieldOrder.length - 1 ? "disabled" : ""}>↓</button></span></li>`,
+          `<li><code>${esc(name)}</code><span><button data-up="${index}" aria-label="${esc(t("moveUp") + " " + name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-down="${index}" aria-label="${esc(t("moveDown") + " " + name)}" ${index === orderFields(templateSource(draft!), draft!.fieldOrder, draft!.placeholderStyle).length - 1 ? "disabled" : ""}>↓</button></span></li>`,
       )
       .join("") || `<li class="hint">${esc(t("noFields"))}</li>`
   );
@@ -253,11 +262,18 @@ function bindOrder() {
       (el) =>
         (el.onclick = () => {
           if (busy) return;
+          const active = orderFields(
+            templateSource(draft!),
+            draft!.fieldOrder,
+            draft!.placeholderStyle,
+          );
           const i = Number(el.dataset[direction]),
             j = i + (direction === "up" ? -1 : 1);
-          [draft!.fieldOrder[i], draft!.fieldOrder[j]] = [
-            draft!.fieldOrder[j],
-            draft!.fieldOrder[i],
+          const a = draft!.fieldOrder.indexOf(active[i]),
+            b = draft!.fieldOrder.indexOf(active[j]);
+          [draft!.fieldOrder[a], draft!.fieldOrder[b]] = [
+            draft!.fieldOrder[b],
+            draft!.fieldOrder[a],
           ];
           dirty = true;
           document.getElementById("field-order")!.innerHTML = orderView();
@@ -315,11 +331,7 @@ function bindLibrary() {
   on("placeholder-style", "change", (e) => {
     draft!.placeholderStyle = (e.target as HTMLSelectElement).value as
       "angle" | "braces";
-    draft!.fieldOrder = orderFields(
-      templateSource(draft!),
-      draft!.fieldOrder,
-      draft!.placeholderStyle,
-    );
+    draft!.fieldOrder = rememberedFieldOrder(draft!);
     dirty = true;
     render();
     focus("placeholder-style");
@@ -358,11 +370,7 @@ function bindLibrary() {
   });
   on("template-content", "input", (e) => {
     draft!.content = (e.target as HTMLTextAreaElement).value;
-    draft!.fieldOrder = orderFields(
-      templateSource(draft!),
-      draft!.fieldOrder,
-      draft!.placeholderStyle,
-    );
+    draft!.fieldOrder = rememberedFieldOrder(draft!);
     dirty = true;
     document.getElementById("field-order")!.innerHTML = orderView();
     bindOrder();
@@ -380,11 +388,7 @@ function bindLibrary() {
     on(id, "change", (e) => {
       draft!.email ??= structuredClone(defaultEmail);
       draft!.email[key] = (e.target as HTMLInputElement).checked;
-      draft!.fieldOrder = orderFields(
-        templateSource(draft!),
-        draft!.fieldOrder,
-        draft!.placeholderStyle,
-      );
+      draft!.fieldOrder = rememberedFieldOrder(draft!);
       dirty = true;
       render();
       focus(id);
@@ -428,11 +432,7 @@ function bindLibrary() {
   for (const key of ["subject", "to", "cc", "bcc"] as const)
     on("email-" + key, "input", (e) => {
       draft!.email![key] = (e.target as HTMLInputElement).value;
-      draft!.fieldOrder = orderFields(
-        templateSource(draft!),
-        draft!.fieldOrder,
-        draft!.placeholderStyle,
-      );
+      draft!.fieldOrder = rememberedFieldOrder(draft!);
       dirty = true;
       document.getElementById("field-order")!.innerHTML = orderView();
       bindOrder();
@@ -470,6 +470,7 @@ function selectTemplate(id: string) {
   draft = structuredClone(
     library.templates.find((item) => item.id === id) ?? null,
   );
+  if (draft) draft.fieldOrder = rememberedFieldOrder(draft);
   dirty = false;
 }
 async function newTemplate() {
@@ -687,6 +688,7 @@ async function launch(template: Template) {
   if (session) eraseSession(session);
   session = startSession(template);
   manualOpen = false;
+  sessionOptionsOpen = false;
   mouseMode = true;
   preserveClipboard = library.preferences.restoreClipboard;
   await platform.mouseSource(false);
@@ -737,15 +739,17 @@ function sessionView(): string {
       preview = false;
     }
   }
-  return `<main class="capture-panel"><div class="section-head"><span class="wordmark small">VeraFlow <span lang="zh-CN">核流</span></span>${button("session-back", "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p><h1>${esc(s.template.name)}</h1><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
+  return `<main class="capture-panel"><div class="section-head session-heading"><h1>${esc(s.template.name)}</h1>${button("session-back", "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
+  ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form><p class="hint">${esc(t("clipboardHelp"))}</p></details>` : ""}
+  ${mouseMode ? `<div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
+  <details id="session-options" class="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
   ${s.mode !== "ready" ? check("preserve-clipboard", "preserveClipboard", preserveClipboard) + `<p class="hint">${esc(t("preserveClipboardHelp"))}</p>` : ""}
-  ${check("mouse-mode", "mouseMode", mouseMode)}
-  ${mouseMode ? `<p class="hint">${esc(t("mouseHelp"))}</p><div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
+  ${check("mouse-mode", "mouseMode", mouseMode)}<p class="hint">${esc(t("mouseHelp"))}</p></details>
   <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button></li>`).join("")}</ol>
   ${f ? `<details class="inspect"><summary>${esc(t("expand"))}: ${esc(f.name)}</summary><pre>${esc(f.value ?? "—")}</pre></details>` : ""}
   ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
-  ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form><p class="hint">${esc(t("clipboardHelp"))}</p></details>` : ""}
+
   <div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>
   ${s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
   ${preview ? `<pre class="output">${esc(rendered)}</pre>` : ""}
@@ -786,6 +790,7 @@ function bindSession() {
     else session.mode = "complete";
     await bindShortcuts(null, dispatch);
     await platform.active(false);
+    await platform.compact(false, false);
     render();
     focus("close-session");
   });
@@ -805,6 +810,9 @@ function bindSession() {
             ?.focus();
         })),
   );
+  on("session-options", "toggle", (e) => {
+    sessionOptionsOpen = (e.target as HTMLDetailsElement).open;
+  });
   on("manual-entry", "toggle", (e) => {
     manualOpen = (e.target as HTMLDetailsElement).open;
   });
@@ -944,6 +952,7 @@ async function perform(action: Action, global = false) {
       preview = false;
       await bindShortcuts(null, dispatch);
       await platform.active(false);
+      await platform.compact(false, false);
       notify("copied");
       return;
     }

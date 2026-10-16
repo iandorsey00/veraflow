@@ -25,6 +25,28 @@ unsafe extern "C" {
     fn vf_focus_source() -> c_int;
     fn vf_free(text: *mut c_char);
 }
+// Only the calling app window is accepted; no frontend-provided native handles.
+#[tauri::command]
+fn session_window(window: tauri::WebviewWindow, compact: bool) -> Result<bool, String> {
+    #[cfg(target_os = "windows")]
+    {
+        unsafe extern "C" {
+            fn vf_session_placement(handle: *mut std::ffi::c_void, compact: c_int) -> c_int;
+        }
+        static PLACEMENT_LOCK: Mutex<()> = Mutex::new(());
+        let _guard = PLACEMENT_LOCK.lock().map_err(|_| "windowPlacement")?;
+        let hwnd = window.hwnd().map_err(|_| "windowPlacement")?;
+        if unsafe { vf_session_placement(hwnd.0 as *mut std::ffi::c_void, compact as c_int) } == 0 {
+            return Err("windowPlacement".into());
+        }
+        Ok(true)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (window, compact);
+        Ok(false)
+    }
+}
 fn error_code(code: i32) -> String {
     match code {
         1 => "emptySelection",
@@ -291,6 +313,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
         .invoke_handler(tauri::generate_handler![
+            session_window,
             open_repository,
             updater::check_update,
             updater::install_update,

@@ -1,5 +1,7 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  sessionOptions: "会话选项与说明",
+  windowPlacement: "无法恢复窗口位置。请重试。",
   clipboardDefaultHelp:
     "默认采集可能替换剪贴板。仅在需要时启用恢复；不支持的剪贴板格式可能阻止采集。",
 
