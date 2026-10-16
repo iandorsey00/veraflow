@@ -36,7 +36,7 @@ fn session_window(window: tauri::WebviewWindow, compact: bool) -> Result<bool, S
         static PLACEMENT_LOCK: Mutex<()> = Mutex::new(());
         let _guard = PLACEMENT_LOCK.lock().map_err(|_| "windowPlacement")?;
         let hwnd = window.hwnd().map_err(|_| "windowPlacement")?;
-        if unsafe { vf_session_placement(hwnd.0 as *mut std::ffi::c_void, compact as c_int) } == 0 {
+        if unsafe { vf_session_placement(hwnd.0, compact as c_int) } == 0 {
             return Err("windowPlacement".into());
         }
         Ok(true)
