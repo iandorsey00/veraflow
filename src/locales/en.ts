@@ -209,7 +209,7 @@ export const en = {
     "The values differ. Reselect the source or explicitly correct the captured value.",
   preview: "Preview",
   hidePreview: "Hide preview",
-  copied: "Completed template copied to clipboard.",
+  copied: "Text copied to clipboard.",
   erased: "Session values have been cleared.",
   retained: "Session values remain in memory until you close this session.",
   closeSession: "Close session",

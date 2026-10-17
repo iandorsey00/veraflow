@@ -702,8 +702,7 @@ function bindSettings() {
 }
 async function launch(template: Template, scannerSource?: Session) {
   if (
-    session &&
-    session.mode !== "complete" &&
+    ((session && session.mode !== "complete") || retainedScanner) &&
     !scannerSource &&
     !(await confirmAction("sessionConfirm"))
   )

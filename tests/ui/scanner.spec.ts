@@ -55,6 +55,13 @@ for (const keep of [false, true])
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.route("**/src/main.ts*", async (route) => {
+      const r = await route.fetch();
+      await route.fulfill({
+        response: r,
+        body: (await r.text()) + "\nwindow.__navigate = navigate;",
+      });
+    });
     await page.goto("/");
     await page.getByRole("button", { name: "Templates", exact: true }).click();
     await page
@@ -88,6 +95,19 @@ for (const keep of [false, true])
     await page
       .getByRole("button", { name: "Copy result", exact: true })
       .click();
+    if (keep) {
+      // Simulate the desktop tray opening Templates after completion.
+      await page.evaluate(() => (window as any).__navigate("templates"));
+      await page
+        .getByRole("button", { name: "Start session", exact: true })
+        .click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Keep working", exact: true })
+        .click();
+      await page.locator("#nav-session").click();
+    }
     await page
       .getByRole("button", { name: "Return to Scanner", exact: true })
       .click();

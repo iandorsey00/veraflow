@@ -1,6 +1,6 @@
 # Windows testing from a Mac
 
-Use test builds for day-to-day Windows feedback, then publish a public release after acceptance. The Check workflow builds a Windows installer for branch changes only after automated checks pass. These are workflow artifacts, not GitHub Releases, and they never update the public feed. Rust dependency caching and cancellation of superseded runs reduce repeated work.
+Use test builds for day-to-day Windows feedback, then publish a public release after acceptance. The Check workflow builds a Windows installer for branch changes only after automated checks pass. You can also use Run workflow on the Check page to request a build without creating a new release. These are workflow artifacts, not GitHub Releases, and they never update the public feed. Rust dependency caching and cancellation of superseded runs reduce repeated work.
 
 ## Download and install
 
@@ -9,7 +9,7 @@ Use test builds for day-to-day Windows feedback, then publish a public release a
 3. Check the installer with PowerShell `Get-FileHash <installer> -Algorithm SHA256` against the included SHA256.txt. BUILD.txt identifies the exact commit. Install only your intended build; these installers remain publisher unsigned.
 4. Install **VeraFlow Test** alongside VeraFlow. Its identifier is `com.veraflow.test`; it uses a separate app-data library and installation name. The test configuration preserves normal window constraints. Export/import template JSON explicitly if needed; captured values never transfer through JSON.
 5. Check capture from the Windows apps you use, verification, clipboard output, focus the target before the output shortcut, Paste/Tab field order, failed-paste recovery, template handoff, Return to Scanner, and top/bottom Snap restoration. Test with synthetic data first.
-6. Keep the main VeraFlow app closed while testing global shortcuts, since both apps use the same default combinations. A shortcut collision still permits manual capture. Uninstalling the test app does not uninstall the production app; retain or delete its separate data deliberately.
+6. Quit regular VeraFlow through its tray menu before testing; closing its window can leave it running. Both apps use the same default shortcut combinations. A shortcut collision still permits manual capture. Uninstalling the test app does not uninstall the production app; retain or delete its separate data deliberately.
 
 The test app shows a banner. Frontend startup update checks are disabled, and native `test-build` handlers reject both update checking and installation before any network/download operation. Test builds do not use the private updater key. Install a newer test artifact manually. Public VeraFlow and its signed updater remain on v0.6.2 until a release is deliberately tagged.
 

@@ -3,6 +3,7 @@ on:
   push:
     branches-ignore: ["updates"]
   pull_request:
+  workflow_dispatch:
   workflow_call:
 concurrency:
   group: check-${{ github.workflow }}-${{ github.ref }}

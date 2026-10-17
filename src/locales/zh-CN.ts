@@ -198,7 +198,7 @@ export const zh: Record<keyof typeof en, string> = {
   mismatchHelp: "两个值不同。请重新选择来源文本，或明确修改已采集的值。",
   preview: "预览",
   hidePreview: "隐藏预览",
-  copied: "完整模板已复制到剪贴板。",
+  copied: "文本已复制到剪贴板。",
   erased: "会话数据已清除。",
   retained: "会话数据保留在内存中，关闭会话后清除。",
   closeSession: "关闭会话",
