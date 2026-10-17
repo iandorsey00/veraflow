@@ -11,6 +11,7 @@ async function updates(page: Page, result: string, install = "") {
     });
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "Templates", exact: true }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
 }
 test("checking an up-to-date app does not install or prompt", async ({

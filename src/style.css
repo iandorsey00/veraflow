@@ -719,3 +719,19 @@ dialog::backdrop {
 #manual-entry {
   margin: 12px 0;
 }
+
+.scanner-home {
+  max-width: 650px;
+}
+.scanner-home > p {
+  max-width: 55ch;
+}
+.scanner-tools {
+  margin: 12px 0;
+}
+.scanner-tools .toolbar {
+  margin-bottom: 12px;
+}
+.scanner-tools details {
+  margin-top: 8px;
+}

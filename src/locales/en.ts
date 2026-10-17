@@ -1,4 +1,37 @@
 export const en = {
+  scannerNewValue: "Enter new value",
+  removeFieldConfirm: "Remove this field and erase its captured value?",
+  scannerManage: "Fields and output",
+  endScanner: "End Scanner",
+  removeField: "Remove field",
+  scannerUnverified: "Verify this field before transferring it.",
+  testBuildNotice:
+    "Test build — separate library; public app updates are disabled.",
+  testBuildUpdates:
+    "Test builds cannot install public updates. Download a newer test build from GitHub Actions.",
+  scanner: "Scanner",
+  startScanner: "Start Scanner",
+  returnScanner: "Return to Scanner",
+  scannerIntro:
+    "Capture, verify, and transfer text without a template. Start with one field, or collect several named fields.",
+  scannerPrivacy:
+    "Scanner values stay in memory. Ending Scanner clears them; keeping values for another task is an explicit choice.",
+  scannerFieldName: "Field name",
+  renameField: "Rename field",
+  addField: "Add field",
+  scannerFieldInvalid:
+    "Use a unique field name of 1–250 characters. Scanner supports up to 1,000 fields.",
+  copyField: "Copy field",
+  pasteField: "Paste field",
+  pasteTab: "Paste and Tab",
+  scannerOutput: "Output shortcut",
+  scannerFocusHelp:
+    "For paste, focus the destination in another app and press the output shortcut. Copy field always copies without pasting. Paste failures leave the active field unchanged.",
+  useTemplate: "Use a template",
+  keepScanner: "Keep Scanner values for another task",
+  scannerMatchHelp:
+    "Values fill template fields with exactly matching names. Verify again using the template’s comparison rules. Without Keep values, returning starts a fresh Scanner.",
+
   windowPlacement:
     "The window position could not be restored. Please try again.",
   sessionOptions: "Session options and guidance",

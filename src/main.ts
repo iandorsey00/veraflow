@@ -1,3 +1,11 @@
+import { version as appVersion } from "../package.json";
+import {
+  startScanner,
+  captureScanner,
+  addScannerField,
+  scannerValue,
+  applyScanner,
+} from "./core/scanner";
 import "./style.css";
 import { en } from "./locales/en";
 import { zh } from "./locales/zh-CN";
@@ -41,6 +49,8 @@ import { parseTemplateArchive, exportTemplateArchive } from "./core/transfer";
 import {
   platform,
   desktop,
+  testBuild,
+  buildCommit,
   bindShortcuts,
   ShortcutBindingError,
 } from "./platform";
@@ -52,14 +62,25 @@ let library: Library = {
   templates: [],
   preferences: structuredClone(defaultPreferences),
 };
-let view: "templates" | "settings" | "session" = "templates";
+let view: "scanner" | "templates" | "settings" | "session" = "scanner";
 let selected = "",
   draft: Template | null = null,
   settingsDraft: Preferences | null = null,
   session: Session | null = null;
+let retainedScanner: Session | null = null;
+let returnToScanner = false;
+let scannerOutput: "copy" | "paste" | "tab" = "copy";
+function privateWork() {
+  return !!retainedScanner || (!!session && session.mode !== "complete");
+}
+function eraseRetainedScanner() {
+  if (retainedScanner) eraseSession(retainedScanner);
+  retainedScanner = null;
+}
 let pendingFocus: string | null = null;
 let manualOpen = false;
 let sessionOptionsOpen = false;
+let scannerManagementOpen = false;
 let mouseMode = false;
 let preserveClipboard = true;
 let availableUpdate: Awaited<ReturnType<typeof platform.checkUpdate>> = null;
@@ -145,10 +166,7 @@ async function run(work: () => Promise<void> | void) {
   } catch (error) {
     report(error);
   } finally {
-    if (!quitting)
-      await platform
-        .active(dirty || (!!session && session.mode !== "complete"))
-        .catch(report);
+    if (!quitting) await platform.active(dirty || privateWork()).catch(report);
     busy = false;
     root.inert = false;
     root.removeAttribute("aria-busy");
@@ -175,13 +193,18 @@ function applyAppearance() {
 function render() {
   applyAppearance();
   root.className = view === "session" ? "compact" : "";
-  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
+  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-scanner", "scanner", view === "scanner" ? "selected" : "")}${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
+    ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="update-banner">${view !== "session" && availableUpdate ? button("update-now", "updateNow") : ""}</div>
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
-    ${view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
+    ${view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
     ${view !== "session" ? `<footer><span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
   click("update-now", updateApp);
+  click("nav-scanner", () =>
+    navigate(session?.scanner ? "session" : "scanner"),
+  );
+  click("start-scanner", () => launchScanner());
   click("nav-templates", () => navigate("templates"));
   click("nav-settings", () => navigate("settings"));
   click("nav-session", () => navigate("session"));
@@ -191,7 +214,25 @@ function render() {
       ?.scrollIntoView({ block: "nearest" });
   if (view === "templates") bindLibrary();
   else if (view === "settings") bindSettings();
-  else bindSession();
+  else if (view === "session") bindSession();
+}
+function scannerHome(): string {
+  return `<main class="settings scanner-home"><h1>${esc(t("scanner"))}</h1><p>${esc(t("scannerIntro"))}</p>${button("start-scanner", "startScanner", "primary")}<p class="hint">${esc(t("scannerPrivacy"))}</p></main>`;
+}
+async function launchScanner(saved?: Session) {
+  if (!(await abandonDraft())) return;
+  const template = startScanner(library.preferences, t("scanner")).template;
+  if (!(await launch(template))) return;
+  if (!session || session.template.id !== "scanner") return;
+  session = saved ?? startScanner(library.preferences, t("scanner"));
+  manualOpen = true;
+  scannerOutput = "copy";
+  render();
+  focus("manual-value");
+}
+function scannerControls(): string {
+  const s = session!;
+  return `<details id="scanner-management" ${scannerManagementOpen ? "open" : ""}><summary>${esc(t("scannerManage"))}</summary><section class="scanner-tools" aria-label="${esc(t("scanner"))}"><label for="scanner-name">${esc(t("scannerFieldName"))}</label><input id="scanner-name" maxlength="250" value="${esc(s.fields[s.active].name)}"><div class="toolbar">${button("scanner-rename", "renameField")}${button("scanner-add", "addField")}${button("scanner-remove", "removeField", "", s.fields.length === 1)}</div><details><summary>${esc(t("scannerOutput"))}</summary><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd></p></details><details><summary>${esc(t("useTemplate"))}</summary><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}</details></section></details>`;
 }
 function libraryView(): string {
   const items = library.templates.filter(
@@ -243,15 +284,16 @@ function emailOrderView(template: Template): string {
   );
 }
 function orderView(): string {
+  const fields = orderFields(
+    templateSource(draft!),
+    draft!.fieldOrder,
+    draft!.placeholderStyle,
+  );
   return (
-    orderFields(
-      templateSource(draft!),
-      draft!.fieldOrder,
-      draft!.placeholderStyle,
-    )
+    fields
       .map(
         (name, index) =>
-          `<li><code>${esc(name)}</code><span><button data-up="${index}" aria-label="${esc(t("moveUp") + " " + name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-down="${index}" aria-label="${esc(t("moveDown") + " " + name)}" ${index === orderFields(templateSource(draft!), draft!.fieldOrder, draft!.placeholderStyle).length - 1 ? "disabled" : ""}>↓</button></span></li>`,
+          `<li><code>${esc(name)}</code><span><button data-up="${index}" aria-label="${esc(t("moveUp") + " " + name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-down="${index}" aria-label="${esc(t("moveDown") + " " + name)}" ${index === fields.length - 1 ? "disabled" : ""}>↓</button></span></li>`,
       )
       .join("") || `<li class="hint">${esc(t("noFields"))}</li>`
   );
@@ -551,8 +593,8 @@ async function checkAvailableUpdate() {
   }
 }
 async function updateApp() {
-  if (dirty || (session && session.mode !== "complete"))
-    throw Error("updateBusy");
+  if (testBuild) throw Error("testBuildUpdates");
+  if (dirty || privateWork()) throw Error("updateBusy");
   notify("updateChecking");
   const update = await checkAvailableUpdate();
   if (!update) {
@@ -569,8 +611,7 @@ async function updateApp() {
     render();
     return;
   }
-  if (dirty || (session && session.mode !== "complete"))
-    throw Error("updateBusy");
+  if (dirty || privateWork()) throw Error("updateBusy");
   notify("updateDownloading");
   let lastProgress = 0;
   await platform.installUpdate((event) => {
@@ -659,13 +700,14 @@ function bindSettings() {
     notify("saved");
   });
 }
-async function launch(template: Template) {
+async function launch(template: Template, scannerSource?: Session) {
   if (
     session &&
     session.mode !== "complete" &&
+    !scannerSource &&
     !(await confirmAction("sessionConfirm"))
   )
-    return;
+    return false;
   if (
     template.email?.enabled &&
     ((template.email.subjectEnabled !== false &&
@@ -685,21 +727,30 @@ async function launch(template: Template) {
     await bindShortcuts(null, dispatch);
     shortcutError = error;
   }
-  if (session) eraseSession(session);
-  session = startSession(template);
-  manualOpen = false;
-  sessionOptionsOpen = false;
-  mouseMode = true;
-  preserveClipboard = library.preferences.restoreClipboard;
+  const nextSession = scannerSource
+    ? applyScanner(scannerSource, template)
+    : startSession(template);
   await platform.mouseSource(false);
   await platform.active(true);
+  await platform.compact(true, library.preferences.alwaysOnTop);
+  if (session) eraseSession(session);
+  session = nextSession;
+  if (!scannerSource) {
+    eraseRetainedScanner();
+    returnToScanner = false;
+  }
+  manualOpen = false;
+  sessionOptionsOpen = false;
+  scannerManagementOpen = false;
+  mouseMode = true;
+  preserveClipboard = library.preferences.restoreClipboard;
   view = "session";
   preview = false;
   message = "";
-  await platform.compact(true, library.preferences.alwaysOnTop);
   render();
   focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
   if (shortcutError) report(shortcutError);
+  return true;
 }
 function sessionView(): string {
   if (!session) return "";
@@ -707,11 +758,11 @@ function sessionView(): string {
     p = library.preferences,
     f = s.fields[s.active];
   if (s.mode === "complete")
-    return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion ? "erased" : "retained"))}</p>${button("close-session", "closeSession", "primary")}</main>`;
+    return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion ? "erased" : "retained"))}</p>${button("close-session", returnToScanner ? "returnScanner" : "closeSession", "primary")}</main>`;
   if (s.mode === "delivery") {
     const parts = renderEmail(s),
       index = s.deliveryIndex ?? 0;
-    return `<main class="capture-panel"><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", "cancelSession", "quiet danger")}</div></main>`;
+    return `<main class="capture-panel"><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
   }
   const mode = s.mode === "verify" ? "verify" : "capture";
   const done = s.fields.filter(
@@ -739,8 +790,9 @@ function sessionView(): string {
       preview = false;
     }
   }
-  return `<main class="capture-panel"><div class="section-head session-heading"><h1>${esc(s.template.name)}</h1>${button("session-back", "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
-  ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form><p class="hint">${esc(t("clipboardHelp"))}</p></details>` : ""}
+  return `<main class="capture-panel"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${button("session-back", "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
+  ${s.scanner ? `<div class="toolbar scanner-primary">${button("verify-start", "verifyStart")}${button("scanner-capture-mode", "scannerNewValue")}${button("scanner-copy", "copyField", "primary")}</div>` : ""}
+  ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>${!s.scanner ? `<p class="hint">${esc(t("clipboardHelp"))}</p>` : ""}</details>` : ""}
   ${mouseMode ? `<div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
   <details id="session-options" class="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
   ${s.mode !== "ready" ? check("preserve-clipboard", "preserveClipboard", preserveClipboard) + `<p class="hint">${esc(t("preserveClipboardHelp"))}</p>` : ""}
@@ -751,16 +803,84 @@ function sessionView(): string {
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
 
   <div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>
-  ${s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
+  ${s.scanner ? scannerControls() : s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
   ${preview ? `<pre class="output">${esc(rendered)}</pre>` : ""}
   <details><summary>${esc(t("help"))}</summary><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
-  <div class="actions">${button("cancel-session", "cancelSession", "quiet danger")}</div></main>`;
+  <div class="actions">${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
 }
 function mismatchView(a: string, b: string): string {
   const diff = difference(a, b);
   return `<section class="mismatch-box" role="alert"><h2>! ${esc(t("mismatch"))}</h2><p>${esc(t("mismatchHelp"))}</p>${diff.map((part, index) => `<h3>${esc(t(index ? "selectedValue" : "capturedValue"))}</h3><pre>${esc(part.before)}<mark>${esc(part.middle) || "∅"}</mark>${esc(part.after)}</pre>`).join("")}${button("correct-value", "editValue")}</section>`;
 }
 function bindSession() {
+  on("scanner-management", "toggle", (e) => {
+    scannerManagementOpen = (e.target as HTMLDetailsElement).open;
+  });
+  click("scanner-remove", async () => {
+    const s = session!;
+    if (s.fields.length <= 1) return;
+    if (
+      s.fields[s.active].value !== null &&
+      !(await confirmAction("removeFieldConfirm"))
+    )
+      return;
+    clear(s);
+    s.fields.splice(s.active, 1);
+    s.active = Math.min(s.active, s.fields.length - 1);
+    render();
+  });
+  click("scanner-add", () => {
+    addScannerField(
+      session!,
+      (document.getElementById("scanner-name") as HTMLInputElement).value,
+    );
+    render();
+    focus("manual-entry");
+  });
+  click("scanner-rename", () => {
+    const s = session!,
+      index = s.active,
+      name = (
+        document.getElementById("scanner-name") as HTMLInputElement
+      ).value.trim();
+    if (name === s.fields[index].name) return;
+    addScannerField(s, name);
+    s.fields.pop();
+    s.fields[index].name = name;
+    s.active = index;
+    render();
+  });
+  click("scanner-capture-mode", () => {
+    session!.mode = "capture";
+    manualOpen = true;
+    render();
+    focus("manual-value");
+  });
+  click("scanner-copy", async () => {
+    await platform.copy(scannerValue(session!));
+    notify("copied");
+  });
+  on("scanner-output", "change", (e) => {
+    scannerOutput = (e.target as HTMLSelectElement)
+      .value as typeof scannerOutput;
+  });
+  click("scanner-apply", async () => {
+    const template = library.templates.find(
+      (t) =>
+        t.id ===
+        (document.getElementById("scanner-template") as HTMLSelectElement)
+          .value,
+    );
+    if (!template || !session?.scanner) return;
+    const source = structuredClone(session);
+    const keep = (document.getElementById("scanner-keep") as HTMLInputElement)
+      .checked;
+    if (!(await launch(template, source))) return;
+    returnToScanner = true;
+    eraseRetainedScanner();
+    if (keep) retainedScanner = source;
+    else eraseSession(source);
+  });
   on("mouse-mode", "change", (e) => {
     mouseMode = (e.target as HTMLInputElement).checked;
     render();
@@ -801,6 +921,7 @@ function bindSession() {
       (el.onclick = () =>
         void run(() => {
           session!.active = Number(el.dataset.field);
+          if (session!.scanner) session!.mode = "capture";
           preview = false;
           render();
           root
@@ -833,7 +954,11 @@ function bindSession() {
   ] as Action[])
     click(action, () => perform(action));
   click("verify-start", () => {
-    beginVerification(session!);
+    if (session!.scanner) {
+      if (session!.fields[session!.active].value === null)
+        throw Error("noValue");
+      session!.mode = "verify";
+    } else beginVerification(session!);
     message = "";
     render();
     focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
@@ -846,6 +971,7 @@ function bindSession() {
   click("cancel-session", () => perform("cancel"));
   click("clean-lines", () => {
     cleanBlankLines(session!);
+    if (session!.scanner) session!.mode = "capture";
     preview = false;
     message = "";
     render();
@@ -868,8 +994,11 @@ async function accept(
 ) {
   if (!session) return;
   if (value.length > 1024 * 1024) throw new Error("invalidText");
-  if (session.mode === "verify") verify(session, value, advance);
+  if (session.mode === "verify")
+    verify(session, value, session.scanner ? false : advance);
+  else if (session.scanner) captureScanner(session, value, advance);
   else capture(session, value, advance);
+  if (session.scanner && session.mode === "ready") session.mode = "capture";
   message = "";
   preview = false;
   render();
@@ -909,6 +1038,11 @@ async function perform(action: Action, global = false) {
         await accept(await platform.capture(preserveClipboard), true);
       return;
     case "verify":
+      if (s.scanner && s.mode !== "verify") {
+        if (s.fields[s.active].value === null) throw Error("noValue");
+        s.mode = "verify";
+        break;
+      }
       if (s.mode === "capture") {
         beginVerification(s);
         break;
@@ -918,9 +1052,11 @@ async function perform(action: Action, global = false) {
       return;
     case "previous":
       move(s, -1);
+      if (s.scanner) s.mode = "capture";
       break;
     case "next":
       move(s, 1);
+      if (s.scanner) s.mode = "capture";
       break;
     case "clear":
       clear(s);
@@ -931,12 +1067,22 @@ async function perform(action: Action, global = false) {
         !(await confirmAction("skipConfirm"))
       )
         return;
-      skip(s, library.preferences.autoAdvance);
+      skip(s, s.scanner ? false : library.preferences.autoAdvance);
       break;
     case "cancel":
       if (await confirmAction("sessionConfirm")) await closeSession();
       return;
     case "finish": {
+      if (s.scanner) {
+        const value = scannerValue(s);
+        if (scannerOutput === "copy") await platform.copy(value);
+        else if (!global) throw Error("scannerFocusHelp");
+        else await platform.deliver(value, scannerOutput === "tab");
+        if (library.preferences.autoAdvance && s.fields.length > 1) move(s, 1);
+        s.mode = "capture";
+        render();
+        return;
+      }
       if (s.template.email?.enabled) {
         renderEmail(s);
         s.mode = "delivery";
@@ -963,11 +1109,23 @@ async function perform(action: Action, global = false) {
   focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
 }
 async function closeSession() {
+  const wasScanner = session?.scanner;
   if (session) eraseSession(session);
   session = null;
   await bindShortcuts(null, dispatch);
   await platform.active(false);
-  await navigate("templates");
+  if (returnToScanner) {
+    const saved = retainedScanner;
+    retainedScanner = null;
+    returnToScanner = false;
+    try {
+      await launchScanner(saved ?? undefined);
+    } catch (error) {
+      retainedScanner = saved;
+      returnToScanner = true;
+      throw error;
+    }
+  } else await navigate(wasScanner ? "scanner" : "templates");
 }
 async function confirmAction(key: Key, detail = ""): Promise<boolean> {
   await platform.reveal();
@@ -980,11 +1138,12 @@ async function confirmAction(key: Key, detail = ""): Promise<boolean> {
     sessionConfirm: "eraseSession",
     quitConfirm: "quit",
     skipConfirm: "clearAndSkip",
+    removeFieldConfirm: "removeField",
     importConfirm: "importTemplates",
     updateConfirm: "updateNow",
   };
   const action = labels[key] ?? "confirm";
-  dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(key))}</h2>${detail ? `<pre>${esc(detail)}</pre>` : ""}<div class="actions"><button value="no" autofocus>${esc(t("keep"))}</button><button value="yes" class="${["deleteConfirm", "discardConfirm", "sessionConfirm", "quitConfirm", "skipConfirm"].includes(key) ? "danger" : "primary"}">${esc(t(action))}</button></div></form>`;
+  dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(key))}</h2>${detail ? `<pre>${esc(detail)}</pre>` : ""}<div class="actions"><button value="no" autofocus>${esc(t("keep"))}</button><button value="yes" class="${["deleteConfirm", "discardConfirm", "sessionConfirm", "quitConfirm", "skipConfirm", "removeFieldConfirm"].includes(key) ? "danger" : "primary"}">${esc(t(action))}</button></div></form>`;
   document.body.append(dialog);
   dialog.showModal();
   return new Promise((resolve) =>
@@ -1021,7 +1180,8 @@ window.addEventListener("keydown", (event) => {
     event.key === "Enter"
   ) {
     event.preventDefault();
-    if (view === "templates") document.getElementById("start")?.click();
+    if (view === "scanner") document.getElementById("start-scanner")?.click();
+    else if (view === "templates") document.getElementById("start")?.click();
     else if (view === "session" && session?.mode === "delivery")
       document.getElementById("email-done")?.click();
     else if (
@@ -1054,7 +1214,7 @@ window.addEventListener("keydown", (event) => {
   }
 });
 window.addEventListener("beforeunload", (event) => {
-  if (dirty || (session && session.mode !== "complete")) {
+  if (dirty || privateWork()) {
     event.preventDefault();
   }
 });
@@ -1092,7 +1252,7 @@ async function init() {
   }
   if (library.templates[0]) selectTemplate(library.templates[0].id);
   render();
-  if (desktop)
+  if (desktop && !testBuild)
     void checkAvailableUpdate().catch(() => {
       /* Settings offers a retry. */
     });
@@ -1101,11 +1261,12 @@ async function init() {
       void run(async () => {
         if (action === "quit") {
           if (
-            ((session && session.mode !== "complete") || dirty) &&
+            (privateWork() || dirty) &&
             !(await confirmAction(session ? "quitConfirm" : "discardConfirm"))
           )
             return;
           if (session) eraseSession(session);
+          eraseRetainedScanner();
           await bindShortcuts(null, dispatch);
           await platform.active(false);
           quitting = true;

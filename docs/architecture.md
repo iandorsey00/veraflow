@@ -37,3 +37,11 @@ Rendered email headers and the values substituted into them are trimmed at their
 The desktop adapter records bounds only when entering compact mode and restores them when the session completes or is left. A fixed native command uses the invoking Tauri window's HWND on Windows; the frontend cannot supply handles. GetWindowPlacement/SetWindowPlacement share workspace coordinates, avoiding taskbar-offset drift. Placement access is serialized; the record is cleared only after successful restoration. macOS stores physical size and position through Tauri APIs.
 
 Template fieldOrder may include placeholders in disabled email headers. Editor normalization reads all stored header text; session construction and the visible ordering controls use only enabled sections. Reordering swaps active names in the full sequence, preserving dormant positions. No captured values enter this metadata.
+
+## Scanner (0.7.0 test builds)
+
+Scanner uses the existing in-memory Session/Field model and capture, comparison, clipboard, native output, and shortcut adapters. A session-only scanner flag distinguishes individual-field output from template completion. Capturing in Scanner does not automatically switch to whole-template verification. Verification and output apply to the active field; mismatch always blocks output. Native output emits Paste and optional Tab only. The global output shortcut advances only after successful output; mouse Copy remains a direct copy.
+
+Template handoff copies non-mismatch values by exact field name into a new template session, resets statuses to captured, and uses the destination template's comparison policy. The previous session is not erased until launch resources are ready. The optional retained Scanner is a separate memory-only snapshot; it is included in quit and update guards and is erased on explicit discard/quit. No library schema changes or persisted capture fields are introduced.
+
+The isolated test installer uses a distinct Tauri product name/identifier and a Cargo test-build feature. Native updater check/install handlers reject this build flavor. Its frontend disables startup checks and shows a test banner. Test artifacts are created after Windows checks with read-only repository permissions, without signing secrets, and expire after 14 days; tagged public releases continue through the existing signed workflow.

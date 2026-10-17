@@ -6,6 +6,16 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ![VeraFlow template editor with unique fields and capture order](docs/portfolio/screenshots/01-template-library.png)
 
+## Scanner preview (upcoming 0.7.0)
+
+Scanner is the default workspace. Start Scanner to collect one value repeatedly or add named fields without a template. Manual entry opens immediately. Highlight text in another app and use Transfer or the capture shortcut; use Start verification (or its shortcut), then highlight the comparison text anywhere. Verification applies to the active field independently of other empty fields. A mismatch never replaces the captured value.
+
+Copy field copies the active field; it requires verification when verification is enabled. Under Fields and output, choose the output shortcut's action: Copy field, Paste field, or Paste and Tab. For paste, focus the destination in another app before pressing the configured finish/output shortcut (default Cmd/Ctrl+Shift+8). Output advances to the next Scanner field after success when Auto advance is enabled; failures retain the active field. No selection is captured automatically and no email is sent.
+
+Fields and output also lets you add, rename, or remove fields and apply a template. Exact field names match; template values require fresh verification under its comparison rules. Template completion offers Return to Scanner. By default the next Scanner is empty; Keep Scanner values for another task is an explicit, memory-only choice. Retained Scanner values block updates and trigger quit confirmation. Ending Scanner clears its values. No Scanner data is saved or exported.
+
+Windows feedback no longer requires a public release: [download a separate Windows test build](docs/windows-testing.md) from a successful Check run. VeraFlow Test has its own library and cannot install public updates. The production download and feed remain v0.6.2 until Scanner passes Windows acceptance.
+
 ## Download
 
 Get the [v0.6.2 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.6.2): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.

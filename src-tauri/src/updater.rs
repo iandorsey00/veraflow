@@ -46,6 +46,9 @@ pub async fn check_update(
     app: AppHandle,
     pending: State<'_, PendingUpdate>,
 ) -> Result<Option<UpdateInfo>, String> {
+    if cfg!(feature = "test-build") {
+        return Err("testBuildUpdates".into());
+    }
     if INSTALLING.load(Ordering::SeqCst) {
         return Err("updateBusy".into());
     }
@@ -84,6 +87,9 @@ pub async fn install_update(
     pending: State<'_, PendingUpdate>,
     progress: Channel<Progress>,
 ) -> Result<(), String> {
+    if cfg!(feature = "test-build") {
+        return Err("testBuildUpdates".into());
+    }
     if super::EXIT_GUARD.load(Ordering::SeqCst) {
         return Err("updateBusy".into());
     }

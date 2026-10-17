@@ -13,3 +13,5 @@ Start `npm run dev`, then run `npm run portfolio:capture` (requires Playwright C
 The editor uses the shared 1440 × 1000 baseline at 2×; the floating panel uses 440px width to represent its actual workflow. These are browser UI previews (the banner says so), not evidence of native hotkey operation. PNGs are curated documentation, not regression baselines. Refresh after substantive UI changes and review every visible value before publishing.
 
 `05-email-delivery.png` shows synthetic To → Cc → Body output with Subject excluded, plus manual navigation and keyboard hints. The email editor scene uses a taller 1440 × 1900 viewport to include the new paste-order controls; delivery uses the compact 440px width.
+
+`06-scanner.png` shows standalone selected-text Scanner with a synthetic verified reference, manual entry, and individual-field output. It uses the compact 440px viewport with management collapsed. This is a browser preview, not native capture evidence.

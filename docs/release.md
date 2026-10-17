@@ -1,5 +1,9 @@
 # Release and rollback
 
+## 0.7.0 Scanner test channel
+
+Scanner is being validated through isolated Windows test artifacts before a public release. Source version is 0.7.0; no v0.7.0 release tag or public feed promotion is made by this work. Public distribution remains 0.6.2. Follow [Windows testing](windows-testing.md) for downloads, separate libraries, acceptance, and rollback. Scanner introduces memory-only state, not a library migration. A full release cycle remains required when promoting after Windows acceptance, because this changes field output and template handoff. Do not run test builds through the public updater.
+
 ## 0.6.2 session layout, capture order, and window restoration
 
 FRC selected because native window placement and persisted capture order change. No new library properties or migrations. Dormant email fields remain in fieldOrder while active session fields are filtered from enabled sections. Deleted placeholders are pruned. Import/export retains the same schema.

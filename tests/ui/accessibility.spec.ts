@@ -4,6 +4,7 @@ for (const colorScheme of ["light", "dark"] as const)
   test(`accessible editor and capture in ${colorScheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
     await page.goto("/");
+    await page.getByRole("button", { name: "Templates", exact: true }).click();
     expect(
       (
         await new AxeBuilder({ page })

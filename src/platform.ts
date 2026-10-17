@@ -10,6 +10,16 @@ import {
   type Preferences,
 } from "./core/model";
 export const desktop = isTauri();
+export const testBuild =
+  (import.meta as ImportMeta & { env: Record<string, string> }).env
+    .VITE_TEST_BUILD === "1";
+export const buildCommit =
+  (
+    (import.meta as ImportMeta & { env: Record<string, string> }).env
+      .VITE_BUILD_COMMIT ?? ""
+  )
+    .match(/^[a-f0-9]{7,40}$/i)?.[0]
+    .slice(0, 8) ?? "local";
 let previewLibrary: Library | null = null;
 let compactWindow = false;
 let normalBounds: {

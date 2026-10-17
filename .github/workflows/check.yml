@@ -4,6 +4,9 @@ on:
     branches-ignore: ["updates"]
   pull_request:
   workflow_call:
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -22,8 +25,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
       - run: npm ci
       - run: npm run check:version
+      - run: node scripts/check-test-build.mjs
       - run: npm run format:check
       - run: npm test
       - run: npm run build
@@ -44,3 +51,31 @@ jobs:
       - run: npx playwright install chromium
       - run: npm run test:ui
       - run: npm run desktop:build -- --no-bundle
+
+      - name: Build isolated Windows test installer
+        if: runner.os == 'Windows' && github.ref_type == 'branch'
+        env:
+          VITE_TEST_BUILD: "1"
+          VITE_BUILD_COMMIT: ${{ github.sha }}
+        shell: pwsh
+        run: |
+          Remove-Item src-tauri/target/release/bundle/nsis -Recurse -Force -ErrorAction SilentlyContinue
+          npm run desktop:build -- --bundles nsis --features test-build --config src-tauri/tauri.test.conf.json
+      - name: Package Windows test download
+        if: runner.os == 'Windows' && github.ref_type == 'branch'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory windows-test
+          $short = $env:GITHUB_SHA.Substring(0, 8)
+          $installers = @(Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected one isolated test installer' }
+          Copy-Item $installers[0].FullName "windows-test/VeraFlow-Test-$short-setup.exe"
+          "Commit: $env:GITHUB_SHA`nSeparate test library. No public updates. Publisher unsigned." | Set-Content windows-test/BUILD.txt
+          Get-FileHash "windows-test/VeraFlow-Test-$short-setup.exe" -Algorithm SHA256 | Format-List | Out-File windows-test/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows' && github.ref_type == 'branch'
+        with:
+          name: VeraFlow-Windows-Test-${{ github.sha }}
+          path: windows-test/*
+          if-no-files-found: error
+          retention-days: 14

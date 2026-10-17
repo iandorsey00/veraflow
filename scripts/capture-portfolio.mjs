@@ -15,6 +15,7 @@ try {
   });
   const page = await context.newPage();
   await page.goto(url);
+  await page.getByRole("button", { name: "Templates", exact: true }).click();
   await page
     .getByLabel("Placeholder syntax", { exact: true })
     .selectOption("braces");
@@ -105,6 +106,9 @@ try {
   await emailPage.setViewportSize({ width: 1440, height: 1900 });
   await emailPage.goto(url);
   await emailPage
+    .getByRole("button", { name: "Templates", exact: true })
+    .click();
+  await emailPage
     .getByLabel("Placeholder syntax", { exact: true })
     .selectOption("braces");
   await emailPage
@@ -150,6 +154,27 @@ try {
   await emailPage.setViewportSize({ width: 440, height: 650 });
   await emailPage.screenshot({
     path: "docs/portfolio/screenshots/05-email-delivery.png",
+    fullPage: true,
+  });
+  const scannerPage = await context.newPage();
+  await scannerPage.setViewportSize({ width: 440, height: 900 });
+  await scannerPage.goto(url);
+  await scannerPage
+    .getByRole("button", { name: "Start Scanner", exact: true })
+    .click();
+  await scannerPage.getByText("Fields and output", { exact: true }).click();
+  await scannerPage.getByLabel("Field name", { exact: true }).fill("reference");
+  await scannerPage
+    .getByRole("button", { name: "Rename field", exact: true })
+    .click();
+  await scannerPage.getByText("Fields and output", { exact: true }).click();
+  await scannerPage.getByLabel("Paste or type a value").fill("PR-104");
+  await scannerPage.locator("#apply-value").click();
+  await scannerPage.locator("#verify-start").click();
+  await scannerPage.getByLabel("Paste or type a value").fill("PR-104");
+  await scannerPage.locator("#apply-value").click();
+  await scannerPage.screenshot({
+    path: "docs/portfolio/screenshots/06-scanner.png",
     fullPage: true,
   });
 } finally {

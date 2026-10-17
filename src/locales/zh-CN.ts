@@ -1,5 +1,37 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  scannerNewValue: "输入新值",
+  removeFieldConfirm: "移除此字段并清除其采集值？",
+  scannerManage: "字段与输出",
+  endScanner: "结束扫描器",
+  removeField: "移除字段",
+  scannerUnverified: "请先核验当前字段，再传输。",
+  testBuildNotice: "测试版：使用独立模板库，已禁用公开版本更新。",
+  testBuildUpdates:
+    "测试版无法安装公开更新。请从 GitHub Actions 下载较新的测试版。",
+  scanner: "扫描器",
+  startScanner: "启动扫描器",
+  returnScanner: "返回扫描器",
+  scannerIntro:
+    "无需模板即可采集、核验和传输文本。可使用单个字段，也可收集多个命名字段。",
+  scannerPrivacy:
+    "扫描值仅保存在内存中。结束扫描器会清除这些值；如需重复使用，请明确选择保留。",
+  scannerFieldName: "字段名称",
+  renameField: "重命名字段",
+  addField: "添加字段",
+  scannerFieldInvalid:
+    "请输入 1–250 个字符的不重复字段名称。扫描器最多支持 1,000 个字段。",
+  copyField: "复制字段",
+  pasteField: "粘贴字段",
+  pasteTab: "粘贴并跳到下一项",
+  scannerOutput: "输出快捷键",
+  scannerFocusHelp:
+    "如需粘贴，请先在其他应用中聚焦目标输入框，再按输出快捷键。“复制字段”仅复制。粘贴失败时不会切换字段。",
+  useTemplate: "使用模板",
+  keepScanner: "保留扫描值以供下一项任务使用",
+  scannerMatchHelp:
+    "值将填入名称完全相同的模板字段。请按模板规则重新核验。不选择保留时，返回扫描器将开始全新任务。",
+
   sessionOptions: "会话选项与说明",
   windowPlacement: "无法恢复窗口位置。请重试。",
   clipboardDefaultHelp:

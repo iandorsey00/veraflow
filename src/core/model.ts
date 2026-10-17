@@ -110,6 +110,7 @@ export type Field = {
   candidate?: string;
 };
 export type Session = {
+  scanner?: boolean;
   template: Template;
   fields: Field[];
   active: number;
