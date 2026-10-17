@@ -14,6 +14,8 @@ Copy field copies the active field; it requires verification when verification i
 
 Fields and output also lets you add, rename, or remove fields and apply a template. Exact field names match; template values require fresh verification under its comparison rules. Template completion offers Return to Scanner. By default the next Scanner is empty; Keep Scanner values for another task is an explicit, memory-only choice. Retained Scanner values block updates and trigger quit confirmation. Ending Scanner clears its values. No Scanner data is saved or exported.
 
+[Download the verified Windows Scanner test build (9c617dcc)](https://github.com/iandorsey00/veraflow/actions/runs/38997011726/artifacts/12088285029). GitHub sign-in is required; extract the ZIP and install VeraFlow Test. Quit regular VeraFlow through its tray menu first to avoid shortcut collisions.
+
 Windows feedback no longer requires a public release: [download a separate Windows test build](docs/windows-testing.md) from a successful Check run. VeraFlow Test has its own library and cannot install public updates. The production download and feed remain v0.6.2 until Scanner passes Windows acceptance.
 
 ## Download

@@ -2,6 +2,10 @@
 
 Use test builds for day-to-day Windows feedback, then publish a public release after acceptance. The Check workflow builds a Windows installer for branch changes only after automated checks pass. You can also use Run workflow on the Check page to request a build without creating a new release. These are workflow artifacts, not GitHub Releases, and they never update the public feed. Rust dependency caching and cancellation of superseded runs reduce repeated work.
 
+## Verified Scanner test build
+
+[Download build 9c617dcc](https://github.com/iandorsey00/veraflow/actions/runs/38997011726/artifacts/12088285029) (GitHub sign-in required). This is the verified Windows x64 test installer for Scanner, with a separate library and public updates disabled. Extract the ZIP, then run `VeraFlow-Test-9c617dcc-setup.exe`. Its commit record and checksum are included. The artifact expires after 14 days; future runs produce new downloads. [Check run and logs](https://github.com/iandorsey00/veraflow/actions/runs/38997011726).
+
 ## Download and install
 
 1. Open the repository's [Check runs](https://github.com/iandorsey00/veraflow/actions/workflows/check.yml), select the run for the intended commit, and wait for Windows success.
