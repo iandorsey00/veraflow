@@ -12,9 +12,9 @@ Templates is the opening page; Scanner is the second navigation page. Start Scan
 
 Copy field copies the active field; it requires verification when verification is enabled. Under Fields and output, choose the output shortcut's action: Copy field, Paste field, or Paste and Tab. For paste, focus the destination in another app before pressing the configured finish/output shortcut (default Cmd/Ctrl+Alt+8). Output advances to the next Scanner field after success when Auto advance is enabled; failures retain the active field. No selection is captured automatically and no email is sent.
 
-Fields and output also lets you add, rename, or remove fields and apply a template. Exact field names match; template values require fresh verification under its comparison rules. Template completion offers Return to Scanner. By default the next Scanner is empty; Keep Scanner values for another task is an explicit, memory-only choice. Retained Scanner values block updates and trigger quit confirmation. Ending Scanner clears its values. No Scanner data is saved or exported.
+Use Add field above the list or Rename field on a row. Fields and output lets you remove the active field or apply a template. Exact field names match; template values require fresh verification under its comparison rules. Template completion offers Return to Scanner. By default the next Scanner is empty; Keep Scanner values for another task is an explicit, memory-only choice. Retained Scanner values block updates and trigger quit confirmation. Ending Scanner clears its values. No Scanner data is saved or exported.
 
-[Download the verified Windows Scanner test build (9c617dcc)](https://github.com/iandorsey00/veraflow/actions/runs/38997011726/artifacts/12088285029). GitHub sign-in is required; extract the ZIP and install VeraFlow Test. Quit regular VeraFlow through its tray menu first to avoid shortcut collisions.
+[Download the verified Windows Scanner test build (2c56e5b2)](https://github.com/iandorsey00/veraflow/actions/runs/39372571020/artifacts/12242158087). GitHub sign-in is required; extract the ZIP and install VeraFlow Test. Quit regular VeraFlow through its tray menu first to avoid shortcut collisions.
 
 Windows feedback no longer requires a public release: [download a separate Windows test build](docs/windows-testing.md) from a successful Check run. VeraFlow Test has its own library and cannot install public updates. The production download and feed remain v0.6.2 until Scanner passes Windows acceptance.
 
@@ -112,7 +112,7 @@ VeraFlow © 2026 Ian Dorsey. Open source under the [MIT license](LICENSE).
 
 ## Email mode
 
-Enable **Email mode** on a template to add Subject and To above the Body. Cc and Bcc have separate toggles and are off initially. Plain templates remain the default. Every enabled section accepts placeholders; repeated names share one captured and verified value. Disabled sections are excluded from capture and output. To and any included Subject must resolve to nonempty single-line text.
+Enable **Email mode** on a template to add Subject and To above the Body. Cc and Bcc have separate toggles and are off initially. Blank new templates start with email mode off; the included email examples have it enabled. Every enabled section accepts placeholders; repeated names share one captured and verified value. Disabled sections are excluded from capture and output. To and any included Subject must resolve to nonempty single-line text.
 
 After capture and verification, choose **Prepare email output** (or press the configured finish shortcut once). Focus the first included section in the destination email app. Press **Cmd/Ctrl+Alt+8** for each section in the template’s configured paste order. The default is Subject → To → enabled Cc → enabled Bcc → Body. Each press pastes once and presses Tab; Body does not press Tab. **Cmd/Ctrl+Alt+2** sends Shift+Tab and returns to the previous section. These use the configurable finish and previous shortcuts. Returning does not undo pasted text: select existing text before repasting. VeraFlow never sends the email.
 

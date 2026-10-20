@@ -4,7 +4,7 @@ Use test builds for day-to-day Windows feedback, then publish a public release a
 
 ## Verified Scanner test build
 
-[Download build 9c617dcc](https://github.com/iandorsey00/veraflow/actions/runs/38997011726/artifacts/12088285029) (GitHub sign-in required). This is the verified Windows x64 test installer for Scanner, with a separate library and public updates disabled. Extract the ZIP, then run `VeraFlow-Test-9c617dcc-setup.exe`. Its commit record and checksum are included. The artifact expires after 14 days; future runs produce new downloads. [Check run and logs](https://github.com/iandorsey00/veraflow/actions/runs/38997011726).
+[Download build 2c56e5b2](https://github.com/iandorsey00/veraflow/actions/runs/39372571020/artifacts/12242158087) (GitHub sign-in required). This is the verified Windows x64 test installer for Scanner, with a separate library and public updates disabled. Extract the ZIP, then run `VeraFlow-Test-2c56e5b2-setup.exe`. Its commit record and checksum are included. The artifact expires after 14 days; future runs produce new downloads. [Check run and logs](https://github.com/iandorsey00/veraflow/actions/runs/39372571020).
 
 ## Download and install
 
