@@ -1,3 +1,4 @@
+import { legacyTemplate } from "./fixtures";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 for (const colorScheme of ["light", "dark"] as const)
@@ -5,6 +6,7 @@ for (const colorScheme of ["light", "dark"] as const)
     await page.emulateMedia({ colorScheme });
     await page.goto("/");
     await page.getByRole("button", { name: "Templates", exact: true }).click();
+    await legacyTemplate(page);
     expect(
       (
         await new AxeBuilder({ page })
@@ -20,6 +22,7 @@ for (const colorScheme of ["light", "dark"] as const)
       .getByRole("button", { name: "Save settings", exact: true })
       .click();
     await page.getByRole("button", { name: "Templates", exact: true }).click();
+    await legacyTemplate(page);
     await page.getByLabel("Template text", { exact: true }).fill("<reference>");
     await page
       .getByRole("button", { name: "Start session", exact: true })

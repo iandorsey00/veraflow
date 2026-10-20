@@ -71,3 +71,25 @@ test("continuous Scanner capture advances only to an empty field without forcing
     ["one", "two"],
   );
 });
+
+test("completed email fields open in Scanner without losing values, status or comparison policy", async () => {
+  const { completedFieldsToScanner, renameScannerField } =
+    await import("../src/core/scanner");
+  const source = startScanner(defaultPreferences, "Email");
+  source.scanner = undefined;
+  source.mode = "review";
+  source.template.comparison.mode = "exact";
+  source.fields[0] = { name: "reference", value: "PR-104", status: "verified" };
+  const scanner = completedFieldsToScanner(
+    source,
+    defaultPreferences,
+    "Scanner",
+    "Field 1",
+  );
+  eraseSession(source);
+  assert.equal(scannerValue(scanner), "PR-104");
+  renameScannerField(scanner, 0, "ticket");
+  assert.equal(scanner.fields[0].status, "verified");
+  assert.equal(scanner.fields[0].value, "PR-104");
+  assert.equal(scanner.template.comparison.mode, "exact");
+});

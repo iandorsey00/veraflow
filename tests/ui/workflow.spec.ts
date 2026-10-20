@@ -1,7 +1,9 @@
+import { legacyTemplate } from "./fixtures";
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await legacyTemplate(page);
 });
 test("capture, mismatch without overwriting, correction, verify, copy and erase", async ({
   page,
@@ -265,6 +267,7 @@ test("shortcut registration failure still opens a usable session", async ({
   });
   await page.reload();
   await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await legacyTemplate(page);
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();
@@ -272,7 +275,7 @@ test("shortcut registration failure still opens a usable session", async ({
     page.getByRole("button", { name: "Cancel session", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/A shortcut is invalid/)).toContainText(
-    "CommandOrControl+Shift+1",
+    "CommandOrControl+Alt+1",
   );
   await page.getByText("Enter value manually", { exact: true }).click();
   await page.getByLabel("Paste or type a value").fill("Synthetic value");
@@ -388,6 +391,7 @@ test("unsafe clipboard recovery changes only this session and retries mouse tran
   });
   await page.reload();
   await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await legacyTemplate(page);
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();
@@ -450,6 +454,7 @@ test("failed email paste can be recovered with manual keyboard navigation", asyn
   });
   await page.reload();
   await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await legacyTemplate(page);
   await page.getByLabel("Template text", { exact: true }).fill("Body");
   await page.getByLabel("Email mode", { exact: true }).check();
   await page.getByLabel("Subject", { exact: true }).fill("Subject text");
@@ -557,6 +562,7 @@ test("legacy clipboard preservation migrates off and explicit opt-in survives re
   });
   await page.reload();
   await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await legacyTemplate(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const setting = page.getByLabel("Restore clipboard after temporary capture", {
     exact: true,
@@ -575,6 +581,7 @@ test("legacy clipboard preservation migrates off and explicit opt-in survives re
     .click();
   await page.reload();
   await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await legacyTemplate(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(setting).toBeChecked();
 });

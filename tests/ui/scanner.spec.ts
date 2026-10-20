@@ -1,3 +1,4 @@
+import { legacyTemplate, renameField, addField } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 async function fill(page: Page, value: string) {
@@ -6,6 +7,7 @@ async function fill(page: Page, value: string) {
 }
 async function start(page: Page) {
   await page.goto("/");
+  await page.getByRole("button", { name: "Scanner", exact: true }).click();
   await page
     .getByRole("button", { name: "Start Scanner", exact: true })
     .click();
@@ -28,12 +30,9 @@ test("Scanner verifies one field, blocks mismatches, copies and collects another
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     "PR-104",
   );
-  if (!(await page.getByLabel("Field name", { exact: true }).isVisible()))
-    await page.getByText("Fields and output", { exact: true }).click();
-  await page.getByLabel("Field name", { exact: true }).fill("address");
-  await page.getByRole("button", { name: "Add field", exact: true }).click();
+  await addField(page, "address");
   await expect(page.locator(".capture-field strong")).toHaveText([
-    "1",
+    "Field 1",
     "address",
   ]);
   await page.keyboard.press("Alt+ArrowLeft");
@@ -64,6 +63,7 @@ for (const keep of [false, true])
     });
     await page.goto("/");
     await page.getByRole("button", { name: "Templates", exact: true }).click();
+    await legacyTemplate(page);
     await page
       .getByLabel("Template text", { exact: true })
       .fill("Hello <name>");
@@ -74,13 +74,11 @@ for (const keep of [false, true])
     await page
       .getByRole("button", { name: "Start Scanner", exact: true })
       .click();
-    if (!(await page.getByLabel("Field name", { exact: true }).isVisible()))
-      await page.getByText("Fields and output", { exact: true }).click();
-    await page.getByLabel("Field name", { exact: true }).fill("name");
-    await page
-      .getByRole("button", { name: "Rename field", exact: true })
-      .click();
+    await renameField(page, "name");
     await fill(page, "Alex");
+    await expect(page.locator(".capture-field strong")).toHaveText(["name"]);
+    await expect(page.locator(".field-value")).toHaveText(["Alex"]);
+    await page.getByText("Fields and output", { exact: true }).click();
     await page
       .locator("summary")
       .filter({ hasText: /^Use a template$/ })
@@ -136,11 +134,9 @@ test("failed Scanner paste does not advance and only sends requested text and Ta
   await fill(page, "Alex");
   await page.locator("#verify-start").click();
   await fill(page, "Alex");
-  if (!(await page.getByLabel("Field name", { exact: true }).isVisible()))
-    await page.getByText("Fields and output", { exact: true }).click();
-  await page.getByLabel("Field name", { exact: true }).fill("second");
-  await page.locator("#scanner-add").click();
+  await addField(page, "second");
   await page.locator("#field-0").click();
+  await page.getByText("Fields and output", { exact: true }).click();
   await page.getByText("Output shortcut", { exact: true }).first().click();
   await page.locator("#scanner-output").selectOption("tab");
   await page.evaluate(() => (window as any).__dispatch("finish"));
@@ -169,10 +165,9 @@ test("Scanner is usable in Chinese dark mode and removing an empty field preserv
   await page.emulateMedia({ colorScheme: "dark" });
   await start(page);
   await fill(page, "Alex");
-  if (!(await page.getByLabel("Field name", { exact: true }).isVisible()))
+  await addField(page, "second");
+  if (!(await page.locator("#scanner-remove").isVisible()))
     await page.getByText("Fields and output", { exact: true }).click();
-  await page.getByLabel("Field name", { exact: true }).fill("second");
-  await page.locator("#scanner-add").click();
   await page.locator("#scanner-remove").click();
   await expect(page.locator(".field-value")).toHaveText("Alex");
   await page.getByRole("button", { name: "Templates", exact: true }).click();
@@ -199,16 +194,18 @@ test("removing a captured Scanner field requires its explicit action", async ({
 }) => {
   await start(page);
   await fill(page, "Alex");
-  await page.getByText("Fields and output", { exact: true }).click();
-  await page.getByLabel("Field name", { exact: true }).fill("second");
-  await page.locator("#scanner-add").click();
+  await addField(page, "second");
   await page.locator("#field-0").click();
+  if (!(await page.locator("#scanner-remove").isVisible()))
+    await page.getByText("Fields and output", { exact: true }).click();
   await page.locator("#scanner-remove").click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Keep working", exact: true })
     .click();
   await expect(page.locator(".field-value").first()).toHaveText("Alex");
+  if (!(await page.locator("#scanner-remove").isVisible()))
+    await page.getByText("Fields and output", { exact: true }).click();
   await page.locator("#scanner-remove").click();
   await page
     .getByRole("dialog")

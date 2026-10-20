@@ -3,6 +3,8 @@ import {
   startScanner,
   captureScanner,
   addScannerField,
+  renameScannerField,
+  completedFieldsToScanner,
   scannerValue,
   applyScanner,
 } from "./core/scanner";
@@ -13,6 +15,7 @@ import {
   actions,
   defaultPreferences,
   migrateClipboardPreference,
+  migrateShortcutDefaults,
   defaultEmail,
   defaultEmailOrder,
   type Action,
@@ -62,7 +65,7 @@ let library: Library = {
   templates: [],
   preferences: structuredClone(defaultPreferences),
 };
-let view: "scanner" | "templates" | "settings" | "session" = "scanner";
+let view: "scanner" | "templates" | "settings" | "session" = "templates";
 let selected = "",
   draft: Template | null = null,
   settingsDraft: Preferences | null = null,
@@ -193,7 +196,7 @@ function applyAppearance() {
 function render() {
   applyAppearance();
   root.className = view === "session" ? "compact" : "";
-  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-scanner", "scanner", view === "scanner" ? "selected" : "")}${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
+  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${button("nav-scanner", "scanner", view === "scanner" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
     ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="update-banner">${view !== "session" && availableUpdate ? button("update-now", "updateNow") : ""}</div>
@@ -216,15 +219,80 @@ function render() {
   else if (view === "settings") bindSettings();
   else if (view === "session") bindSession();
 }
+function emailExample(language: Preferences["language"]): Template {
+  const strings = language === "en" ? en : zh;
+  const example: Template = {
+    id: crypto.randomUUID(),
+    name: strings.sampleName,
+    folder: strings.sampleFolder,
+    placeholderStyle: "braces",
+    content: strings.sampleContent,
+    fieldOrder: [],
+    verificationEnabled: true,
+    comparison: structuredClone(defaultPreferences.comparison),
+    email: {
+      ...structuredClone(defaultEmail),
+      enabled: true,
+      subject: strings.sampleSubject,
+      to: strings.sampleTo,
+    },
+  };
+  example.fieldOrder = orderFields(templateSource(example), [], "braces");
+  return example;
+}
+async function editScannerName(
+  index: number,
+  adding = false,
+): Promise<boolean> {
+  const dialog = document.createElement("dialog");
+  dialog.setAttribute("aria-labelledby", "scanner-name-title");
+  dialog.innerHTML = `<form><h2 id="scanner-name-title">${esc(t(adding ? "addField" : "renameField"))}</h2><label for="scanner-name">${esc(t("scannerFieldName"))}</label><input id="scanner-name" maxlength="250" value="${esc(session!.fields[index].name)}" aria-describedby="scanner-name-error"><p id="scanner-name-error" role="alert"></p><div class="actions"><button type="button" id="cancel-name">${esc(t("keep"))}</button><button type="submit" class="primary">${esc(t("saveFieldName"))}</button></div></form>`;
+  document.body.append(dialog);
+  dialog.showModal();
+  const input = dialog.querySelector<HTMLInputElement>("input")!;
+  input.focus();
+  input.select();
+  dialog.querySelector("form")!.onsubmit = (event) => {
+    event.preventDefault();
+    try {
+      renameScannerField(session!, index, input.value);
+      dialog.close("saved");
+    } catch {
+      dialog.querySelector("[role=alert]")!.textContent = t(
+        "scannerFieldInvalid",
+      );
+      input.focus();
+    }
+  };
+  dialog.querySelector<HTMLButtonElement>("#cancel-name")!.onclick = () =>
+    dialog.close("cancel");
+  return new Promise((resolve) =>
+    dialog.addEventListener(
+      "close",
+      () => {
+        const saved = dialog.returnValue === "saved";
+        dialog.remove();
+        resolve(saved);
+      },
+      { once: true },
+    ),
+  );
+}
 function scannerHome(): string {
   return `<main class="settings scanner-home"><h1>${esc(t("scanner"))}</h1><p>${esc(t("scannerIntro"))}</p>${button("start-scanner", "startScanner", "primary")}<p class="hint">${esc(t("scannerPrivacy"))}</p></main>`;
 }
-async function launchScanner(saved?: Session) {
+async function launchScanner(saved?: Session, confirmed = false) {
   if (!(await abandonDraft())) return;
-  const template = startScanner(library.preferences, t("scanner")).template;
-  if (!(await launch(template))) return;
+  const template = startScanner(
+    library.preferences,
+    t("scanner"),
+    `${t("scannerField")} 1`,
+  ).template;
+  if (!(await launch(template, undefined, confirmed))) return;
   if (!session || session.template.id !== "scanner") return;
-  session = saved ?? startScanner(library.preferences, t("scanner"));
+  session =
+    saved ??
+    startScanner(library.preferences, t("scanner"), `${t("scannerField")} 1`);
   manualOpen = true;
   scannerOutput = "copy";
   render();
@@ -232,7 +300,7 @@ async function launchScanner(saved?: Session) {
 }
 function scannerControls(): string {
   const s = session!;
-  return `<details id="scanner-management" ${scannerManagementOpen ? "open" : ""}><summary>${esc(t("scannerManage"))}</summary><section class="scanner-tools" aria-label="${esc(t("scanner"))}"><label for="scanner-name">${esc(t("scannerFieldName"))}</label><input id="scanner-name" maxlength="250" value="${esc(s.fields[s.active].name)}"><div class="toolbar">${button("scanner-rename", "renameField")}${button("scanner-add", "addField")}${button("scanner-remove", "removeField", "", s.fields.length === 1)}</div><details><summary>${esc(t("scannerOutput"))}</summary><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd></p></details><details><summary>${esc(t("useTemplate"))}</summary><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}</details></section></details>`;
+  return `<details id="scanner-management" ${scannerManagementOpen ? "open" : ""}><summary>${esc(t("scannerManage"))}</summary><section class="scanner-tools" aria-label="${esc(t("scanner"))}"><details><summary>${esc(t("scannerOutput"))}</summary><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd></p></details><details><summary>${esc(t("useTemplate"))}</summary><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}</details>${button("scanner-remove", "removeField", "quiet danger", s.fields.length === 1)}</section></details>`;
 }
 function libraryView(): string {
   const items = library.templates.filter(
@@ -254,7 +322,7 @@ function libraryView(): string {
       )
       .join("")}</select>
     <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${orderFields(templateSource(item), [], item.placeholderStyle).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
-    <div class="toolbar template-transfer">${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
+    <div class="toolbar template-transfer">${button("add-email-example", "addEmailExample", "", locked)}</div><div class="toolbar template-transfer">${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
     <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? editorView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
 function comparisonView(rules: Comparison, prefix: string): string {
@@ -265,7 +333,7 @@ function editorView(): string {
   const d = draft!;
   return `<div class="section-head"><p class="eyebrow">${esc(t("library"))}</p><div class="toolbar">${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div></div>
   <div class="metadata"> <div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
-  <label for="placeholder-style">${esc(t("placeholderStyle"))}</label><select id="placeholder-style"><option value="angle" ${d.placeholderStyle !== "braces" ? "selected" : ""}>${esc(t("angleStyle"))}</option><option value="braces" ${d.placeholderStyle === "braces" ? "selected" : ""}>${esc(t("bracesStyle"))}</option></select><p class="hint">${esc(t("escapeHelp"))}</p>
+  <label for="placeholder-style">${esc(t("placeholderStyle"))}</label><select id="placeholder-style"><option value="braces" ${d.placeholderStyle === "braces" ? "selected" : ""}>${esc(t("bracesStyle"))}</option><option value="angle" ${d.placeholderStyle !== "braces" ? "selected" : ""}>${esc(t("angleStyle"))}</option></select><p class="hint">${esc(t("escapeHelp"))}</p>
   ${check("email-enabled", "emailMode", d.email?.enabled ?? false)}
   ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${check("email-subject-enabled", "enableSubject", d.email.subjectEnabled !== false)}${d.email.subjectEnabled !== false ? field("email-subject", "subject", d.email.subject) : ""}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}<h2>${esc(t("emailOrder"))}</h2><p class="hint">${esc(t("emailOrderHelp"))}</p><ol class="field-order">${emailOrderView(d)}</ol></section>` : ""}
   <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t(d.placeholderStyle === "braces" ? "bracePlaceholderHelp" : "placeholderHelp"))}</p>
@@ -377,6 +445,13 @@ function bindLibrary() {
     dirty = true;
     render();
     focus("placeholder-style");
+  });
+  click("add-email-example", async () => {
+    if (!(await abandonDraft())) return;
+    const example = emailExample(library.preferences.language);
+    await persist({ ...library, templates: [...library.templates, example] });
+    selectTemplate(example.id);
+    render();
   });
   click("new", newTemplate);
   click("empty-new", newTemplate);
@@ -700,10 +775,15 @@ function bindSettings() {
     notify("saved");
   });
 }
-async function launch(template: Template, scannerSource?: Session) {
+async function launch(
+  template: Template,
+  scannerSource?: Session,
+  confirmed = false,
+) {
   if (
     ((session && session.mode !== "complete") || retainedScanner) &&
     !scannerSource &&
+    !confirmed &&
     !(await confirmAction("sessionConfirm"))
   )
     return false;
@@ -756,6 +836,8 @@ function sessionView(): string {
   const s = session,
     p = library.preferences,
     f = s.fields[s.active];
+  if (s.mode === "review")
+    return `<main class="capture-panel"><h1>✓ ${esc(t("emailDone"))}</h1><p>${esc(t("emailReviewHelp"))}</p><div class="actions">${button("email-to-scanner", "emailToScanner", "primary")}${button("email-clear-close", "clearClose", "danger")}</div></main>`;
   if (s.mode === "complete")
     return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion ? "erased" : "retained"))}</p>${button("close-session", returnToScanner ? "returnScanner" : "closeSession", "primary")}</main>`;
   if (s.mode === "delivery") {
@@ -796,7 +878,8 @@ function sessionView(): string {
   <details id="session-options" class="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
   ${s.mode !== "ready" ? check("preserve-clipboard", "preserveClipboard", preserveClipboard) + `<p class="hint">${esc(t("preserveClipboardHelp"))}</p>` : ""}
   ${check("mouse-mode", "mouseMode", mouseMode)}<p class="hint">${esc(t("mouseHelp"))}</p></details>
-  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button></li>`).join("")}</ol>
+  ${s.scanner ? `<div class="section-head scanner-field-heading"><h2>${esc(t("scannerFields"))}</h2>${button("scanner-add", "addField")}</div><p class="hint">${esc(t("scannerFieldsHelp"))}</p>` : ""}
+  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button>${s.scanner ? `<div class="field-row-tools"><button data-rename="${index}" aria-label="${esc(t("renameField") + " " + field.name)}">${esc(t("renameField"))}</button></div>` : ""}</li>`).join("")}</ol>
   ${f ? `<details class="inspect"><summary>${esc(t("expand"))}: ${esc(f.name)}</summary><pre>${esc(f.value ?? "—")}</pre></details>` : ""}
   ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
@@ -828,26 +911,31 @@ function bindSession() {
     s.active = Math.min(s.active, s.fields.length - 1);
     render();
   });
-  click("scanner-add", () => {
-    addScannerField(
-      session!,
-      (document.getElementById("scanner-name") as HTMLInputElement).value,
-    );
+  click("scanner-add", async () => {
+    let number = session!.fields.length + 1;
+    while (
+      session!.fields.some((f) => f.name === `${t("scannerField")} ${number}`)
+    )
+      number++;
+    const oldActive = session!.active,
+      oldMode = session!.mode;
+    addScannerField(session!, `${t("scannerField")} ${number}`);
+    if (!(await editScannerName(session!.active, true))) {
+      session!.fields.pop();
+      session!.active = oldActive;
+      session!.mode = oldMode;
+    }
     render();
-    focus("manual-entry");
+    focus(`field-${session!.active}`);
   });
-  click("scanner-rename", () => {
-    const s = session!,
-      index = s.active,
-      name = (
-        document.getElementById("scanner-name") as HTMLInputElement
-      ).value.trim();
-    if (name === s.fields[index].name) return;
-    addScannerField(s, name);
-    s.fields.pop();
-    s.fields[index].name = name;
-    s.active = index;
-    render();
+  root.querySelectorAll<HTMLButtonElement>("[data-rename]").forEach((el) => {
+    el.onclick = () =>
+      void run(async () => {
+        const index = Number(el.dataset.rename);
+        await editScannerName(index);
+        render();
+        focus(`field-${index}`);
+      });
   });
   click("scanner-capture-mode", () => {
     session!.mode = "capture";
@@ -905,13 +993,27 @@ function bindSession() {
   });
   click("email-done", async () => {
     if (!session?.deliveryDone) return;
-    if (library.preferences.clearAfterCompletion) eraseSession(session);
-    else session.mode = "complete";
+    session.mode = "review";
     await bindShortcuts(null, dispatch);
-    await platform.active(false);
+    await platform.active(true);
     await platform.compact(false, false);
     render();
-    focus("close-session");
+    focus("email-to-scanner");
+  });
+  click("email-to-scanner", async () => {
+    if (session?.mode !== "review") return;
+    const fields = completedFieldsToScanner(
+      session,
+      library.preferences,
+      t("scanner"),
+      `${t("scannerField")} 1`,
+    );
+    await launchScanner(fields, true);
+  });
+  click("email-clear-close", async () => {
+    eraseRetainedScanner();
+    returnToScanner = false;
+    await closeSession();
   });
   click("session-back", () => navigate("templates"));
   click("close-session", closeSession);
@@ -1017,6 +1119,7 @@ async function perform(action: Action, global = false) {
   if (!s || s.mode === "complete") return;
   // Global navigation is frozen while an editor/settings screen or confirmation is open.
   if (view !== "session") return;
+  if (s.mode === "review") return;
   if (s.mode === "delivery" && action !== "cancel") {
     if (!global && (action === "previous" || action === "next")) {
       moveEmailSection(s, action === "previous" ? -1 : 1);
@@ -1181,6 +1284,8 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     if (view === "scanner") document.getElementById("start-scanner")?.click();
     else if (view === "templates") document.getElementById("start")?.click();
+    else if (view === "session" && session?.mode === "review")
+      document.getElementById("email-to-scanner")?.click();
     else if (view === "session" && session?.mode === "delivery")
       document.getElementById("email-done")?.click();
     else if (
@@ -1222,28 +1327,11 @@ async function init() {
     const saved = await platform.load();
     if (saved) {
       library = saved;
-      if (migrateClipboardPreference(library)) await persist(library);
+      const clipboardChanged = migrateClipboardPreference(library);
+      const shortcutsChanged = migrateShortcutDefaults(library);
+      if (clipboardChanged || shortcutsChanged) await persist(library);
     } else {
-      library.templates = [
-        {
-          id: crypto.randomUUID(),
-          name: en.sampleName,
-          folder: en.sampleFolder,
-          content: en.sampleContent,
-          fieldOrder: orderFields(en.sampleContent),
-          verificationEnabled: true,
-          comparison: structuredClone(defaultPreferences.comparison),
-        },
-        {
-          id: crypto.randomUUID(),
-          name: zh.sampleChineseName,
-          folder: en.sampleFolder,
-          content: zh.sampleChineseContent,
-          fieldOrder: orderFields(zh.sampleChineseContent),
-          verificationEnabled: true,
-          comparison: structuredClone(defaultPreferences.comparison),
-        },
-      ];
+      library.templates = [emailExample("en"), emailExample("zh-CN")];
     }
   } catch (error) {
     locked = true;

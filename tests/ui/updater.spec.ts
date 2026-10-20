@@ -137,11 +137,9 @@ test("a background update check preserves edits and does not open a dialog", asy
   });
   await updates(page, 'return {version:"0.6.0",notes:"Test"};');
   await page.getByRole("button", { name: "Templates", exact: true }).click();
-  await page
-    .getByLabel("Template text", { exact: true })
-    .fill("Unsaved {{reference}}");
+  await page.getByLabel("Body", { exact: true }).fill("Unsaved {{reference}}");
   await page.evaluate(() => (window as any).__checkAvailableUpdate());
-  await expect(page.getByLabel("Template text", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Body", { exact: true })).toHaveValue(
     "Unsaved {{reference}}",
   );
   await expect(

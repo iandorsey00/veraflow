@@ -1,7 +1,11 @@
 import type { Preferences, Session, Template } from "./model";
 import { startSession, capture } from "./session";
 
-export function startScanner(preferences: Preferences, name: string): Session {
+export function startScanner(
+  preferences: Preferences,
+  name: string,
+  firstField = "Field 1",
+): Session {
   const session = startSession({
     id: "scanner",
     name,
@@ -12,7 +16,7 @@ export function startScanner(preferences: Preferences, name: string): Session {
     comparison: structuredClone(preferences.comparison),
   });
   session.scanner = true;
-  addScannerField(session, "1");
+  addScannerField(session, firstField);
   return session;
 }
 export function addScannerField(session: Session, name: string) {
@@ -28,6 +32,47 @@ export function addScannerField(session: Session, name: string) {
   session.fields.push({ name, value: null, status: "empty" });
   session.active = session.fields.length - 1;
   session.mode = "capture";
+}
+export function renameScannerField(
+  session: Session,
+  index: number,
+  name: string,
+) {
+  name = name.trim();
+  if (
+    !session.fields[index] ||
+    !name ||
+    name.length > 250 ||
+    /[\p{Cc}\p{Cf}]/u.test(name) ||
+    session.fields.some((f, i) => i !== index && f.name === name)
+  )
+    throw Error("scannerFieldInvalid");
+  session.fields[index].name = name;
+}
+export function completedFieldsToScanner(
+  session: Session,
+  preferences: Preferences,
+  name: string,
+  firstField: string,
+): Session {
+  const fields = structuredClone(
+    session.fields.filter((f) => f.value !== null && f.status !== "skipped"),
+  );
+  if (!fields.length) return startScanner(preferences, name, firstField);
+  return {
+    scanner: true,
+    fields,
+    active: 0,
+    mode: "capture",
+    template: {
+      ...structuredClone(session.template),
+      id: "scanner",
+      name,
+      content: "",
+      email: undefined,
+      fieldOrder: [],
+    },
+  };
 }
 export function captureScanner(
   session: Session,

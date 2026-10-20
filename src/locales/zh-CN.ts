@@ -1,5 +1,18 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  sampleSubject: "{{主题}}",
+  sampleTo: "{{收件人邮箱}}",
+  scannerField: "字段",
+  scannerFields: "字段",
+  scannerFieldsHelp:
+    "添加字段以收集更多内容。点击字段旁的“重命名字段”可更改名称，不会改变已采集的值。",
+  saveFieldName: "保存名称",
+  emailToScanner: "在扫描器中打开字段",
+  clearClose: "清除字段并关闭",
+  emailReviewHelp:
+    "邮件传输已完成。可在扫描器中打开已采集字段，逐项复制或粘贴，也可清除字段并关闭。做出选择前，这些值仅保存在内存中。",
+  addEmailExample: "添加邮件示例",
+
   scannerNewValue: "输入新值",
   removeFieldConfirm: "移除此字段并清除其采集值？",
   scannerManage: "字段与输出",
@@ -274,13 +287,11 @@ export const zh: Record<keyof typeof en, string> = {
   help: "快捷键帮助",
   done: "完成",
   quit: "退出",
-  sampleName: "退货授权",
-  sampleFolder: "客户支持",
-  sampleContent:
-    "主题：[RMA] [<工单号>] <标题>\n\n请发出 <数量> 台 <型号>，并创建退货运单：\n\n<地址>\n\n<电话>\n<邮箱>\n\n谢谢！",
-  sampleChineseName: "客户跟进",
-  sampleChineseContent:
-    "您好，<客户姓名>：\n\n工单号：<工单号>\n型号：<型号>\n地址：<地址>\n\n谢谢，<客户姓名>。",
+  sampleName: "通用邮件",
+  sampleFolder: "示例",
+  sampleContent: "您好，{{收件人}}：\n\n{{正文}}\n\n谢谢！",
+  sampleChineseName: "通用邮件",
+  sampleChineseContent: "您好，{{收件人}}：\n\n{{正文}}\n\n谢谢！",
   library: "模板库",
   workflow: "选择 → 采集 → 核验 → 复制",
   expand: "查看完整值",

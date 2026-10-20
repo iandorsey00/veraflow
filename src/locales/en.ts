@@ -1,4 +1,17 @@
 export const en = {
+  sampleSubject: "{{subject}}",
+  sampleTo: "{{recipient_email}}",
+  scannerField: "Field",
+  scannerFields: "Fields",
+  scannerFieldsHelp:
+    "Add a field to collect another item. Rename beside a field changes its name without changing its value.",
+  saveFieldName: "Save name",
+  emailToScanner: "Open fields in Scanner",
+  clearClose: "Clear fields and close",
+  emailReviewHelp:
+    "Email transfer is complete. Open the captured fields in Scanner to copy or paste individual items, or clear them and close. Values stay only in memory until you choose.",
+  addEmailExample: "Add email example",
+
   scannerNewValue: "Enter new value",
   removeFieldConfirm: "Remove this field and erase its captured value?",
   scannerManage: "Fields and output",
@@ -291,13 +304,11 @@ export const en = {
   help: "Keyboard help",
   done: "Done",
   quit: "Quit",
-  sampleName: "Return authorization",
-  sampleFolder: "Customer support",
-  sampleContent:
-    "Subject: [RMA] [<ticket_number>] <title>\n\n@John Smith <ticket_number>\n\nPlease ship <qty> <model_number> and create a return shipping label to:\n\n<address>\n\n<phone>\n<email>\n\nThank you!",
-  sampleChineseName: "客户跟进",
-  sampleChineseContent:
-    "您好，<客户姓名>：\n\n工单号：<工单号>\n型号：<型号>\n地址：<地址>\n\n谢谢，<客户姓名>。",
+  sampleName: "General email",
+  sampleFolder: "Examples",
+  sampleContent: "Hello {{recipient_name}},\n\n{{message}}\n\nThank you.",
+  sampleChineseName: "通用邮件",
+  sampleChineseContent: "您好，{{收件人}}：\n\n{{正文}}\n\n谢谢！",
   library: "Template library",
   workflow: "Choose → Capture → Verify → Copy",
   expand: "Inspect value",

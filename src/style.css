@@ -735,3 +735,21 @@ dialog::backdrop {
 .scanner-tools details {
   margin-top: 8px;
 }
+
+.scanner-field-heading {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+.scanner-field-heading h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.field-row-tools {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0 6px;
+}
+.field-row-tools button {
+  font-size: 12px;
+  padding: 5px 8px;
+}

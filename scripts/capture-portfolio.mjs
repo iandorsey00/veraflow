@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 const url = process.env.PORTFOLIO_URL || "http://127.0.0.1:1420";
 if (!["localhost", "127.0.0.1"].includes(new URL(url).hostname))
@@ -16,6 +16,11 @@ try {
   const page = await context.newPage();
   await page.goto(url);
   await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await mkdir("docs/portfolio/screenshots", { recursive: true });
+  await page.screenshot({
+    path: "docs/portfolio/screenshots/01-template-library.png",
+  });
+  await page.locator("#email-enabled").uncheck();
   await page
     .getByLabel("Placeholder syntax", { exact: true })
     .selectOption("braces");
@@ -36,9 +41,6 @@ try {
     .click();
   await page.getByRole("button", { name: "Templates", exact: true }).click();
   await mkdir("docs/portfolio/screenshots", { recursive: true });
-  await page.screenshot({
-    path: "docs/portfolio/screenshots/01-template-library.png",
-  });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page
     .getByLabel("Green background for verified fields", { exact: true })
@@ -88,7 +90,8 @@ try {
     .getByRole("button", { name: "Save settings", exact: true })
     .click();
   await page.getByRole("button", { name: "模板", exact: true }).click();
-  await page.getByRole("button", { name: /客户跟进/ }).click();
+  await page.getByRole("button", { name: /通用邮件/ }).click();
+  await page.locator("#email-enabled").uncheck();
   await page.locator("#placeholder-style").selectOption("braces");
   await page.getByLabel("模板名称", { exact: true }).fill("项目更新");
   await page.getByRole("textbox", { name: "文件夹", exact: true }).fill("通用");
@@ -108,6 +111,7 @@ try {
   await emailPage
     .getByRole("button", { name: "Templates", exact: true })
     .click();
+  await emailPage.locator("#email-enabled").uncheck();
   await emailPage
     .getByLabel("Placeholder syntax", { exact: true })
     .selectOption("braces");
@@ -160,14 +164,24 @@ try {
   await scannerPage.setViewportSize({ width: 440, height: 900 });
   await scannerPage.goto(url);
   await scannerPage
+    .getByRole("button", { name: "Scanner", exact: true })
+    .click();
+  await scannerPage
     .getByRole("button", { name: "Start Scanner", exact: true })
     .click();
-  await scannerPage.getByText("Fields and output", { exact: true }).click();
-  await scannerPage.getByLabel("Field name", { exact: true }).fill("reference");
+  await scannerPage.locator("[data-rename]").click();
   await scannerPage
-    .getByRole("button", { name: "Rename field", exact: true })
+    .getByRole("dialog")
+    .getByLabel("Field name", { exact: true })
+    .fill("reference");
+  await scannerPage
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save name", exact: true })
     .click();
-  await scannerPage.getByText("Fields and output", { exact: true }).click();
+  await expect(scannerPage.locator("#app")).not.toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
   await scannerPage.getByLabel("Paste or type a value").fill("PR-104");
   await scannerPage.locator("#apply-value").click();
   await scannerPage.locator("#verify-start").click();

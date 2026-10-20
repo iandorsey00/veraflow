@@ -65,6 +65,8 @@ pub struct Preferences {
     pub restore_clipboard: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub clipboard_preservation_configured: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shortcut_defaults_configured: Option<bool>,
     pub comparison: Comparison,
     pub shortcuts: BTreeMap<String, String>,
 }
@@ -161,6 +163,18 @@ mod tests {
         let mut configured = value;
         configured["preferences"]["clipboardPreservationConfigured"] = serde_json::json!(true);
         configured["preferences"]["restoreClipboard"] = serde_json::json!(false);
+        let new: Library = serde_json::from_value(configured.clone()).unwrap();
+        assert!(new.validate().is_ok());
+        assert_eq!(serde_json::to_value(new).unwrap(), configured);
+    }
+    #[test]
+    fn shortcut_migration_marker_is_optional_and_round_trips() {
+        let value = fixture();
+        let old: Library = serde_json::from_value(value.clone()).unwrap();
+        assert!(old.preferences.shortcut_defaults_configured.is_none());
+        assert_eq!(serde_json::to_value(old).unwrap(), value);
+        let mut configured = value;
+        configured["preferences"]["shortcutDefaultsConfigured"] = serde_json::json!(true);
         let new: Library = serde_json::from_value(configured.clone()).unwrap();
         assert!(new.validate().is_ok());
         assert_eq!(serde_json::to_value(new).unwrap(), configured);

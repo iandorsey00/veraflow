@@ -186,3 +186,38 @@ test("clipboard migration turns old defaults off once and preserves later explic
   assert.equal(migrateClipboardPreference(library), false);
   assert.equal(library.preferences.restoreClipboard, true);
 });
+
+test("Ctrl+Alt stock shortcut migration preserves custom bindings and prevents collisions", async () => {
+  const { migrateShortcutDefaults, actions } =
+    await import("../src/core/model");
+  const library = {
+    version: 1 as const,
+    templates: [],
+    preferences: structuredClone(defaultPreferences),
+  };
+  delete library.preferences.shortcutDefaultsConfigured;
+  actions.forEach(
+    (action, i) =>
+      (library.preferences.shortcuts[action] =
+        `CommandOrControl+Shift+${i + 1}`),
+  );
+  library.preferences.shortcuts.finish = "Ctrl+Alt+1";
+  library.preferences.shortcuts.cancel = "CommandOrControl+Alt+N";
+  assert.equal(migrateShortcutDefaults(library), true);
+  assert.equal(
+    library.preferences.shortcuts.capture,
+    "CommandOrControl+Shift+1",
+  );
+  assert.equal(
+    library.preferences.shortcuts.previous,
+    "CommandOrControl+Alt+2",
+  );
+  assert.equal(library.preferences.shortcuts.cancel, "CommandOrControl+Alt+N");
+  assert.equal(library.preferences.shortcuts.finish, "Ctrl+Alt+1");
+  library.preferences.shortcuts.previous = "CommandOrControl+Shift+2";
+  assert.equal(migrateShortcutDefaults(library), false);
+  assert.equal(
+    library.preferences.shortcuts.previous,
+    "CommandOrControl+Shift+2",
+  );
+});
