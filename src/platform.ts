@@ -60,14 +60,14 @@ export const platform = {
     progress.onmessage = onProgress;
     await invoke("install_update", { progress });
   },
-  async exportTemplates(json: string) {
-    if (desktop) return invoke("export_templates", { json });
+  async exportTemplates(json: string, filename = "veraflow-templates.json") {
+    if (desktop) return invoke("export_templates", { json, filename });
     const url = URL.createObjectURL(
       new Blob([json], { type: "application/json" }),
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = "veraflow-templates.json";
+    link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
@@ -87,6 +87,10 @@ export const platform = {
       input.click();
     });
   },
+  async pasteToSource(text: string) {
+    if (!desktop) throw new Error("desktopRequired");
+    await invoke("deliver_email", { text, tab: false, restoreSource: true });
+  },
   async deliver(text: string | null, tab: boolean) {
     if (!desktop) throw new Error("desktopRequired");
     await invoke("deliver_email", { text, tab });
@@ -98,6 +102,11 @@ export const platform = {
     return desktop ? invoke("load_library") : previewLibrary;
   },
   async save(library: Library): Promise<void> {
+    if (
+      new TextEncoder().encode(JSON.stringify(library)).length >
+      16 * 1024 * 1024
+    )
+      throw Error("invalidLibrary");
     if (desktop) await invoke("save_library", { library });
     else previewLibrary = structuredClone(library);
   },

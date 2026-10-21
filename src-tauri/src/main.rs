@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod storage;
 mod updater;
+mod workspace;
 use std::{
     ffi::{CStr, CString},
     io::Write,
@@ -175,7 +176,11 @@ fn write_clipboard(text: String) -> Result<(), String> {
     Ok(())
 }
 #[tauri::command]
-async fn deliver_email(text: Option<String>, tab: bool) -> Result<(), String> {
+async fn deliver_email(
+    text: Option<String>,
+    tab: bool,
+    restore_source: Option<bool>,
+) -> Result<(), String> {
     if text.as_ref().is_some_and(|v| v.len() > 4 * 1024 * 1024) {
         return Err("invalidText".into());
     }
@@ -183,6 +188,12 @@ async fn deliver_email(text: Option<String>, tab: bool) -> Result<(), String> {
         let _lock = CLIPBOARD_LOCK
             .try_lock()
             .map_err(|_| "clipboardBusy".to_string())?;
+        if restore_source.unwrap_or(false) {
+            let focused = unsafe { vf_focus_source() };
+            if focused != 0 {
+                return Err(error_code(focused));
+            }
+        }
         let text = text
             .map(CString::new)
             .transpose()
@@ -407,17 +418,32 @@ mod shortcut_tests {
 }
 
 #[tauri::command]
-async fn export_templates(app: tauri::AppHandle, json: String) -> Result<bool, String> {
+async fn export_templates(
+    app: tauri::AppHandle,
+    json: String,
+    filename: Option<String>,
+) -> Result<bool, String> {
     use tauri_plugin_dialog::DialogExt;
     if json.len() > 16 * 1024 * 1024 {
         return Err("invalidImport".into());
     }
+    let filename = filename
+        .filter(|name| {
+            [
+                "veraflow-templates.json",
+                "veraflow-scanner.json",
+                "veraflow-table.json",
+                "veraflow-database.json",
+            ]
+            .contains(&name.as_str())
+        })
+        .unwrap_or_else(|| "veraflow-templates.json".into());
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
             .file()
             .add_filter("JSON", &["json"])
-            .set_file_name("veraflow-templates.json")
+            .set_file_name(filename)
             .blocking_save_file()
         else {
             return Ok(false);

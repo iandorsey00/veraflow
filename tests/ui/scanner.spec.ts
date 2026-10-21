@@ -1,4 +1,9 @@
-import { legacyTemplate, renameField, addField } from "./fixtures";
+import {
+  legacyTemplate,
+  renameField,
+  addField,
+  defineScanner,
+} from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 async function fill(page: Page, value: string) {
@@ -7,10 +12,8 @@ async function fill(page: Page, value: string) {
 }
 async function start(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Scanner", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Start Scanner", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Free Scanner", exact: true }).click();
+  await defineScanner(page);
 }
 test("Scanner verifies one field, blocks mismatches, copies and collects another field", async ({
   page,
@@ -70,19 +73,15 @@ for (const keep of [false, true])
     await page
       .getByRole("button", { name: "Save template", exact: true })
       .click();
-    await page.getByRole("button", { name: "Scanner", exact: true }).click();
     await page
-      .getByRole("button", { name: "Start Scanner", exact: true })
+      .getByRole("button", { name: "Free Scanner", exact: true })
       .click();
+    await defineScanner(page);
     await renameField(page, "name");
     await fill(page, "Alex");
     await expect(page.locator(".capture-field strong")).toHaveText(["name"]);
     await expect(page.locator(".field-value")).toHaveText(["Alex"]);
-    await page.getByText("Fields and output", { exact: true }).click();
-    await page
-      .locator("summary")
-      .filter({ hasText: /^Use a template$/ })
-      .click();
+    await page.getByText("More tools", { exact: true }).click();
     await expect(page.locator("#scanner-keep")).not.toBeChecked();
     if (keep) await page.locator("#scanner-keep").check();
     await page.locator("#scanner-apply").click();
@@ -136,8 +135,7 @@ test("failed Scanner paste does not advance and only sends requested text and Ta
   await fill(page, "Alex");
   await addField(page, "second");
   await page.locator("#field-0").click();
-  await page.getByText("Fields and output", { exact: true }).click();
-  await page.getByText("Output shortcut", { exact: true }).first().click();
+  await page.getByText("More tools", { exact: true }).click();
   await page.locator("#scanner-output").selectOption("tab");
   await page.evaluate(() => (window as any).__dispatch("finish"));
   await expect(page.getByRole("alert")).toBeVisible();
@@ -167,16 +165,16 @@ test("Scanner is usable in Chinese dark mode and removing an empty field preserv
   await fill(page, "Alex");
   await addField(page, "second");
   if (!(await page.locator("#scanner-remove").isVisible()))
-    await page.getByText("Fields and output", { exact: true }).click();
+    await page.getByText("More tools", { exact: true }).click();
   await page.locator("#scanner-remove").click();
   await expect(page.locator(".field-value")).toHaveText("Alex");
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await page.getByRole("button", { name: "Workspace", exact: true }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByLabel("Language", { exact: true }).selectOption("zh-CN");
   await page
     .getByRole("button", { name: "Save settings", exact: true })
     .click();
-  await page.getByRole("button", { name: "扫描器", exact: true }).click();
+  await page.getByRole("button", { name: "自由扫描器", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "扫描器", exact: true }),
   ).toBeVisible();
@@ -197,7 +195,7 @@ test("removing a captured Scanner field requires its explicit action", async ({
   await addField(page, "second");
   await page.locator("#field-0").click();
   if (!(await page.locator("#scanner-remove").isVisible()))
-    await page.getByText("Fields and output", { exact: true }).click();
+    await page.getByText("More tools", { exact: true }).click();
   await page.locator("#scanner-remove").click();
   await page
     .getByRole("dialog")
@@ -205,7 +203,7 @@ test("removing a captured Scanner field requires its explicit action", async ({
     .click();
   await expect(page.locator(".field-value").first()).toHaveText("Alex");
   if (!(await page.locator("#scanner-remove").isVisible()))
-    await page.getByText("Fields and output", { exact: true }).click();
+    await page.getByText("More tools", { exact: true }).click();
   await page.locator("#scanner-remove").click();
   await page
     .getByRole("dialog")

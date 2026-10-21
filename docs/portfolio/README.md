@@ -2,11 +2,11 @@
 
 Start `npm run dev`, then run `npm run portfolio:capture` (requires Playwright Chromium). `PORTFOLIO_URL` may point to a different loopback preview; remote URLs are rejected. Each capture begins with a fresh isolated browser context and synthetic templates. There are no production credentials or session files to seed or reset. Closing the browser erases the fixtures.
 
-| Image                          | Purpose / alt text                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `01-template-library.png`      | VeraFlow template editor, unique placeholder fields, and capture order.                           |
+| Image                          | Purpose / alt text                                                                  |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| `01-template-library.png`      | VeraFlow template editor, unique placeholder fields, and capture order.             |
 | `02-verification-mismatch.png` | Compact verification panel with green verified fields and a PR-104/PR-1O4 mismatch. |
-| `03-chinese-dark.png`          | Simplified Chinese template editing with system-independent dark appearance.                      |
+| `03-chinese-dark.png`          | Simplified Chinese template editing with system-independent dark appearance.        |
 
 `04-email-template.png` shows opt-in Subject/To/Body templates with Cc enabled and Bcc disabled, using synthetic project fields.
 
@@ -14,6 +14,6 @@ The editor uses the shared 1440 × 1000 baseline at 2×; the floating panel uses
 
 `05-email-delivery.png` shows synthetic To → Cc → Body output with Subject excluded, plus manual navigation and keyboard hints. The email editor scene uses a taller 1440 × 1900 viewport to include the new paste-order controls; delivery uses the compact 440px width.
 
-`06-scanner.png` shows standalone selected-text Scanner with a synthetic verified reference, manual entry, and individual-field output. It uses the compact 440px viewport with management collapsed. This is a browser preview, not native capture evidence.
+`06-scanner.png` shows standalone selected-text Scanner with a synthetic verified reference, manual entry, and individual-field output. It uses the compact 440px viewport with bottom field actions and one flat More tools panel. This is a browser preview, not native capture evidence.
 
-The October 19 scenes show Templates as the opening page, generic brace/email examples, and visible Add field / per-field Rename controls in Scanner. Existing custom templates and legacy syntax are not rewritten by the app.
+The October 20 scenes show Workspace as the opening page, a bottom Free Scanner action, generic brace/email defaults, and bottom Scanner actions. `07-workspace.png` shows a synthetic travel row with stable IDs. Existing custom templates and legacy syntax are not rewritten.

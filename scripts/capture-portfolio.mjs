@@ -164,19 +164,13 @@ try {
   await scannerPage.setViewportSize({ width: 440, height: 900 });
   await scannerPage.goto(url);
   await scannerPage
-    .getByRole("button", { name: "Scanner", exact: true })
+    .getByRole("button", { name: "Free Scanner", exact: true })
     .click();
+  await scannerPage.locator("#start-scanner").click();
+  await scannerPage.locator("#dialog-fields").fill("reference");
   await scannerPage
+    .getByRole("dialog")
     .getByRole("button", { name: "Start Scanner", exact: true })
-    .click();
-  await scannerPage.locator("[data-rename]").click();
-  await scannerPage
-    .getByRole("dialog")
-    .getByLabel("Field name", { exact: true })
-    .fill("reference");
-  await scannerPage
-    .getByRole("dialog")
-    .getByRole("button", { name: "Save name", exact: true })
     .click();
   await expect(scannerPage.locator("#app")).not.toHaveAttribute(
     "aria-busy",
@@ -189,6 +183,44 @@ try {
   await scannerPage.locator("#apply-value").click();
   await scannerPage.screenshot({
     path: "docs/portfolio/screenshots/06-scanner.png",
+    fullPage: true,
+  });
+  const workspacePage = await context.newPage();
+  await workspacePage.goto(url);
+  await workspacePage
+    .getByRole("button", { name: "Create table", exact: true })
+    .click();
+  await workspacePage.locator("#dialog-name").fill("Travel bookings");
+  await workspacePage
+    .locator("#dialog-fields")
+    .fill("reference\ntraveler\ndestination");
+  await workspacePage
+    .locator("#dialog-output")
+    .fill("Booking {{reference}} for {{traveler}} — {{destination}}");
+  await workspacePage
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save table", exact: true })
+    .click();
+  await workspacePage
+    .getByRole("button", { name: "New row", exact: true })
+    .click();
+  await workspacePage.locator("#dialog-title").fill("Example trip");
+  await workspacePage
+    .getByRole("dialog")
+    .getByRole("button", { name: "Create row", exact: true })
+    .click();
+  for (const value of ["AB-104", "Alex Morgan", "Example City"]) {
+    await workspacePage.locator("#manual-value").fill(value);
+    await workspacePage.locator("#apply-value").click();
+    await expect(workspacePage.locator("#app")).not.toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+  }
+  await workspacePage.locator("#scanner-save-row").click();
+  await workspacePage.locator("#session-back").click();
+  await workspacePage.screenshot({
+    path: "docs/portfolio/screenshots/07-workspace.png",
     fullPage: true,
   });
 } finally {

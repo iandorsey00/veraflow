@@ -2,10 +2,13 @@ import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 async function finishEmail(page: Page) {
   await page.goto("/");
+  await page.locator("#nav-templates").click();
   await expect(page.locator(".appbar nav button").nth(0)).toHaveText(
+    "Workspace",
+  );
+  await expect(page.locator(".appbar nav button").nth(1)).toHaveText(
     "Templates",
   );
-  await expect(page.locator(".appbar nav button").nth(1)).toHaveText("Scanner");
   await expect(
     page.getByRole("heading", { name: "Templates", exact: true }),
   ).toBeVisible();
@@ -81,7 +84,7 @@ test("completed email opens captured fields in Scanner for individual transfer",
   await expect(
     page.getByRole("button", { name: "Add field", exact: true }),
   ).toBeVisible();
-  await page.locator("[data-rename]").first().click();
+  await page.locator("#scanner-rename").click();
   await page.getByRole("dialog").getByLabel("Field name").fill("email subject");
   await page
     .getByRole("dialog")

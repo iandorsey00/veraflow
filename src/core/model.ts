@@ -103,6 +103,7 @@ export type Library = {
   version: 1;
   templates: Template[];
   preferences: Preferences;
+  workspace?: import("./workspace").Workspace;
 };
 export type Field = {
   removeBlankLines?: boolean;
@@ -113,6 +114,9 @@ export type Field = {
 };
 export type Session = {
   scanner?: boolean;
+  scannerId?: string;
+  rowLink?: { tableId: string; rowId: string };
+  scannerOutputTemplate?: string;
   template: Template;
   fields: Field[];
   active: number;

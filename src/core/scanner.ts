@@ -24,7 +24,7 @@ export function addScannerField(session: Session, name: string) {
   if (
     !name ||
     name.length > 250 ||
-    /[\p{Cc}\p{Cf}]/u.test(name) ||
+    /[\p{Cc}\p{Cf}{}<>]/u.test(name) ||
     session.fields.some((f) => f.name === name)
   )
     throw Error("scannerFieldInvalid");
@@ -43,7 +43,7 @@ export function renameScannerField(
     !session.fields[index] ||
     !name ||
     name.length > 250 ||
-    /[\p{Cc}\p{Cf}]/u.test(name) ||
+    /[\p{Cc}\p{Cf}{}<>]/u.test(name) ||
     session.fields.some((f, i) => i !== index && f.name === name)
   )
     throw Error("scannerFieldInvalid");

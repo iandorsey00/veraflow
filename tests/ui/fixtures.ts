@@ -10,11 +10,7 @@ export async function legacyTemplate(page: Page) {
   await page.locator("#save").click();
 }
 export async function renameField(page: Page, name: string) {
-  await page
-    .locator(".capture-field.active")
-    .locator("..")
-    .locator("[data-rename]")
-    .click();
+  await page.locator("#scanner-rename").click();
   await page
     .getByRole("dialog")
     .getByLabel("Field name", { exact: true })
@@ -34,6 +30,16 @@ export async function addField(page: Page, name: string) {
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Save name", exact: true })
+    .click();
+  await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
+}
+
+export async function defineScanner(page: Page) {
+  await page.locator("#start-scanner").click();
+  await page.locator("#dialog-fields").fill("Field 1");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Start Scanner", exact: true })
     .click();
   await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
 }

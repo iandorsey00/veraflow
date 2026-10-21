@@ -1,17 +1,51 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  scannerMore: "更多工具",
+  scannerTemporary: "保存为行或导出之前为临时数据。",
+  mousePasteHelp: "鼠标粘贴使用上一外部应用。请先定位目标并开启鼠标模式。",
+
+  pasteToApp: "将字段粘贴到上一应用",
+  pasteRequested: "已请求粘贴，重试前请检查目标。",
+  tableDestination: "现有表格名称或 VeraFlow 编号，或新表格名称",
+  tableAmbiguous: "有多个同名表格，请输入表格的 VeraFlow 编号。",
+
+  workspace: "工作区",
+  freeScanner: "自由扫描器",
+  workspaceConfirm: "执行此工作区操作？",
+  defineFields: "定义字段",
+  fieldLines: "字段名（每行一个）",
+  importScanner: "导入扫描器 JSON",
+  scannerTemplate: "文本或模板（可选），使用 {{字段名}}",
+  addMissing: "添加缺失字段",
+  copyTemplate: "复制模板结果",
+  saveRow: "保存行",
+  saveAsRow: "另存为新表格行",
+  exportScannerFields: "导出字段 JSON",
+  exportScannerValues: "导出字段和值 JSON",
+  fieldMatched: "已匹配",
+  fieldMissing: "无匹配字段",
+  rowSaveHelp: "编辑内容在保存行之前为临时数据。结束扫描器不会删除已保存的值。",
+  exportValuesConfirm:
+    "将采集值导出为 JSON？文件可能包含隐私信息。不匹配的值不导出。",
+  newTableName: "新表格名称",
+  rowTitle: "行标题（可选）",
+  rowSaved: "行已保存在本机。",
+  rowMissing: "已保存的表格或行已被删除。请从工作区重新打开扫描器。",
+  invalidFields: "请输入不重复的字段名，每行一个，不含括号或控制字符。",
+  invalidReferences: "外部编号请每行使用 标签=值。",
+  folderNotFound: "没有此名称的文件夹，请先创建。",
+
   sampleSubject: "{{主题}}",
   sampleTo: "{{收件人邮箱}}",
   scannerField: "字段",
   scannerFields: "字段",
   scannerFieldsHelp:
-    "添加字段以收集更多内容。点击字段旁的“重命名字段”可更改名称，不会改变已采集的值。",
+    "选择字段后使用下方操作。Tab 切换字段；Ctrl/Cmd+C 复制当前焦点字段。",
   saveFieldName: "保存名称",
   emailToScanner: "在扫描器中打开字段",
   clearClose: "清除字段并关闭",
   emailReviewHelp:
     "邮件传输已完成。可在扫描器中打开已采集字段，逐项复制或粘贴，也可清除字段并关闭。做出选择前，这些值仅保存在内存中。",
-  addEmailExample: "添加邮件示例",
 
   scannerNewValue: "输入新值",
   removeFieldConfirm: "移除此字段并清除其采集值？",
@@ -28,7 +62,7 @@ export const zh: Record<keyof typeof en, string> = {
   scannerIntro:
     "无需模板即可采集、核验和传输文本。可使用单个字段，也可收集多个命名字段。",
   scannerPrivacy:
-    "扫描值仅保存在内存中。结束扫描器会清除这些值；如需重复使用，请明确选择保留。",
+    "自由扫描器中的值在保存为行或导出之前为临时数据。结束扫描器会清除未保存的值，已保存的行仍保留在本机。",
   scannerFieldName: "字段名称",
   renameField: "重命名字段",
   addField: "添加字段",
@@ -149,7 +183,7 @@ export const zh: Record<keyof typeof en, string> = {
   newTemplate: "新建模板",
   tagline: "一次采集，逐项核验。",
   localOnly: "默认本地运行",
-  localNote: "模板保存在此设备上。会话数据仅保留在内存中。",
+  localNote: "表格和模板保存在此设备上。自由扫描器在保存前为临时数据。",
   search: "查找模板",
   allFolders: "所有文件夹",
   noTemplates: "尚无模板",

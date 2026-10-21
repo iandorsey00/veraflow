@@ -2,9 +2,9 @@
 
 Use test builds for day-to-day Windows feedback, then publish a public release after acceptance. The Check workflow builds a Windows installer for branch changes only after automated checks pass. You can also use Run workflow on the Check page to request a build without creating a new release. These are workflow artifacts, not GitHub Releases, and they never update the public feed. Rust dependency caching and cancellation of superseded runs reduce repeated work.
 
-## Verified Scanner test build
+## Previous verified Scanner test build
 
-[Download build 2c56e5b2](https://github.com/iandorsey00/veraflow/actions/runs/39372571020/artifacts/12242158087) (GitHub sign-in required). This is the verified Windows x64 test installer for Scanner, with a separate library and public updates disabled. Extract the ZIP, then run `VeraFlow-Test-2c56e5b2-setup.exe`. Its commit record and checksum are included. The artifact expires after 14 days; future runs produce new downloads. [Check run and logs](https://github.com/iandorsey00/veraflow/actions/runs/39372571020).
+[Download build 2c56e5b2](https://github.com/iandorsey00/veraflow/actions/runs/39372571020/artifacts/12242158087) (GitHub sign-in required). This previous build does not include the October 20 workspace. It is the Windows x64 test installer for Scanner, with a separate library and public updates disabled. Extract the ZIP, then run `VeraFlow-Test-2c56e5b2-setup.exe`. Its commit record and checksum are included. The artifact expires after 14 days; future runs produce new downloads. [Check run and logs](https://github.com/iandorsey00/veraflow/actions/runs/39372571020).
 
 ## Download and install
 
@@ -24,3 +24,9 @@ After Windows acceptance, use the normal full release workflow to package signed
 References: [GitHub artifact downloads](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) and [Tauri isolated beta configuration](https://v2.tauri.app/develop/configuration-files/).
 
 The October 19 build adds an optional one-time shortcut migration marker. Back up the test library before upgrading; older test binaries reject the new property. To roll back a test installation, restore its compatible pre-upgrade library backup. Production VeraFlow's separate library is unaffected.
+
+## October 20 workspace acceptance
+
+Test the new build with synthetic travel/logistics rows: create a folder and table; toggle row titles; add table and row external IDs; capture and save a row, quit/reopen, and confirm saved values remain but must be verified again. Cancel edits and confirm unsaved values are lost only after the explicit erase choice. Save Free Scanner to both a new table and an existing table; check added columns leave other rows intact. Export/import field-only Scanner JSON, value-inclusive Scanner JSON, one table, and the database; import the same file again and confirm independent copies instead of overwrites. Verify JSON before sharing because it includes saved values.
+
+At narrow width, capture a long address and unbroken reference. Check wrapping without horizontal scrolling, bottom field actions, Tab/Shift+Tab boundary escape, Ctrl+C focused-field verification, and ordinary text-selection copying. Focus a target field in another app, click Paste field to last app, and inspect the destination. Repeat with clipboard busy, source window closed, mouse mode off, and elevated targets. Confirm no paste advances the Scanner on failure and no Send occurs. Check matched/missing template labels, Add missing fields, fieldless reusable copy text, and new-library versus old-library migration.

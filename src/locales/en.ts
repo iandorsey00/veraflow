@@ -1,16 +1,55 @@
 export const en = {
+  scannerMore: "More tools",
+  scannerTemporary: "Temporary until saved as a row or exported.",
+  mousePasteHelp:
+    "Mouse paste uses the last external app. Focus its destination first and keep mouse mode on.",
+
+  pasteToApp: "Paste field to last app",
+  pasteRequested: "Paste requested. Check the destination before retrying.",
+  tableDestination: "Existing table name or VeraFlow ID; or a new table name",
+  tableAmbiguous:
+    "Several tables have that name. Enter the table’s VeraFlow ID.",
+
+  workspace: "Workspace",
+  freeScanner: "Free Scanner",
+  workspaceConfirm: "Apply this workspace action?",
+  defineFields: "Define fields",
+  fieldLines: "Field names — one per line",
+  importScanner: "Import Scanner JSON",
+  scannerTemplate: "Text or template — use {{field_name}} (optional)",
+  addMissing: "Add missing fields",
+  copyTemplate: "Copy template output",
+  saveRow: "Save row",
+  saveAsRow: "Save as new table row",
+  exportScannerFields: "Export fields JSON",
+  exportScannerValues: "Export fields and values JSON",
+  fieldMatched: "matched",
+  fieldMissing: "no matching field",
+  rowSaveHelp:
+    "Edits stay temporary until Save row. Saved values remain after ending Scanner.",
+  exportValuesConfirm:
+    "Export captured values to JSON? The file may contain private information. Mismatches are excluded.",
+  newTableName: "New table name",
+  rowTitle: "Row title (optional)",
+  rowSaved: "Row saved locally.",
+  rowMissing:
+    "The saved table or row was removed. Reopen Scanner from the workspace.",
+  invalidFields:
+    "Enter unique field names, one per line, without brackets or control characters.",
+  invalidReferences: "Use one Label=Value per line for external IDs.",
+  folderNotFound: "No folder has that name. Create it first.",
+
   sampleSubject: "{{subject}}",
   sampleTo: "{{recipient_email}}",
   scannerField: "Field",
   scannerFields: "Fields",
   scannerFieldsHelp:
-    "Add a field to collect another item. Rename beside a field changes its name without changing its value.",
+    "Tab switches fields. Ctrl/Cmd+C copies the focused field.",
   saveFieldName: "Save name",
   emailToScanner: "Open fields in Scanner",
   clearClose: "Clear fields and close",
   emailReviewHelp:
     "Email transfer is complete. Open the captured fields in Scanner to copy or paste individual items, or clear them and close. Values stay only in memory until you choose.",
-  addEmailExample: "Add email example",
 
   scannerNewValue: "Enter new value",
   removeFieldConfirm: "Remove this field and erase its captured value?",
@@ -26,9 +65,9 @@ export const en = {
   startScanner: "Start Scanner",
   returnScanner: "Return to Scanner",
   scannerIntro:
-    "Capture, verify, and transfer text without a template. Start with one field, or collect several named fields.",
+    "Capture, verify, and transfer text without a template. Define field names, one per line, or import Scanner JSON.",
   scannerPrivacy:
-    "Scanner values stay in memory. Ending Scanner clears them; keeping values for another task is an explicit choice.",
+    "Free Scanner stays temporary until Save as row or export. Ending it clears unsaved values. Saved rows remain on this device.",
   scannerFieldName: "Field name",
   renameField: "Rename field",
   addField: "Add field",
@@ -156,7 +195,8 @@ export const en = {
   newTemplate: "New template",
   tagline: "Capture once. Verify with confidence.",
   localOnly: "Local by default",
-  localNote: "Templates stay on this device. Session values stay in memory.",
+  localNote:
+    "Tables and templates stay on this device. Free Scanner stays temporary until saved.",
   search: "Find a template",
   allFolders: "All folders",
   noTemplates: "No templates yet",

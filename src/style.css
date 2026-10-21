@@ -744,12 +744,129 @@ dialog::backdrop {
   margin: 0;
   font-size: 16px;
 }
-.field-row-tools {
-  display: flex;
-  justify-content: flex-end;
-  padding: 2px 0 6px;
+/* Workspace values wrap; only genuinely wide tables scroll horizontally. */
+.workspace {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 65vh;
 }
-.field-row-tools button {
+.workspace > aside {
+  padding: 24px;
+  background: var(--subtle);
+}
+.workspace > aside > button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 6px 0;
+}
+.workspace-content {
+  padding: 24px;
+  min-width: 0;
+}
+.workspace-exchange {
+  display: grid;
+  gap: 8px;
+  margin-top: 28px;
+}
+.vera-id {
+  overflow-wrap: anywhere;
+  color: var(--muted);
   font-size: 12px;
-  padding: 5px 8px;
+}
+.data-table-scroll {
+  overflow: auto;
+  margin-top: 20px;
+}
+.data-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+  min-width: 140px;
+  max-width: 320px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.data-table td button {
+  margin: 2px;
+}
+.scanner-panel {
+  min-width: 0;
+}
+.scanner-panel .capture-fields {
+  max-height: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+.scanner-panel .capture-fields li {
+  min-width: 0;
+}
+.scanner-panel .field-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+.scanner-panel .capture-field {
+  min-width: 0;
+}
+.scanner-panel .status-label {
+  flex-shrink: 0;
+}
+.scanner-tools {
+  margin-top: 24px;
+}
+.scanner-bottom-actions {
+  padding: 8px 0;
+}
+.template-match {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 12px 0;
+}
+.template-match mark {
+  padding: 2px 4px;
+}
+.template-match .matched {
+  background: #d5f2dd;
+  color: #164624;
+}
+.template-match .unmatched {
+  background: #ffe0e0;
+  color: #721b1b;
+}
+.match-label {
+  font-size: 11px;
+}
+dialog textarea {
+  max-width: 100%;
+}
+@media (max-width: 700px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .workspace > aside {
+    padding: 16px;
+  }
+  .workspace-content {
+    padding: 16px;
+  }
+}
+
+.field-context-menu {
+  position: fixed;
+  margin: 0;
+  padding: 6px;
+  max-width: calc(100vw - 16px);
+}
+.field-context-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 3px 0;
 }

@@ -76,6 +76,8 @@ pub struct Library {
     pub version: u32,
     pub templates: Vec<Template>,
     pub preferences: Preferences,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<crate::workspace::Workspace>,
 }
 fn enabled_by_default() -> bool {
     true
@@ -87,7 +89,8 @@ impl Library {
             "capture", "previous", "next", "clear", "skip", "verify", "cancel", "finish",
         ];
         let p = &self.preferences;
-        if self.version != 1
+        if self.workspace.as_ref().is_some_and(|w| !w.validate())
+            || self.version != 1
             || self.templates.len() > 1000
             || !["en", "zh-CN"].contains(&p.language.as_str())
             || !["SYSTEM", "LIGHT", "DARK"].contains(&p.theme.as_str())
@@ -203,6 +206,14 @@ mod tests {
         assert!(serde_json::from_value::<Library>(value).is_err());
         let old: Library = serde_json::from_value(fixture()).unwrap();
         assert!(old.templates[0].email.is_none());
+    }
+    #[test]
+    fn workspace_is_optional_and_saved_values_round_trip() {
+        let mut value = fixture();
+        value["workspace"] = serde_json::json!({"folders":[],"tables":[{"id":"VF-11111111-1111-4111-8111-111111111111","name":"Trips","folderId":"","fields":["reference"],"rowTitles":true,"output":"{{reference}}","externalIds":[],"rows":[{"id":"VF-22222222-2222-4222-8222-222222222222","title":"Trip","externalIds":[],"values":{"reference":"AB-104"}}]}]});
+        let library: Library = serde_json::from_value(value.clone()).unwrap();
+        assert!(library.validate().is_ok());
+        assert_eq!(serde_json::to_value(library).unwrap(), value);
     }
     #[test]
     fn valid_library_round_trips() {
