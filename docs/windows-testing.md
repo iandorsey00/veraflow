@@ -2,9 +2,11 @@
 
 Use test builds for day-to-day Windows feedback, then publish a public release after acceptance. The Check workflow builds a Windows installer for branch changes only after automated checks pass. You can also use Run workflow on the Check page to request a build without creating a new release. These are workflow artifacts, not GitHub Releases, and they never update the public feed. Rust dependency caching and cancellation of superseded runs reduce repeated work.
 
-## Previous verified Scanner test build
+## Verified workspace test build
 
-[Download build 2c56e5b2](https://github.com/iandorsey00/veraflow/actions/runs/39372571020/artifacts/12242158087) (GitHub sign-in required). This previous build does not include the October 20 workspace. It is the Windows x64 test installer for Scanner, with a separate library and public updates disabled. Extract the ZIP, then run `VeraFlow-Test-2c56e5b2-setup.exe`. Its commit record and checksum are included. The artifact expires after 14 days; future runs produce new downloads. [Check run and logs](https://github.com/iandorsey00/veraflow/actions/runs/39372571020).
+[Download build b0956a56](https://github.com/iandorsey00/veraflow/actions/runs/39539572305/artifacts/12318967250) (GitHub sign-in required). This Windows x64 test installer includes the October 20 workspace and Scanner changes, with a separate library and public updates disabled. Extract the ZIP, then run `VeraFlow-Test-b0956a56-setup.exe`. Its source record and checksum are included. The artifact expires after 14 days; future runs produce new downloads. [Check run and logs](https://github.com/iandorsey00/veraflow/actions/runs/39539572305).
+
+Back up the test library before upgrading. Saved rows use the new optional workspace property; older test binaries reject it. Rollback requires restoring a compatible pre-upgrade library. Production VeraFlow's library is separate.
 
 ## Download and install
 
@@ -12,7 +14,7 @@ Use test builds for day-to-day Windows feedback, then publish a public release a
 2. Sign in to GitHub and download the `VeraFlow-Windows-Test-<commit>` artifact from the run's Artifacts section. Artifacts are retained for 14 days. Extract the ZIP.
 3. Check the installer with PowerShell `Get-FileHash <installer> -Algorithm SHA256` against the included SHA256.txt. BUILD.txt identifies the exact commit. Install only your intended build; these installers remain publisher unsigned.
 4. Install **VeraFlow Test** alongside VeraFlow. Its identifier is `com.veraflow.test`; it uses a separate app-data library and installation name. The test configuration preserves normal window constraints. Export/import template JSON explicitly if needed; captured values never transfer through JSON.
-5. Check capture from the Windows apps you use, verification, clipboard output, focus the target before the output shortcut, Paste/Tab field order, failed-paste recovery, template handoff, Return to Scanner, post-email Open fields in Scanner versus Clear fields and close, visible Add/Rename controls, stock Ctrl+Alt shortcut migration, and top/bottom Snap restoration. Test with synthetic data first.
+5. Check capture from the Windows apps you use, verification, clipboard output, focus the target before the output shortcut, Paste/Tab field order, failed-paste recovery, template handoff, Return to Scanner, post-email Open fields in Scanner versus Clear fields and close, bottom field actions and the right-click menu, stock Ctrl+Alt shortcut migration, and top/bottom Snap restoration. Test with synthetic data first.
 6. Quit regular VeraFlow through its tray menu before testing; closing its window can leave it running. Both apps use the same default shortcut combinations (now Ctrl+Alt+1–8 for stock bindings). A shortcut collision still permits manual capture. Uninstalling the test app does not uninstall the production app; retain or delete its separate data deliberately.
 
 The test app shows a banner. Frontend startup update checks are disabled, and native `test-build` handlers reject both update checking and installation before any network/download operation. Test builds do not use the private updater key. Install a newer test artifact manually. Public VeraFlow and its signed updater remain on v0.6.2 until a release is deliberately tagged.

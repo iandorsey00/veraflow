@@ -20,7 +20,7 @@ Scanner's More tools → JSON section exports **fields only** or **fields and va
 
 Rows, templates, and preferences use the existing atomically saved local library (16 MB total). This first version does not sync, encrypt app data, or provide multiuser editing. Export database JSON for a portable backup; export templates separately. Back up the test library before upgrading: older test versions reject the new workspace property. Rollback requires restoring a compatible pre-upgrade library. Production VeraFlow uses a separate library.
 
-The Windows test-build link below will be refreshed after this workspace build passes Check. [Previous Scanner test build (2c56e5b2)](https://github.com/iandorsey00/veraflow/actions/runs/39372571020/artifacts/12242158087) does not include the workspace changes. GitHub sign-in is required. Public VeraFlow and its update feed remain v0.6.2 until Windows acceptance and an explicit release.
+[Download the Windows workspace test build (b0956a56)](https://github.com/iandorsey00/veraflow/actions/runs/39539572305/artifacts/12318967250). GitHub sign-in is required; extract the ZIP and run `VeraFlow-Test-b0956a56-setup.exe`. Back up your test library before upgrading and quit regular VeraFlow through its tray menu to avoid shortcut collisions. Both platforms passed all 86 tests and native compilation. Public VeraFlow and its update feed remain v0.6.2 until Windows acceptance and an explicit release.
 
 ## Current test-build defaults
 
