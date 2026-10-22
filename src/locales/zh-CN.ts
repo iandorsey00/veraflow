@@ -1,5 +1,13 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  extraScannerFields: "额外扫描器字段（可选）",
+  extraFieldsHelp:
+    "每行一个字段名。这些字段与模板字段一起采集和验证，完成后可在扫描器中打开，不会添加到模板文本或邮件各部分中。空行和重复名称将忽略。",
+  invalidExtraFields:
+    "最多输入 1,000 个不重复的字段名，每个 1–250 个字符，不含括号或控制字符。",
+  extraFieldsReviewHelp:
+    "模板结果已复制。可在扫描器中打开已采集字段以逐项传输，或清除字段并关闭。在你选择之前，值仅保留在内存中。",
+
   invalidCSV: "请使用列数一致、引号格式正确的 UTF-8 CSV 文件。",
   csvColumns: "CSV 行的列数不一致，请检查分隔符和引号。",
 

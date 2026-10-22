@@ -106,7 +106,7 @@ try {
     path: "docs/portfolio/screenshots/03-chinese-dark.png",
   });
   const emailPage = await context.newPage();
-  await emailPage.setViewportSize({ width: 1440, height: 1900 });
+  await emailPage.setViewportSize({ width: 1440, height: 2300 });
   await emailPage.goto(url);
   await emailPage
     .getByRole("button", { name: "Templates", exact: true })
@@ -129,6 +129,9 @@ try {
   await emailPage.getByLabel("Include Cc", { exact: true }).check();
   await emailPage.getByLabel("Cc", { exact: true }).fill("{{team_email}}");
   await emailPage
+    .locator("#extra-scanner-fields")
+    .fill("booking reference\ncontact phone");
+  await emailPage
     .getByRole("button", { name: "Save template", exact: true })
     .click();
   await emailPage
@@ -138,6 +141,7 @@ try {
     path: "docs/portfolio/screenshots/04-email-template.png",
     fullPage: false,
   });
+  await emailPage.locator("#extra-scanner-fields").fill("");
   await emailPage.getByLabel("Include Subject", { exact: true }).uncheck();
   await emailPage.getByLabel("To", { exact: true }).fill("alex@example.test");
   await emailPage.getByLabel("Cc", { exact: true }).fill("team@example.test");

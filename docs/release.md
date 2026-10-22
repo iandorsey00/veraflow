@@ -1,5 +1,11 @@
 # Release and rollback
 
+## 0.7.1 extra Scanner fields
+
+RC selected for additive template metadata and reuse of the existing capture/verification/review state. There are no new native capture or output adapters, OS permissions, or dependencies. Optional extraFields definitions are bounded and validated in the UI, JSON archive boundary, session construction, and native storage. Ordinary template output with extras now uses the existing guarded transfer-or-clear review instead of immediately erasing values; templates without extras are unchanged. Email uses the same existing review.
+
+Back up the library before upgrading. Older binaries reject extraFields definitions. Restore a compatible pre-upgrade backup to downgrade; never move the public feed backwards or replace published binaries. Binary distribution still runs both platform checks, all three package jobs, independent updater signatures/authenticated versions, downloaded checksums and post-publication feed checks.
+
 ## 0.7.0 workspace, Scanner, and CSV
 
 Published as [v0.7.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.0). All three platform packages, independent updater signatures, downloaded checksums, and the live 0.7.0 feed were verified; see [validation](validation.md).

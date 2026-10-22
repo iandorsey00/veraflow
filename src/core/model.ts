@@ -35,6 +35,7 @@ export const defaultEmail: EmailTemplate = {
   bccEnabled: false,
 };
 export type Template = {
+  extraFields?: string[];
   placeholderStyle?: "angle" | "braces";
   email?: EmailTemplate;
   id: string;

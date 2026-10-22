@@ -42,6 +42,8 @@ import {
   templateSource,
   emailSections,
   rememberedFieldOrder,
+  captureFieldNames,
+  validateExtraFields,
 } from "./core/template";
 import { orderFields } from "./core/template";
 import { difference } from "./core/compare";
@@ -111,6 +113,8 @@ let pendingFocus: string | null = null;
 let manualOpen = false;
 let sessionOptionsOpen = false;
 let scannerMoreOpen = false;
+let extraFieldInput: string | null = null;
+let extraFieldsInvalid = false;
 let mouseMode = false;
 let preserveClipboard = true;
 let availableUpdate: Awaited<ReturnType<typeof platform.checkUpdate>> = null;
@@ -574,7 +578,7 @@ function libraryView(): string {
           `<option ${name === folder ? "selected" : ""}>${esc(name)}</option>`,
       )
       .join("")}</select>
-    <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${orderFields(templateSource(item), [], item.placeholderStyle).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
+    <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${captureFieldNames(item).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
     <div class="toolbar template-transfer">${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
     <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? editorView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
@@ -590,6 +594,7 @@ function editorView(): string {
   ${check("email-enabled", "emailMode", d.email?.enabled ?? false)}
   ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${check("email-subject-enabled", "enableSubject", d.email.subjectEnabled !== false)}${d.email.subjectEnabled !== false ? field("email-subject", "subject", d.email.subject) : ""}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}<h2>${esc(t("emailOrder"))}</h2><p class="hint">${esc(t("emailOrderHelp"))}</p><ol class="field-order">${emailOrderView(d)}</ol></section>` : ""}
   <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t(d.placeholderStyle === "braces" ? "bracePlaceholderHelp" : "placeholderHelp"))}</p>
+  <label for="extra-scanner-fields">${esc(t("extraScannerFields"))}</label><textarea id="extra-scanner-fields" rows="3" spellcheck="false" aria-describedby="extra-fields-help extra-fields-error">${esc(extraFieldInput ?? (d.extraFields ?? []).join("\n"))}</textarea><p id="extra-fields-help" class="hint">${esc(t("extraFieldsHelp"))}</p><p id="extra-fields-error" role="alert" ${extraFieldsInvalid ? "" : "hidden"}>${extraFieldsInvalid ? esc(t("invalidExtraFields")) : ""}</p>
   <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
   <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
 }
@@ -605,11 +610,7 @@ function emailOrderView(template: Template): string {
   );
 }
 function orderView(): string {
-  const fields = orderFields(
-    templateSource(draft!),
-    draft!.fieldOrder,
-    draft!.placeholderStyle,
-  );
+  const fields = captureFieldNames(draft!);
   return (
     fields
       .map(
@@ -625,11 +626,7 @@ function bindOrder() {
       (el) =>
         (el.onclick = () => {
           if (busy) return;
-          const active = orderFields(
-            templateSource(draft!),
-            draft!.fieldOrder,
-            draft!.placeholderStyle,
-          );
+          const active = captureFieldNames(draft!);
           const i = Number(el.dataset[direction]),
             j = i + (direction === "up" ? -1 : 1);
           const a = draft!.fieldOrder.indexOf(active[i]),
@@ -731,6 +728,34 @@ function bindLibrary() {
     draft!.folder = (e.target as HTMLInputElement).value;
     dirty = true;
   });
+  on("extra-scanner-fields", "input", (e) => {
+    const names = [
+      ...new Set(
+        (e.target as HTMLTextAreaElement).value
+          .split(/\r?\n/)
+          .map((n) => n.trim())
+          .filter(Boolean),
+      ),
+    ];
+    extraFieldInput = (e.target as HTMLTextAreaElement).value;
+    dirty = true;
+    try {
+      validateExtraFields(names);
+      extraFieldsInvalid = false;
+      document.getElementById("extra-fields-error")!.hidden = true;
+      if (names.length) draft!.extraFields = names;
+      else delete draft!.extraFields;
+      document.getElementById("extra-fields-error")!.textContent = "";
+      draft!.fieldOrder = rememberedFieldOrder(draft!);
+      document.getElementById("field-order")!.innerHTML = orderView();
+      bindOrder();
+    } catch {
+      extraFieldsInvalid = true;
+      document.getElementById("extra-fields-error")!.hidden = false;
+      document.getElementById("extra-fields-error")!.textContent =
+        t("invalidExtraFields");
+    }
+  });
   on("template-content", "input", (e) => {
     draft!.content = (e.target as HTMLTextAreaElement).value;
     draft!.fieldOrder = rememberedFieldOrder(draft!);
@@ -829,6 +854,8 @@ function bindLibrary() {
   });
 }
 function selectTemplate(id: string) {
+  extraFieldInput = null;
+  extraFieldsInvalid = false;
   selected = id;
   draft = structuredClone(
     library.templates.find((item) => item.id === id) ?? null,
@@ -838,6 +865,8 @@ function selectTemplate(id: string) {
 }
 async function newTemplate() {
   if (!(await abandonDraft())) return;
+  extraFieldInput = null;
+  extraFieldsInvalid = false;
   draft = {
     id: crypto.randomUUID(),
     name: t("untitled"),
@@ -861,6 +890,8 @@ async function persist(next: Library) {
 }
 async function saveDraft() {
   if (!draft?.name.trim()) throw new Error("nameRequired");
+  if (extraFieldsInvalid) throw Error("invalidExtraFields");
+  validateExtraFields(draft.extraFields);
   const saved = structuredClone(draft);
   saved.name = saved.name.trim();
   await persist({
@@ -870,6 +901,7 @@ async function saveDraft() {
       : [...library.templates, saved],
   });
   draft = structuredClone(saved);
+  extraFieldInput = null;
   dirty = false;
 }
 async function abandonDraft() {
@@ -1083,7 +1115,7 @@ function sessionView(): string {
     p = library.preferences,
     f = s.fields[s.active];
   if (s.mode === "review")
-    return `<main class="capture-panel"><h1>✓ ${esc(t("emailDone"))}</h1><p>${esc(t("emailReviewHelp"))}</p><div class="actions">${button("email-to-scanner", "emailToScanner", "primary")}${button("email-clear-close", "clearClose", "danger")}</div></main>`;
+    return `<main class="capture-panel"><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailReviewHelp" : "extraFieldsReviewHelp"))}</p><div class="actions">${button("email-to-scanner", "emailToScanner", "primary")}${button("email-clear-close", "clearClose", "danger")}</div></main>`;
   if (s.mode === "complete")
     return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion ? "erased" : "retained"))}</p>${button("close-session", returnToScanner ? "returnScanner" : "closeSession", "primary")}</main>`;
   if (s.mode === "delivery") {
@@ -1484,11 +1516,12 @@ async function perform(action: Action, global = false) {
       }
       const output = renderSession(s);
       await platform.copy(output);
-      if (library.preferences.clearAfterCompletion) eraseSession(s);
+      if (s.template.extraFields?.length) s.mode = "review";
+      else if (library.preferences.clearAfterCompletion) eraseSession(s);
       else s.mode = "complete";
       preview = false;
       await bindShortcuts(null, dispatch);
-      await platform.active(false);
+      await platform.active(s.mode === "review");
       await platform.compact(false, false);
       notify("copied");
       return;

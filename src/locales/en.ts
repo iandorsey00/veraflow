@@ -1,4 +1,12 @@
 export const en = {
+  extraScannerFields: "Extra Scanner fields (optional)",
+  extraFieldsHelp:
+    "One field name per line. Capture and verify these alongside the template fields, then open them in Scanner after completion. They are never added to template text or email sections. Blank lines and repeated names are ignored.",
+  invalidExtraFields:
+    "Use up to 1,000 unique names of 1–250 characters, without brackets or control characters.",
+  extraFieldsReviewHelp:
+    "Template output copied. Open the captured fields in Scanner to transfer individual items, or clear them and close. Values stay in memory until you choose.",
+
   invalidCSV:
     "Use a UTF-8 CSV file with consistent columns and correctly quoted cells.",
   csvColumns:

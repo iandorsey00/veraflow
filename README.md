@@ -30,6 +30,14 @@ Excel is not imported directly in this release. Export the intended sheet as **C
 
 Free Scanner and Table settings can infer fields from a supplied template when the field list is blank. Brace placeholders support spaces, such as `{{full name}}`; surrounding padding is ignored (`{{ full name }}` matches `full name`). Internal spaces remain significant. Line breaks and control characters are invalid within placeholders. Legacy angle syntax stays unchanged. Scanner opens at 360px wide and can shrink to 300px; controls and long values wrap instead of widening the page.
 
+## Extra Scanner fields (0.7.1)
+
+Templates and email templates have an optional **Extra Scanner fields** input: one name per line, with spaces allowed. Empty lines and repeated names are ignored; a name also used by a placeholder is captured once. Extra fields appear in capture order and use the template's verification rules. They do not add text or placeholders to Body, Subject, To, Cc, or Bcc.
+
+After copying an ordinary template with extra fields, or completing email output, choose **Open fields in Scanner** to transfer individual values or **Clear fields and close** to erase them. The review remains guarded against accidental quit/update. This explicit choice defers automatic session erasure until you choose; templates without extras retain their existing completion behavior. Explicitly skipped fields are omitted from the Scanner transfer. Definitions are saved and included in template JSON; captured values and verification candidates are not. Values persist only through a separate explicit Save row or value export.
+
+Back up the library before upgrading. Version 0.7.0 and earlier reject saved `extraFields` definitions; rollback requires restoring a compatible pre-upgrade library backup.
+
 ## Defaults
 
 Fresh installations include generic English and Chinese email templates with separate Subject/To/Body and `{{double_braces}}` placeholders. Blank new templates also use braces. Legacy angle syntax remains optional so existing templates and imports keep working; no automatic text rewriting occurs. Existing libraries and templates are preserved.
@@ -38,7 +46,7 @@ Global shortcuts default to Ctrl+Alt+1–8 on Windows (Cmd+Option+1–8 on macOS
 
 ## Download
 
-Get the [v0.7.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+Get the [v0.7.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 

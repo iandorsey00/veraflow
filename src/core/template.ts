@@ -81,13 +81,57 @@ export function templateSource(t: Template): string {
 
 // Keep inactive header fields in the saved order; sessions still use templateSource.
 export function rememberedFieldOrder(template: Template): string[] {
-  const email = template.email;
-  return orderFields(
-    [
-      template.content,
-      ...(email ? [email.subject, email.to, email.cc, email.bcc] : []),
-    ].join("\n"),
-    template.fieldOrder,
-    template.placeholderStyle,
-  );
+  return captureFieldNames(template, true);
+}
+
+// Extra fields participate in capture/verification only; never synthesize output tokens.
+export function validateExtraFields(
+  value: unknown,
+): asserts value is string[] | undefined {
+  if (value === undefined) return;
+  if (
+    !Array.isArray(value) ||
+    value.length > 1000 ||
+    new Set(value).size !== value.length ||
+    value.some(
+      (n) =>
+        typeof n !== "string" ||
+        !n.trim() ||
+        n !== n.trim() ||
+        n.length > 250 ||
+        /[\p{Cc}\p{Cf}<>{}\u2028\u2029]/u.test(n),
+    )
+  )
+    throw Error("invalidExtraFields");
+}
+export function captureFieldNames(
+  template: Template,
+  allHeaders = false,
+): string[] {
+  validateExtraFields(template.extraFields);
+  const source = allHeaders
+    ? [
+        template.content,
+        ...(template.email
+          ? [
+              template.email.subject,
+              template.email.to,
+              template.email.cc,
+              template.email.bcc,
+            ]
+          : []),
+      ].join("\n")
+    : templateSource(template);
+  const names = [
+    ...new Set([
+      ...parseFields(source, template.placeholderStyle),
+      ...(template.extraFields ?? []),
+    ]),
+  ];
+  return [
+    ...new Set([
+      ...template.fieldOrder.filter((n) => names.includes(n)),
+      ...names,
+    ]),
+  ];
 }

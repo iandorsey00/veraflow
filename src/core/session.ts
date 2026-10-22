@@ -1,17 +1,17 @@
 import { compare } from "./compare";
 import {
-  orderFields,
+  captureFieldNames,
   renderTemplate,
   templateSource,
   emailSections,
 } from "./template";
 import type { Session, Template, EmailHeader } from "./model";
 export function startSession(template: Template): Session {
-  const fields = orderFields(
-    templateSource(template),
-    template.fieldOrder,
-    template.placeholderStyle,
-  ).map((name) => ({ name, value: null, status: "empty" as const }));
+  const fields = captureFieldNames(template).map((name) => ({
+    name,
+    value: null,
+    status: "empty" as const,
+  }));
   return {
     template: structuredClone(template),
     fields,

@@ -1,3 +1,4 @@
+import { validateExtraFields } from "./template";
 import { defaultEmailOrder, type Comparison, type Template } from "./model";
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
@@ -53,6 +54,7 @@ export function parseTemplateArchive(json: string): Template[] {
       "folder",
       "content",
       "fieldOrder",
+      "extraFields",
       "verificationEnabled",
       "comparison",
       "email",
@@ -70,6 +72,14 @@ export function parseTemplateArchive(json: string): Template[] {
       comparison: comparison(v.comparison),
     };
     if (!t.name.trim()) throw Error("invalidImport");
+    if (v.extraFields !== undefined) {
+      try {
+        validateExtraFields(v.extraFields);
+      } catch {
+        throw Error("invalidImport");
+      }
+      t.extraFields = [...v.extraFields];
+    }
     if (v.placeholderStyle !== undefined) {
       if (v.placeholderStyle !== "angle" && v.placeholderStyle !== "braces")
         throw Error("invalidImport");

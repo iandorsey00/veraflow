@@ -36,6 +36,8 @@ pub struct Comparison {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Template {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra_fields: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub placeholder_style: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub email: Option<EmailTemplate>,
@@ -104,7 +106,20 @@ impl Library {
         }
         let mut ids = std::collections::HashSet::new();
         for t in &self.templates {
-            if t.placeholder_style
+            if t.extra_fields.as_ref().is_some_and(|names| {
+                names.len() > 1000
+                    || names.iter().collect::<std::collections::HashSet<_>>().len() != names.len()
+                    || names.iter().any(|n| {
+                        n.trim().is_empty()
+                            || n.trim() != n
+                            || n.chars().count() > 250
+                            || n.chars().any(|c| {
+                                c.is_control()
+                                    || matches!(c, '<' | '>' | '{' | '}' | '\u{2028}' | '\u{2029}')
+                            })
+                    })
+            }) || t
+                .placeholder_style
                 .as_ref()
                 .is_some_and(|style| !["angle", "braces"].contains(&style.as_str()))
                 || t.id.is_empty()
@@ -214,6 +229,30 @@ mod tests {
         let library: Library = serde_json::from_value(value.clone()).unwrap();
         assert!(library.validate().is_ok());
         assert_eq!(serde_json::to_value(library).unwrap(), value);
+    }
+    #[test]
+    fn extra_field_definitions_round_trip_and_reject_values_and_invalid_names() {
+        let mut value = fixture();
+        value["templates"][0]["extraFields"] =
+            serde_json::json!(["booking reference", "contact phone"]);
+        let library: Library = serde_json::from_value(value.clone()).unwrap();
+        assert!(library.validate().is_ok());
+        assert_eq!(serde_json::to_value(library).unwrap(), value);
+        for names in [
+            serde_json::json!(["same", "same"]),
+            serde_json::json!(["bad\nname"]),
+            serde_json::json!(["{{bad}}"]),
+            serde_json::json!(["  "]),
+        ] {
+            value["templates"][0]["extraFields"] = names;
+            assert!(serde_json::from_value::<Library>(value.clone())
+                .unwrap()
+                .validate()
+                .is_err());
+        }
+        value["templates"][0]["extraFields"] =
+            serde_json::json!([{"name":"reference","value":"secret"}]);
+        assert!(serde_json::from_value::<Library>(value).is_err());
     }
     #[test]
     fn valid_library_round_trips() {

@@ -70,6 +70,7 @@ export function completedFieldsToScanner(
       name,
       content: "",
       email: undefined,
+      extraFields: undefined,
       fieldOrder: [],
     },
   };
