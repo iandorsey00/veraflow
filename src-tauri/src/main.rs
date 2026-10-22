@@ -461,13 +461,23 @@ async fn export_templates(
     .map_err(|_| "storageFailed".to_string())?
 }
 #[tauri::command]
-async fn import_templates(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn import_templates(
+    app: tauri::AppHandle,
+    csv: Option<bool>,
+) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
             .file()
-            .add_filter("JSON", &["json"])
+            .add_filter(
+                if csv.unwrap_or(false) { "CSV" } else { "JSON" },
+                if csv.unwrap_or(false) {
+                    &["csv"][..]
+                } else {
+                    &["json"][..]
+                },
+            )
             .blocking_pick_file()
         else {
             return Ok(None);

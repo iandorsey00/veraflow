@@ -71,12 +71,17 @@ export const platform = {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
-  async importTemplates(): Promise<string | null> {
-    if (desktop) return invoke("import_templates");
+  async importTemplates(
+    format: "json" | "csv" = "json",
+  ): Promise<string | null> {
+    if (desktop) return invoke("import_templates", { csv: format === "csv" });
     return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = ".json,application/json";
+      input.accept =
+        format === "csv"
+          ? ".csv,text/csv,text/tab-separated-values"
+          : ".json,application/json";
       input.oncancel = () => resolve(null);
       input.onchange = async () => {
         const file = input.files?.[0];
@@ -139,7 +144,7 @@ export const platform = {
           size: await w.innerSize(),
           position: await w.outerPosition(),
         };
-        await w.setSize(new LogicalSize(440, 690));
+        await w.setSize(new LogicalSize(360, 690));
       } else if (!nativePlacement && normalBounds) {
         await w.setSize(normalBounds.size);
         await w.setPosition(normalBounds.position);

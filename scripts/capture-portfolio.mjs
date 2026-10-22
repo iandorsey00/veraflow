@@ -161,7 +161,7 @@ try {
     fullPage: true,
   });
   const scannerPage = await context.newPage();
-  await scannerPage.setViewportSize({ width: 440, height: 900 });
+  await scannerPage.setViewportSize({ width: 360, height: 900 });
   await scannerPage.goto(url);
   await scannerPage
     .getByRole("button", { name: "Free Scanner", exact: true })

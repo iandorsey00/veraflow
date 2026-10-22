@@ -870,3 +870,45 @@ dialog textarea {
   text-align: left;
   margin: 3px 0;
 }
+/* Thin Scanner windows wrap controls and values instead of widening the page. */
+.compact {
+  min-width: 0;
+}
+.compact button,
+.compact summary,
+.compact label,
+.compact h1 {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.compact input,
+.compact select,
+.compact textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+.compact .toolbar,
+.compact .actions {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.compact .capture-field {
+  flex-wrap: wrap;
+}
+.compact .field-body {
+  min-width: 80px;
+}
+.compact .status-label {
+  white-space: normal;
+}
+.csv-preview {
+  width: min(900px, calc(100vw - 32px));
+}
+@media (max-width: 360px) {
+  .compact .capture-panel {
+    padding: 12px;
+  }
+  .compact .session-heading {
+    gap: 8px;
+  }
+}

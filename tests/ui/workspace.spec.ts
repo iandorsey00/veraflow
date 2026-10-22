@@ -248,3 +248,66 @@ test("Scanner JSON import restores values as captured and field-only export omit
     JSON.parse(await readFile((await file.path())!, "utf8")).fields,
   ).toEqual([{ name: "reference" }]);
 });
+test("CSV header suggestion can be corrected before importing literal values", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Import CSV", exact: true }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: "bookings.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      'Full name,Booking reference\r\n"Alex, Morgan",=1+1\r\n',
+    ),
+  });
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Use first row as headers")).toBeChecked();
+  await expect(dialog.locator("#csv-sample")).toContainText("Alex, Morgan");
+  await dialog.getByLabel("Use first row as headers").uncheck();
+  await expect(dialog.locator("#csv-sample th").first()).toHaveText("Column 1");
+  await dialog.getByLabel("Use first row as headers").check();
+  await dialog.getByLabel("Table name", { exact: true }).fill("CSV bookings");
+  await dialog
+    .getByRole("button", { name: "Import table", exact: true })
+    .click();
+  await expect(page.locator(".data-table th")).toContainText([
+    "Full name",
+    "Booking reference",
+  ]);
+  await expect(page.locator(".data-table tbody")).toContainText("=1+1");
+});
+test("template-only setup infers spaced fields and Scanner fits a 300px window", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 300, height: 740 });
+  await page.goto("/");
+  await page.locator("#nav-scanner").click();
+  await page.locator("#start-scanner").click();
+  await page
+    .locator("#dialog-output")
+    .fill("Booking {{ full name }} / {{booking reference}}");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Start Scanner", exact: true })
+    .click();
+  await expect(page.locator(".capture-field strong")).toHaveText([
+    "full name",
+    "booking reference",
+  ]);
+  await fill(page, "x".repeat(200));
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByText("More tools", { exact: true }).click();
+  await expect(page.locator(".template-match .matched")).toHaveCount(2);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});

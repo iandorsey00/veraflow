@@ -311,12 +311,22 @@ async function editScannerName(
 async function setupScanner() {
   const input = await formDialog(
     t("freeScanner"),
-    [{ key: "fields", label: t("fieldLines"), lines: true }],
+    [
+      { key: "fields", label: t("fieldLines"), lines: true },
+      { key: "output", label: t("scannerTemplate"), lines: true },
+    ],
     t("startScanner"),
     t("keep"),
     (values) => {
       try {
-        fieldNames(values.fields);
+        fieldNames(
+          values.fields.trim()
+            ? values.fields
+            : scannerTemplateParts(values.output)
+                .flatMap((p) => (p.name ? [p.name] : []))
+                .filter((n, i, a) => a.indexOf(n) === i)
+                .join("\n"),
+        );
         return null;
       } catch {
         return t("invalidFields");
@@ -324,10 +334,18 @@ async function setupScanner() {
     },
   );
   if (!input) return;
-  const names = fieldNames(input.fields),
-    s = startScanner(library.preferences, t("freeScanner"), names[0]);
+  const names = fieldNames(
+    input.fields.trim()
+      ? input.fields
+      : scannerTemplateParts(input.output)
+          .flatMap((p) => (p.name ? [p.name] : []))
+          .filter((n, i, a) => a.indexOf(n) === i)
+          .join("\n"),
+  );
+  const s = startScanner(library.preferences, t("freeScanner"), names[0]);
   for (const name of names.slice(1)) addScannerField(s, name);
   s.active = 0;
+  s.scannerOutputTemplate = input.output;
   await launchScanner(s);
 }
 async function loadScannerJSON() {

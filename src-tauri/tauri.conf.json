@@ -13,10 +13,10 @@
     "windows": [
       {
         "label": "main",
-        "title": "VeraFlow \u6838\u6d41",
+        "title": "VeraFlow 核流",
         "width": 1040,
         "height": 740,
-        "minWidth": 360,
+        "minWidth": 300,
         "minHeight": 440,
         "resizable": true
       }

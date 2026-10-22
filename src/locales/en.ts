@@ -1,4 +1,9 @@
 export const en = {
+  invalidCSV:
+    "Use a UTF-8 CSV file with consistent columns and correctly quoted cells.",
+  csvColumns:
+    "CSV rows have different column counts. Check the delimiter and quoting.",
+
   scannerMore: "More tools",
   scannerTemporary: "Temporary until saved as a row or exported.",
   mousePasteHelp:
@@ -14,7 +19,8 @@ export const en = {
   freeScanner: "Free Scanner",
   workspaceConfirm: "Apply this workspace action?",
   defineFields: "Define fields",
-  fieldLines: "Field names — one per line",
+  fieldLines:
+    "Field names — one per line; or leave blank and supply a template",
   importScanner: "Import Scanner JSON",
   scannerTemplate: "Text or template — use {{field_name}} (optional)",
   addMissing: "Add missing fields",

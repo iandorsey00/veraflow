@@ -1,3 +1,4 @@
+import { tokens } from "./template";
 import type { Session } from "./model";
 export type ExternalId = { label: string; value: string };
 export type DataRow = {
@@ -238,13 +239,5 @@ export function importScanner(json: string): {
 export function scannerTemplateParts(
   content: string,
 ): { text: string; name?: string }[] {
-  const parts: { text: string; name?: string }[] = [];
-  let end = 0;
-  for (const m of content.matchAll(/\\(?:\\|\{\{)|\{\{([^{}\r\n]+)\}\}/g)) {
-    if (m.index! > end) parts.push({ text: content.slice(end, m.index) });
-    parts.push(m[1] ? { text: m[0], name: m[1] } : { text: m[0].slice(1) });
-    end = m.index! + m[0].length;
-  }
-  if (end < content.length) parts.push({ text: content.slice(end) });
-  return parts;
+  return tokens(content, "braces");
 }

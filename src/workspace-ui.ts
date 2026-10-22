@@ -1,3 +1,5 @@
+import { parseCSV, suggestHeader, csvTable } from "./core/csv";
+import { parseFields } from "./core/template";
 import {
   exportWorkspace,
   importWorkspace,
@@ -125,8 +127,8 @@ export function workspaceUI(deps: {
         {
           key: "fields",
           label: l(
-            "Field names — one per line (use underscores for template placeholders)",
-            "字段名（每行一个，模板字段建议使用下划线）",
+            "Field names — one per line; leave blank to infer from template",
+            "字段名（每行一个，留空则从模板推导）",
           ),
           value: t?.fields.join("\n"),
           lines: true,
@@ -163,6 +165,10 @@ export function workspaceUI(deps: {
           if (!input.name.trim())
             return l("Enter a table name.", "请输入表格名称。");
           if (input.fields.trim()) fieldNames(input.fields);
+          else {
+            const inferred = parseFields(input.output, "braces");
+            if (inferred.length) fieldNames(inferred.join("\n"));
+          }
           parseRefs(input.refs);
           return null;
         } catch {
@@ -175,7 +181,9 @@ export function workspaceUI(deps: {
     );
     if (!input) return;
     if (!input.name.trim()) throw Error("nameRequired");
-    const fields = input.fields.trim() ? fieldNames(input.fields) : [];
+    const fields = input.fields.trim()
+      ? fieldNames(input.fields)
+      : parseFields(input.output, "braces");
     if (
       t &&
       t.fields.some(
@@ -246,7 +254,7 @@ export function workspaceUI(deps: {
         )
         .join(
           "",
-        )}${btn("new-table", l("New table", "新建表格"))}<div class="workspace-exchange">${btn("import", l("Import database JSON", "导入数据库 JSON"))}${btn("export", l("Export database JSON", "导出数据库 JSON"))}</div></aside><section class="workspace-content">${t ? `<h1>${esc(t.name)}</h1><p class="vera-id">${esc(t.id)}</p>${t.externalIds.map((r) => `<p>${esc(r.label)}: ${esc(r.value)}</p>`).join("")}<div class="toolbar">${btn("new-row", l("New row", "新建行"))}${btn("edit", l("Table settings", "表格设置"))}${btn("move", l("Move to folder", "移动到文件夹"))}${btn("export-table", l("Export table JSON", "导出表格 JSON"))}${btn("delete-table", l("Delete table", "删除表格"))}</div>${t.output && !t.fields.length ? `<pre class="output">${esc(t.output)}</pre>${btn("copy-text", l("Copy reusable text", "复制常用文本"))}` : ""}<div class="data-table-scroll"><table class="data-table"><thead><tr>${t.rowTitles ? `<th>${l("Title", "标题")}</th>` : ""}<th>${l("VeraFlow ID", "VeraFlow 编号")}</th>${t.fields.map((n) => `<th>${esc(n)}</th>`).join("")}<th>${l("Actions", "操作")}</th></tr></thead><tbody>${t.rows.map((r) => `<tr>${t.rowTitles ? `<td>${esc(r.title)}</td>` : ""}<td class="vera-id">${esc(r.id)}</td>${t.fields.map((n) => `<td>${esc(Object.hasOwn(r.values, n) ? r.values[n] : "—")}</td>`).join("")}<td>${btn("open", l("Open Scanner", "打开扫描器"), `data-id="${esc(r.id)}" ${!t.fields.length ? "disabled" : ""}`)}${btn("row-details", l("Row details", "行详情"), `data-id="${esc(r.id)}"`)}${btn("delete-row", l("Delete row", "删除行"), `data-id="${esc(r.id)}"`)}</td></tr>`).join("")}</tbody></table></div>${!t.rows.length ? `<p>${l("No rows yet. Add a row or save Free Scanner as a row.", "暂无数据行。可添加行，或将自由扫描器保存为行。")}</p>` : ""}` : `<h1>${l("Your tables", "我的表格")}</h1><p>${l("Create a table for trips, shipments, contacts, or any repeatable set of fields. Every row opens in Scanner.", "为旅行、货运、联系人等创建表格。每一行都可在扫描器中打开。")}</p>${btn("new-table", l("Create table", "创建表格"))}`}</section></main>`;
+        )}${btn("new-table", l("New table", "新建表格"))}<div class="workspace-exchange">${btn("import-csv", l("Import CSV", "导入 CSV"))}${btn("import", l("Import database JSON", "导入数据库 JSON"))}${btn("export", l("Export database JSON", "导出数据库 JSON"))}</div></aside><section class="workspace-content">${t ? `<h1>${esc(t.name)}</h1><p class="vera-id">${esc(t.id)}</p>${t.externalIds.map((r) => `<p>${esc(r.label)}: ${esc(r.value)}</p>`).join("")}<div class="toolbar">${btn("new-row", l("New row", "新建行"))}${btn("edit", l("Table settings", "表格设置"))}${btn("move", l("Move to folder", "移动到文件夹"))}${btn("export-table", l("Export table JSON", "导出表格 JSON"))}${btn("delete-table", l("Delete table", "删除表格"))}</div>${t.output && !t.fields.length ? `<pre class="output">${esc(t.output)}</pre>${btn("copy-text", l("Copy reusable text", "复制常用文本"))}` : ""}<div class="data-table-scroll"><table class="data-table"><thead><tr>${t.rowTitles ? `<th>${l("Title", "标题")}</th>` : ""}<th>${l("VeraFlow ID", "VeraFlow 编号")}</th>${t.fields.map((n) => `<th>${esc(n)}</th>`).join("")}<th>${l("Actions", "操作")}</th></tr></thead><tbody>${t.rows.map((r) => `<tr>${t.rowTitles ? `<td>${esc(r.title)}</td>` : ""}<td class="vera-id">${esc(r.id)}</td>${t.fields.map((n) => `<td>${esc(Object.hasOwn(r.values, n) ? r.values[n] : "—")}</td>`).join("")}<td>${btn("open", l("Open Scanner", "打开扫描器"), `data-id="${esc(r.id)}" ${!t.fields.length ? "disabled" : ""}`)}${btn("row-details", l("Row details", "行详情"), `data-id="${esc(r.id)}"`)}${btn("delete-row", l("Delete row", "删除行"), `data-id="${esc(r.id)}"`)}</td></tr>`).join("")}</tbody></table></div>${!t.rows.length ? `<p>${l("No rows yet. Add a row or save Free Scanner as a row.", "暂无数据行。可添加行，或将自由扫描器保存为行。")}</p>` : ""}` : `<h1>${l("Your tables", "我的表格")}</h1><p>${l("Create a table for trips, shipments, contacts, or any repeatable set of fields. Every row opens in Scanner.", "为旅行、货运、联系人等创建表格。每一行都可在扫描器中打开。")}</p>${btn("new-table", l("Create table", "创建表格"))}`}</section></main>`;
     },
     bind(root: HTMLElement) {
       root
@@ -333,6 +341,80 @@ export function workspaceUI(deps: {
                     ? "veraflow-database.json"
                     : "veraflow-table.json",
                 );
+              } else if (action === "import-csv") {
+                const source = await platform.importTemplates("csv");
+                if (source === null) return;
+                const rows = parseCSV(source);
+                let header = suggestHeader(rows);
+                const d = document.createElement("dialog");
+                d.className = "csv-preview";
+                d.setAttribute("aria-label", l("Import CSV", "导入 CSV"));
+                d.innerHTML = `<form><h2>${l("Import CSV", "导入 CSV")}</h2><label for="csv-name">${l("Table name", "表格名称")}</label><input id="csv-name" maxlength="1000" required><label class="check"><input id="csv-header" type="checkbox" ${header ? "checked" : ""}>${l("Use first row as headers", "首行作为字段名")}</label><p class="hint">${l("Header detection is a suggestion. Review the first five rows. Blank or duplicate headers receive unique names. Values are saved locally as text.", "表头识别仅为建议，请检查前五行。空白或重复表头将生成唯一名称，值作为文本保存在本机。")}</p><div id="csv-sample" class="data-table-scroll"></div><div class="actions"><button type="button" id="csv-cancel">${l("Keep working", "继续编辑")}</button><button type="submit" class="primary">${l("Import table", "导入表格")}</button></div></form>`;
+                const preview = () => {
+                  header = (d.querySelector("#csv-header") as HTMLInputElement)
+                    .checked;
+                  try {
+                    const sample = csvTable(rows, header, "Preview");
+                    (
+                      d.querySelector(
+                        'button[type="submit"]',
+                      ) as HTMLButtonElement
+                    ).disabled = false;
+                    d.querySelector("#csv-sample")!.innerHTML =
+                      `<p>${sample.rows.length} ${l("rows", "行")}</p><table class="data-table"><thead><tr>${sample.fields.map((n) => `<th>${esc(n)}</th>`).join("")}</tr></thead><tbody>${sample.rows
+                        .slice(0, 5)
+                        .map(
+                          (r) =>
+                            `<tr>${sample.fields.map((n) => `<td>${esc(r.values[n])}</td>`).join("")}</tr>`,
+                        )
+                        .join("")}</tbody></table>`;
+                  } catch {
+                    d.querySelector("#csv-sample")!.innerHTML =
+                      `<p role="alert">${l("This import exceeds the local table limits. Use a smaller CSV.", "导入超过本地表格限制，请使用较小的 CSV 文件。")}</p>`;
+                    (
+                      d.querySelector(
+                        'button[type="submit"]',
+                      ) as HTMLButtonElement
+                    ).disabled = true;
+                  }
+                };
+                document.body.append(d);
+                d.showModal();
+                preview();
+                d.querySelector("#csv-header")!.addEventListener(
+                  "change",
+                  preview,
+                );
+                const name = await new Promise<string | null>((resolve) => {
+                  let done = false;
+                  const close = (name: string | null) => {
+                    if (done) return;
+                    done = true;
+                    d.close();
+                    d.remove();
+                    resolve(name);
+                  };
+                  d.querySelector("#csv-cancel")!.addEventListener(
+                    "click",
+                    () => close(null),
+                  );
+                  d.addEventListener("cancel", (e) => {
+                    e.preventDefault();
+                    close(null);
+                  });
+                  d.querySelector("form")!.onsubmit = (e) => {
+                    e.preventDefault();
+                    const name = (
+                      d.querySelector("#csv-name") as HTMLInputElement
+                    ).value.trim();
+                    if (name) close(name);
+                  };
+                });
+                if (name === null) return;
+                const table = csvTable(rows, header, name, folder);
+                w.tables.push(table);
+                tableId = table.id;
+                await save(w);
               } else if (action === "import") {
                 const json = await platform.importTemplates();
                 if (json === null) return;

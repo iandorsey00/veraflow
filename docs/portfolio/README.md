@@ -14,6 +14,6 @@ The editor uses the shared 1440 × 1000 baseline at 2×; the floating panel uses
 
 `05-email-delivery.png` shows synthetic To → Cc → Body output with Subject excluded, plus manual navigation and keyboard hints. The email editor scene uses a taller 1440 × 1900 viewport to include the new paste-order controls; delivery uses the compact 440px width.
 
-`06-scanner.png` shows standalone selected-text Scanner with a synthetic verified reference, manual entry, and individual-field output. It uses the compact 440px viewport with bottom field actions and one flat More tools panel. This is a browser preview, not native capture evidence.
+`06-scanner.png` shows standalone selected-text Scanner with a synthetic verified reference, manual entry, and individual-field output. It uses the compact 360px viewport with bottom field actions and one flat More tools panel. This is a browser preview, not native capture evidence.
 
 The October 20 scenes show Workspace as the opening page, a bottom Free Scanner action, generic brace/email defaults, and bottom Scanner actions. `07-workspace.png` shows a synthetic travel row with stable IDs. Existing custom templates and legacy syntax are not rewritten.

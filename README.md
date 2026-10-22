@@ -6,7 +6,7 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ![VeraFlow workspace with a synthetic travel booking row](docs/portfolio/screenshots/07-workspace.png)
 
-## Workspace preview (upcoming 0.7.0)
+## Workspace preview (0.7.0)
 
 The app opens to **Workspace**. Organize work into folders and tables; column headers are field names, and each row opens in Scanner. Tables and rows have stable VeraFlow IDs. Add labeled external IDs in Table settings or Row details, for example `Booking=AB-104`. External IDs are references, not unique keys. Tables can show optional row titles or hide them. Existing templates remain available under Templates; there is no duplicate Scanner tab.
 
@@ -18,11 +18,19 @@ Under Scanner → More tools, use `{{field name}}` references. The preview marks
 
 Scanner's More tools → JSON section exports **fields only** or **fields and values**. Imported values are captured, never already verified. Mismatched values and verification candidates are excluded. Workspace exports either a table or the database; both use the same versioned JSON format. Import adds data and preserves IDs where possible, assigning fresh IDs to collisions instead of overwriting existing work. Table/database JSON contains saved values; review files before sharing. Template JSON remains separate and excludes captured values.
 
-Rows, templates, and preferences use the existing atomically saved local library (16 MB total). This first version does not sync, encrypt app data, or provide multiuser editing. Export database JSON for a portable backup; export templates separately. Back up the test library before upgrading: older test versions reject the new workspace property. Rollback requires restoring a compatible pre-upgrade library. Production VeraFlow uses a separate library.
+Rows, templates, and preferences use the existing atomically saved local library (16 MB total). This first version does not sync, encrypt app data, or provide multiuser editing. Export database JSON for a portable backup; export templates separately. Back up `library.json` before upgrading: older versions reject the new workspace property and shortcut migration marker. Rollback requires restoring a compatible pre-upgrade library. VeraFlow Test uses a separate library; export/import its database and templates explicitly to move them to the public app.
 
-[Download the Windows workspace test build (b0956a56)](https://github.com/iandorsey00/veraflow/actions/runs/39539572305/artifacts/12318967250). GitHub sign-in is required; extract the ZIP and run `VeraFlow-Test-b0956a56-setup.exe`. Back up your test library before upgrading and quit regular VeraFlow through its tray menu to avoid shortcut collisions. Both platforms passed all 86 tests and native compilation. Public VeraFlow and its update feed remain v0.6.2 until Windows acceptance and an explicit release.
+Version 0.7.0 brings the workspace to the public preview. The current email workflow remains available; macros, row combination, and a unified Scanner/email editor are deferred.
 
-## Current test-build defaults
+### CSV and template setup
+
+Choose **Import CSV** in Workspace, then review the first five rows and the **Use first row as headers** checkbox before importing. Header detection is a suggestion; turn it off when the first row contains data. Comma, semicolon, and tab delimiters are detected. UTF-8 BOMs, quoted commas, doubled quotes, and multiline cells are supported. Blank, invalid, or duplicate headers receive unique names; ragged rows and malformed quotes are rejected. Imported values are plain text, including formula-looking cells; no formulas, links, or macros execute. Import creates a new table in the selected folder without overwriting data. Preview/import respects the local size limits, including JSON expansion from long repeated column names.
+
+Excel is not imported directly in this release. Export the intended sheet as **CSV UTF-8** from Excel, then import that file. Formatting, formulas, and multiple-sheet structure are not carried over as workbook features.
+
+Free Scanner and Table settings can infer fields from a supplied template when the field list is blank. Brace placeholders support spaces, such as `{{full name}}`; surrounding padding is ignored (`{{ full name }}` matches `full name`). Internal spaces remain significant. Line breaks and control characters are invalid within placeholders. Legacy angle syntax stays unchanged. Scanner opens at 360px wide and can shrink to 300px; controls and long values wrap instead of widening the page.
+
+## Defaults
 
 Fresh installations include generic English and Chinese email templates with separate Subject/To/Body and `{{double_braces}}` placeholders. Blank new templates also use braces. Legacy angle syntax remains optional so existing templates and imports keep working; no automatic text rewriting occurs. Existing libraries and templates are preserved.
 
@@ -30,7 +38,7 @@ Global shortcuts default to Ctrl+Alt+1–8 on Windows (Cmd+Option+1–8 on macOS
 
 ## Download
 
-Get the [v0.6.2 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.6.2): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+Get the [v0.7.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 

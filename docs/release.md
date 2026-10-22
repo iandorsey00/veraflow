@@ -1,8 +1,14 @@
 # Release and rollback
 
-## 0.7.0 Scanner test channel
+## 0.7.0 workspace, Scanner, and CSV
 
-Scanner is being validated through isolated Windows test artifacts before a public release. Source version is 0.7.0; no v0.7.0 release tag or public feed promotion is made by this work. Public distribution remains 0.6.2. Follow [Windows testing](windows-testing.md) for downloads, separate libraries, acceptance, and rollback. Scanner values remain memory-only. The October 19 refinement adds an optional one-time shortcut migration marker; older binaries reject it, so back up the test library before upgrading and restore a compatible backup to roll back. A full release cycle remains required when promoting after Windows acceptance, because this changes field output and template handoff. Do not run test builds through the public updater.
+Full release cycle selected for persisted workspace rows, native mouse output, narrowed window constraints, CSV import, and compatible updater dependency changes. The existing email workflow remains; unified template/email editing, row macros and composition are deferred. The public preview keeps publisher-unsigned labeling and mandatory updater signatures. The release tag triggers all platform checks, packages three architectures, independently verifies updater signatures/authenticated versions, verifies downloaded checksums, publishes the preview, and only then updates the feed.
+
+Free Scanner is temporary until explicit Save as row; saved rows and labeled references persist in the atomically replaced local Library. Older binaries reject new workspace and shortcut markers. Back up the public library before upgrading; restore a compatible backup when rolling back. Test and public libraries stay separate; transfer via explicit JSON exports/imports. Database JSON contains saved values and excludes standalone templates/preferences.
+
+CSV import is UTF-8 text only with a preview and user-controlled header choice. It never executes formulas or macros. Excel files need a CSV UTF-8 export. Spaced brace placeholders share one parser across Scanner and email; angle syntax is unchanged. Scanner opens at 360px and supports a 300px minimum.
+
+The release audit updated Vite to 7.3.7, rustls-webpki to 0.103.16, and webpki-root-certs to 1.0.10. The unused updater ZIP compatibility feature was disabled, removing zip 4.6.1 and its extraction advisories. The update feed already uses Windows EXE and macOS tar.gz; both remain enabled. The existing key, feed URL, authenticated-version enforcement and HTTPS/download guards are unchanged. Refreshed audits report zero vulnerabilities; nine maintenance and one unsupported-Linux glib unsoundness warning remain unsuppressed.
 
 ## 0.6.2 session layout, capture order, and window restoration
 

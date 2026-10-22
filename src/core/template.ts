@@ -1,19 +1,22 @@
 import { defaultEmailOrder, type Template } from "./model";
 type Style = Template["placeholderStyle"];
 // Only backslash-backslash and backslash-opening-delimiter are escapes.
-function tokens(content: string, style: Style = "angle") {
+export function tokens(content: string, style: Style = "angle") {
   const pattern =
     style === "braces"
-      ? /\\(?:\\|\{\{)|\{\{([^<>{}\s\p{Cc}\p{Cf}]+)\}\}/gu
+      ? /\\(?:\\|\{\{)|\{\{([^<>{}\p{Cc}\p{Cf}\u2028\u2029]+)\}\}/gu
       : /\\(?:\\|<)|<([^<>{}\s\p{Cc}\p{Cf}]+)>/gu;
   const out: { text: string; name?: string }[] = [];
   let end = 0;
   for (const match of content.matchAll(pattern)) {
     if (match.index! > end) out.push({ text: content.slice(end, match.index) });
     out.push(
-      match[1]
-        ? { text: match[0], name: match[1] }
-        : { text: match[0].slice(1) },
+      match[1]?.trim()
+        ? {
+            text: match[0],
+            name: style === "braces" ? match[1].trim() : match[1],
+          }
+        : { text: match[1] !== undefined ? match[0] : match[0].slice(1) },
     );
     end = match.index! + match[0].length;
   }

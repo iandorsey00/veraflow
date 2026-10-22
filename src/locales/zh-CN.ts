@@ -1,5 +1,8 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  invalidCSV: "请使用列数一致、引号格式正确的 UTF-8 CSV 文件。",
+  csvColumns: "CSV 行的列数不一致，请检查分隔符和引号。",
+
   scannerMore: "更多工具",
   scannerTemporary: "保存为行或导出之前为临时数据。",
   mousePasteHelp: "鼠标粘贴使用上一外部应用。请先定位目标并开启鼠标模式。",
@@ -13,7 +16,7 @@ export const zh: Record<keyof typeof en, string> = {
   freeScanner: "自由扫描器",
   workspaceConfirm: "执行此工作区操作？",
   defineFields: "定义字段",
-  fieldLines: "字段名（每行一个）",
+  fieldLines: "字段名（每行一个，或留空并提供模板）",
   importScanner: "导入扫描器 JSON",
   scannerTemplate: "文本或模板（可选），使用 {{字段名}}",
   addMissing: "添加缺失字段",

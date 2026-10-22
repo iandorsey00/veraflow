@@ -1,26 +1,18 @@
-VeraFlow 核流 0.6.2 is a **publisher-unsigned preview** improving session layout, window restoration, and capture-order persistence.
+VeraFlow 核流 0.7.0 is a **publisher-unsigned preview** adding a local table workspace and standalone Scanner.
 
-- Restore pre-session window bounds on completion or departure. Windows restores the saved normal placement after session resizing/maximization; Windows 11 top/bottom Snap still needs interactive verification.
-- Preserve custom capture order across email-mode and optional-header toggles, saving, and JSON transfers. Disabled fields stay out of active sessions.
-- Compact the session heading and collapse guidance into Session options. Manual entry is directly beneath the heading.
-- Balance status-notice padding and add space before template import/export controls.
-- Update bundles retain verified updater signatures. Publisher signing remains pending.
-- Version 0.5.x and later can use Update app. Earlier versions need a manual download.
+- Organize folders, tables, and saved rows with permanent VeraFlow IDs, optional row titles, and labeled external references. Each row opens in Scanner.
+- Free Scanner stays temporary until Save as row. Define fields one per line, infer them from a template, or import Scanner JSON. Saved values reopen as captured and require fresh verification.
+- Copy, paste, rename, and verify individual fields; use Tab/Shift+Tab, Ctrl/Cmd+C on a focused field, or the nearby right-click menu. Mouse paste returns to the last external app; place the cursor in the destination first and inspect the result before retrying.
+- Scanner opens at 360px and supports a 300px minimum without a horizontal page scrollbar. Long text and controls wrap.
+- Use spaced placeholders such as `{{full name}}` in Scanner and email templates. Matching and missing Scanner fields are labeled and colored, with an Add missing fields action.
+- Import UTF-8 CSV with a reviewable header suggestion, quoted/multiline cells, and comma/semicolon/tab detection. Values remain plain text; Excel sheets can be exported as CSV UTF-8 first.
+- Exchange Scanner fields/values, tables, and the database as JSON. Value exports include private text; review before sharing. Imports add records rather than overwrite them.
+- Keep the current email workflow, including explicit post-email Scanner transfer. New stock shortcuts use Ctrl+Alt on Windows and Cmd+Option on macOS, preserving custom bindings.
 
-| Platform                | Download                                |
-| ----------------------- | --------------------------------------- |
-| macOS 12+ Apple Silicon | `VeraFlow_v0.6.2_macos-arm64.zip`       |
-| macOS 12+ Intel         | `VeraFlow_v0.6.2_macos-x64.zip`         |
-| Windows x64             | `VeraFlow_v0.6.2_windows-x64-setup.exe` |
+Download `VeraFlow_v0.7.0_windows-x64-setup.exe`, `VeraFlow_v0.7.0_macos-arm64.zip`, or `VeraFlow_v0.7.0_macos-x64.zip` from this release. Verify against `SHA256SUMS.txt`. Node.js and Rust are not needed. Install the Windows EXE or extract the macOS ZIP and move VeraFlow.app into Applications.
 
-On macOS, extract the archive and move VeraFlow.app to Applications. These builds are not Developer ID signed or notarized. macOS may require per-app approval through System Settings → Privacy & Security → Open Anyway. Grant Accessibility permission for source-text capture. On Windows, run the installer; expect an unrecognized-publisher warning. WebView2 may be installed if absent. Only approve a download you trust; do not disable system-wide security protections.
+**Before upgrading:** quit through the tray menu and back up `library.json` from `~/Library/Application Support/com.veraflow.desktop/` or `%APPDATA%\com.veraflow.desktop\`. Saved rows are local plaintext and persist after session exit. Old binaries reject new workspace/shortcut properties; rollback requires a compatible pre-upgrade backup. Test and public libraries are separate: use database and template JSON to transfer explicitly.
 
-Verify your chosen asset against `SHA256SUMS.txt` using `shasum -a 256 <file>` on macOS or `Get-FileHash <file> -Algorithm SHA256` in PowerShell. Node.js and Rust are not needed to run the app.
+Update bundles retain mandatory signatures and authenticated versions. This release removes unused legacy ZIP updater support; Windows EXE updates and macOS application-archive updates remain supported. Apple Developer ID/notarization and Windows publisher signing are not configured. Expect per-app system approval or an unrecognized-publisher warning. Never disable system-wide protections.
 
-Automated checks cover frontend workflows and native compilation. Cross-app clipboard restoration, permission behavior, Intel runtime execution, Windows interactive acceptance, and assistive-technology testing are not fully validated. Use synthetic data while evaluating the preview. Clipboard restoration is best effort; sessions remain only in memory.
-
-The first launch writes a clipboard-preference migration marker that older binaries reject. Downgrade only with a compatible pre-upgrade library backup. Before upgrading, quit VeraFlow and back up `library.json` from `~/Library/Application Support/com.veraflow.desktop/` or `%APPDATA%\com.veraflow.desktop\`. Older libraries load normally, but binaries before 0.5.0 reject new shortcut preferences and placeholder-style properties. Restore your pre-upgrade library backup when downgrading. Downgrading to 0.2.0 requires its pre-upgrade backup because it rejects the added verification-background preference. Keep your previous binary for rollback. Quitting discards session values.
-
-In email mode, prepare output, focus the first included section in the destination, and press the configured finish shortcut (default Cmd/Ctrl+Shift+8) for each section. It pastes and presses Tab through the configured section order, ending at Body; Body has no trailing Tab. The previous shortcut (Cmd/Ctrl+Shift+2) sends Shift+Tab. The destination must have the matching field order. Going back does not undo text; select existing content before repasting. Output replaces the clipboard, cannot confirm the destination accepted it, and never sends the email. Return to VeraFlow and press Cmd/Ctrl+Enter to finish after reviewing the Body. Real email-client acceptance remains a manual preview gate.
-
-Update bundles are signed with VeraFlow’s update key, including an authenticated version. They are separate from publisher signing: macOS apps are still not Developer ID signed/notarized, and Windows installers still lack an Authenticode publisher certificate. Windows 11 and Intel macOS interactive updater acceptance remains outstanding; automated checks do not establish it.
+Automated checks cover native compilation, storage, output guards, keyboard flows, and browser accessibility. They do not establish every real-app focus/paste, permission, Intel runtime, window snapping, assistive-technology, or in-place updater/relaunch behavior. No Send operation is emitted. Unsaved session values are cleared on exit; saved rows and exported files remain.
