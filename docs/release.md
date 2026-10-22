@@ -2,6 +2,8 @@
 
 ## 0.7.0 workspace, Scanner, and CSV
 
+Published as [v0.7.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.0). All three platform packages, independent updater signatures, downloaded checksums, and the live 0.7.0 feed were verified; see [validation](validation.md).
+
 Full release cycle selected for persisted workspace rows, native mouse output, narrowed window constraints, CSV import, and compatible updater dependency changes. The existing email workflow remains; unified template/email editing, row macros and composition are deferred. The public preview keeps publisher-unsigned labeling and mandatory updater signatures. The release tag triggers all platform checks, packages three architectures, independently verifies updater signatures/authenticated versions, verifies downloaded checksums, publishes the preview, and only then updates the feed.
 
 Free Scanner is temporary until explicit Save as row; saved rows and labeled references persist in the atomically replaced local Library. Older binaries reject new workspace and shortcut markers. Back up the public library before upgrading; restore a compatible backup when rolling back. Test and public libraries stay separate; transfer via explicit JSON exports/imports. Database JSON contains saved values and excludes standalone templates/preferences.
