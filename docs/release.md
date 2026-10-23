@@ -2,6 +2,8 @@
 
 ## 0.7.2 verification layout and individual templates
 
+Published as [v0.7.2](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.2). Both platform checks, three packages, updater signatures/authenticated versions, public payload checksums and live feed were verified; see [validation](validation.md).
+
 RC selected for field layout hardening and reuse of the existing bounded JSON archive parser. No schema, dependencies, permissions, or native capture/output behavior changes. Single-template export validates current edits without saving; import requires exactly one definition and creates a fresh ID after confirmation. Existing bulk exchange remains available. Binary publication retains all platform, signature, checksum and feed gates. Back up the library before upgrading; 0.7.1 remains schema-compatible. Windows WebView verification and native update acceptance remain manual checks.
 
 ## 0.7.1 extra Scanner fields
