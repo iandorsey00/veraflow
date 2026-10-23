@@ -137,6 +137,10 @@ export const en = {
     "Use {{field_name}} for a variable. Email addresses in <angle brackets> remain literal text.",
   escapeHelp:
     "Changing syntax does not rewrite your text. Prefix an opening delimiter with a backslash to keep it literal: \\<name> or \\{{name}}. Use \\\\ for a literal backslash.",
+  importTemplate: "Import one template",
+  exportTemplate: "Export this template",
+  singleTemplateRequired:
+    "Choose a JSON file containing one template. Use Import JSON for a whole template library.",
   importTemplates: "Import JSON",
   exportTemplates: "Export JSON",
   invalidImport:

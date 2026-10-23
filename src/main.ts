@@ -579,7 +579,7 @@ function libraryView(): string {
       )
       .join("")}</select>
     <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${captureFieldNames(item).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
-    <div class="toolbar template-transfer">${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
+    <div class="toolbar template-transfer">${button("import-template", "importTemplate", "", locked)}${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
     <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? editorView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
 function comparisonView(rules: Comparison, prefix: string): string {
@@ -588,7 +588,7 @@ function comparisonView(rules: Comparison, prefix: string): string {
 }
 function editorView(): string {
   const d = draft!;
-  return `<div class="section-head"><p class="eyebrow">${esc(t("library"))}</p><div class="toolbar">${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div></div>
+  return `<div class="section-head"><p class="eyebrow">${esc(t("library"))}</p><div class="toolbar">${button("export-template", "exportTemplate")}${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div></div>
   <div class="metadata"> <div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
   <label for="placeholder-style">${esc(t("placeholderStyle"))}</label><select id="placeholder-style"><option value="braces" ${d.placeholderStyle === "braces" ? "selected" : ""}>${esc(t("bracesStyle"))}</option><option value="angle" ${d.placeholderStyle !== "braces" ? "selected" : ""}>${esc(t("angleStyle"))}</option></select><p class="hint">${esc(t("escapeHelp"))}</p>
   ${check("email-enabled", "emailMode", d.email?.enabled ?? false)}
@@ -664,13 +664,23 @@ function bindLibrary() {
   click("export-templates", async () => {
     await platform.exportTemplates(exportTemplateArchive(library.templates));
   });
-  click("import-templates", async () => {
+  click("export-template", async () => {
+    if (!draft?.name.trim()) throw Error("nameRequired");
+    if (extraFieldsInvalid) throw Error("invalidExtraFields");
+    const json = exportTemplateArchive([draft]);
+    parseTemplateArchive(json);
+    await platform.exportTemplates(json, "veraflow-template.json");
+  });
+  click("import-template", () => importTemplates(true));
+  click("import-templates", () => importTemplates(false));
+  async function importTemplates(single: boolean) {
     if (!(await abandonDraft())) return;
     if (selected) selectTemplate(selected);
     render();
     const json = await platform.importTemplates();
     if (json === null) return;
     const imported = parseTemplateArchive(json);
+    if (single && imported.length !== 1) throw Error("singleTemplateRequired");
     if (library.templates.length + imported.length > 1000)
       throw Error("invalidImport");
     if (
@@ -687,7 +697,7 @@ function bindLibrary() {
     await persist({ ...library, templates: [...library.templates, ...copies] });
     selectTemplate(copies[0].id);
     notify("imported");
-  });
+  }
   on("placeholder-style", "change", (e) => {
     draft!.placeholderStyle = (e.target as HTMLSelectElement).value as
       "angle" | "braces";

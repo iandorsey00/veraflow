@@ -912,3 +912,32 @@ dialog textarea {
     gap: 8px;
   }
 }
+
+/* Keep verification text within the field's available width, including WebView. */
+.capture-field {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+}
+.compact .field-body {
+  min-width: 0;
+}
+.capture-panel .inspect,
+.capture-panel .mismatch-box {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.capture-panel pre,
+.scanner-panel .field-value {
+  white-space: break-spaces;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+@media (max-width: 360px) {
+  .capture-field {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+  .capture-field .status-label {
+    grid-column: 2;
+  }
+}

@@ -431,6 +431,7 @@ async fn export_templates(
         .filter(|name| {
             [
                 "veraflow-templates.json",
+                "veraflow-template.json",
                 "veraflow-scanner.json",
                 "veraflow-table.json",
                 "veraflow-database.json",

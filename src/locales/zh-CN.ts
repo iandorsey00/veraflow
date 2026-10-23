@@ -127,6 +127,10 @@ export const zh: Record<keyof typeof en, string> = {
     "使用 {{字段名}} 表示变量。尖括号中的邮箱地址保持为普通文本。",
   escapeHelp:
     "切换语法不会改写文本。在起始定界符前加反斜杠可保留原文：\\<name> 或 \\{{name}}。两个反斜杠表示一个反斜杠。",
+  importTemplate: "导入单个模板",
+  exportTemplate: "导出此模板",
+  singleTemplateRequired:
+    "请选择只含一个模板的 JSON 文件。整个模板库请使用导入 JSON。",
   importTemplates: "导入 JSON",
   exportTemplates: "导出 JSON",
   invalidImport:
