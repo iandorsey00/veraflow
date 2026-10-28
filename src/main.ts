@@ -1,3 +1,4 @@
+import { bindReorder } from "./reorder";
 import { workspaceUI, formDialog } from "./workspace-ui";
 import {
   emptyWorkspace,
@@ -227,10 +228,9 @@ function applyAppearance() {
 function render() {
   applyAppearance();
   root.className = view === "session" ? "compact" : "";
-  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-workspace", "workspace", view === "workspace" ? "selected" : "")}${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
+  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-workspace", "workspace", view === "workspace" ? "selected" : "")}${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}<span id="update-banner">${availableUpdate && view !== "settings" ? button("update-now", "updateNow", "primary") : ""}</span></nav></header>` : ""}
     ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
-    <div id="update-banner">${view !== "session" && availableUpdate ? button("update-now", "updateNow") : ""}</div>
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
     ${view === "workspace" ? workspace.view() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
     ${view !== "session" ? `<footer>${button("nav-scanner", "freeScanner")}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
@@ -592,10 +592,10 @@ function editorView(): string {
   <div class="metadata"> <div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
   <label for="placeholder-style">${esc(t("placeholderStyle"))}</label><select id="placeholder-style"><option value="braces" ${d.placeholderStyle === "braces" ? "selected" : ""}>${esc(t("bracesStyle"))}</option><option value="angle" ${d.placeholderStyle !== "braces" ? "selected" : ""}>${esc(t("angleStyle"))}</option></select><p class="hint">${esc(t("escapeHelp"))}</p>
   ${check("email-enabled", "emailMode", d.email?.enabled ?? false)}
-  ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${check("email-subject-enabled", "enableSubject", d.email.subjectEnabled !== false)}${d.email.subjectEnabled !== false ? field("email-subject", "subject", d.email.subject) : ""}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}<h2>${esc(t("emailOrder"))}</h2><p class="hint">${esc(t("emailOrderHelp"))}</p><ol class="field-order">${emailOrderView(d)}</ol></section>` : ""}
+  ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${check("email-subject-enabled", "enableSubject", d.email.subjectEnabled !== false)}${d.email.subjectEnabled !== false ? field("email-subject", "subject", d.email.subject) : ""}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}<h2>${esc(t("emailOrder"))}</h2><p class="hint">${esc(t("emailOrderHelp"))}</p><p class="hint">${esc(t("reorderHelp"))}</p><ol id="email-order" class="field-order">${emailOrderView(d)}</ol></section>` : ""}
   <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t(d.placeholderStyle === "braces" ? "bracePlaceholderHelp" : "placeholderHelp"))}</p>
   <label for="extra-scanner-fields">${esc(t("extraScannerFields"))}</label><textarea id="extra-scanner-fields" rows="3" spellcheck="false" aria-describedby="extra-fields-help extra-fields-error">${esc(extraFieldInput ?? (d.extraFields ?? []).join("\n"))}</textarea><p id="extra-fields-help" class="hint">${esc(t("extraFieldsHelp"))}</p><p id="extra-fields-error" role="alert" ${extraFieldsInvalid ? "" : "hidden"}>${extraFieldsInvalid ? esc(t("invalidExtraFields")) : ""}</p>
-  <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
+  <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><p class="hint">${esc(t("reorderHelp"))}</p><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
   <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
 }
 function emailOrderView(template: Template): string {
@@ -604,7 +604,7 @@ function emailOrderView(template: Template): string {
     parts
       .map(
         (part, index) =>
-          `<li><span>${esc(t(part.key))}</span><button id="email-order-${part.key}-up" data-email-key="${part.key}" data-email-move="-1" aria-label="${esc(t("moveUp"))} ${esc(t(part.key))}" ${index === 0 ? "disabled" : ""}>↑</button><button id="email-order-${part.key}-down" data-email-key="${part.key}" data-email-move="1" aria-label="${esc(t("moveDown"))} ${esc(t(part.key))}" ${index === parts.length - 1 ? "disabled" : ""}>↓</button></li>`,
+          `<li data-reorder="${index}">${dragHandle()}<span>${esc(t(part.key))}</span><button id="email-order-${part.key}-up" data-email-key="${part.key}" data-email-move="-1" aria-label="${esc(t("moveUp"))} ${esc(t(part.key))}" ${index === 0 ? "disabled" : ""}>↑</button><button id="email-order-${part.key}-down" data-email-key="${part.key}" data-email-move="1" aria-label="${esc(t("moveDown"))} ${esc(t(part.key))}" ${index === parts.length - 1 ? "disabled" : ""}>↓</button></li>`,
       )
       .join("") + `<li><span>${esc(t("body"))}</span></li>`
   );
@@ -615,12 +615,50 @@ function orderView(): string {
     fields
       .map(
         (name, index) =>
-          `<li><code>${esc(name)}</code><span><button data-up="${index}" aria-label="${esc(t("moveUp") + " " + name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-down="${index}" aria-label="${esc(t("moveDown") + " " + name)}" ${index === fields.length - 1 ? "disabled" : ""}>↓</button></span></li>`,
+          `<li data-reorder="${index}">${dragHandle()}<code>${esc(name)}</code><span><button data-up="${index}" aria-label="${esc(t("moveUp") + " " + name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-down="${index}" aria-label="${esc(t("moveDown") + " " + name)}" ${index === fields.length - 1 ? "disabled" : ""}>↓</button></span></li>`,
       )
       .join("") || `<li class="hint">${esc(t("noFields"))}</li>`
   );
 }
+function dragHandle() {
+  return `<span class="drag-handle" data-drag-handle draggable="true" aria-hidden="true">⠿</span>`;
+}
+function moveCaptureField(from: number, to: number) {
+  const active = captureFieldNames(draft!);
+  if (!active[from] || !active[to]) return;
+  const order = (draft!.fieldOrder = rememberedFieldOrder(draft!));
+  const destination = order.indexOf(active[to]);
+  order.splice(order.indexOf(active[from]), 1);
+  order.splice(destination, 0, active[from]);
+  dirty = true;
+  document.getElementById("field-order")!.innerHTML = orderView();
+  bindOrder();
+}
+function reorderEmailSections(from: number, to: number) {
+  const parts = emailSections(draft!).filter((p) => p.key !== "body");
+  if (!parts[from] || !parts[to]) return;
+  const order = [
+    ...new Set([
+      ...(draft!.email!.order ?? defaultEmailOrder),
+      ...defaultEmailOrder,
+    ]),
+  ];
+  const destination = order.indexOf(parts[to].key as (typeof order)[number]);
+  const [part] = order.splice(
+    order.indexOf(parts[from].key as (typeof order)[number]),
+    1,
+  );
+  order.splice(destination, 0, part);
+  draft!.email!.order = order;
+  dirty = true;
+  render();
+}
 function bindOrder() {
+  bindReorder(
+    document.getElementById("field-order"),
+    moveCaptureField,
+    () => !busy,
+  );
   for (const direction of ["up", "down"])
     root.querySelectorAll<HTMLButtonElement>(`[data-${direction}]`).forEach(
       (el) =>
@@ -835,6 +873,11 @@ function bindLibrary() {
       document.getElementById("field-order")!.innerHTML = orderView();
       bindOrder();
     });
+  bindReorder(
+    document.getElementById("email-order"),
+    reorderEmailSections,
+    () => !busy,
+  );
   bindComparison("template", draft.comparison);
   bindOrder();
   click("save", async () => {
@@ -931,23 +974,27 @@ async function navigate(next: typeof view) {
 }
 function settingsView(): string {
   const p = (settingsDraft ??= structuredClone(library.preferences));
-  return `<main class="settings"><header><h1>${esc(t("settings"))}</h1></header><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}</section>
+  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", availableUpdate ? "updateNow" : "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}</section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("clipboardDefaultHelp"))}</p><p class="hint">${esc(t("quitPrivacy"))}</p></section>
-  <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><div class="actions">${button("update-app", "updateApp")}</div><p class="hint">${esc(t("updateHelp"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
+  <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
 }
 async function checkAvailableUpdate() {
   if (updateCheck) return updateCheck;
   updateCheck = (async () => {
     availableUpdate = await platform.checkUpdate();
     const banner = document.getElementById("update-banner");
-    if (banner && view !== "session") {
+    if (banner && view !== "session" && view !== "settings") {
       banner.innerHTML = availableUpdate
-        ? button("update-now", "updateNow")
+        ? button("update-now", "updateNow", "primary")
         : "";
       click("update-now", updateApp);
-      click("nav-workspace", () => navigate("workspace"));
     }
+    const settingsUpdate = document.getElementById("update-app");
+    if (settingsUpdate)
+      settingsUpdate.textContent = t(
+        availableUpdate ? "updateNow" : "updateApp",
+      );
     return availableUpdate;
   })();
   try {
@@ -1167,7 +1214,7 @@ function sessionView(): string {
   ${s.mode !== "ready" ? check("preserve-clipboard", "preserveClipboard", preserveClipboard) + `<p class="hint">${esc(t("preserveClipboardHelp"))}</p>` : ""}
   ${check("mouse-mode", "mouseMode", mouseMode)}<p class="hint">${esc(t("mouseHelp"))}</p></details>
   ${s.scanner ? `<div class="section-head scanner-field-heading"><h2>${esc(t("scannerFields"))}</h2>${button("scanner-add", "addField")}</div><p class="hint">${esc(t("scannerFieldsHelp"))}</p>` : ""}
-  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button></li>`).join("")}</ol>
+  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li ${s.scanner ? `data-reorder="${index}"` : ""}><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button>${s.scanner ? `<div class="scanner-field-tools">${dragHandle()}<span><button data-scanner-up="${index}" aria-label="${esc(t("moveUp") + " " + field.name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-scanner-down="${index}" aria-label="${esc(t("moveDown") + " " + field.name)}" ${index === s.fields.length - 1 ? "disabled" : ""}>↓</button></span></div>` : ""}</li>`).join("")}</ol>
   ${f ? `<details class="inspect"><summary>${esc(t("expand"))}: ${esc(f.name)}</summary><pre>${esc(f.value ?? "—")}</pre></details>` : ""}
   ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
@@ -1223,6 +1270,32 @@ function scannerFieldMenu(index: number, x: number, y: number) {
 }
 function bindSession() {
   bindScannerExtras();
+  if (session?.scanner) {
+    const moveField = (from: number, to: number) => {
+      const s = session!;
+      if (!s.fields[from] || !s.fields[to]) return;
+      const selectedField = s.fields[s.active];
+      const [field] = s.fields.splice(from, 1);
+      s.fields.splice(to, 0, field);
+      s.active = s.fields.indexOf(selectedField);
+      render();
+      focus(`field-${s.fields.indexOf(field)}`);
+    };
+    bindReorder(root.querySelector(".capture-fields"), moveField, () => !busy);
+    for (const direction of ["up", "down"] as const)
+      root
+        .querySelectorAll<HTMLButtonElement>(`[data-scanner-${direction}]`)
+        .forEach((el) => {
+          el.onclick = () => {
+            if (!busy) {
+              const from = Number(
+                el.dataset[direction === "up" ? "scannerUp" : "scannerDown"],
+              );
+              moveField(from, from + (direction === "up" ? -1 : 1));
+            }
+          };
+        });
+  }
   if (session?.scanner)
     root.querySelectorAll<HTMLButtonElement>("[data-field]").forEach((el) => {
       el.oncontextmenu = (event) => {

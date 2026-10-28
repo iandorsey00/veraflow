@@ -225,6 +225,7 @@ export const en = {
   content: "Template text",
   placeholderHelp:
     "Use <field_name> for a variable. Repeated names share one value.",
+  reorderHelp: "Drag the dotted handle or use the arrows to reorder.",
   fields: "Capture order",
   noFields: "No placeholders. This template can be copied as written.",
   moveUp: "Move up",

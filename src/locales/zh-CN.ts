@@ -208,6 +208,7 @@ export const zh: Record<keyof typeof en, string> = {
   folder: "文件夹",
   content: "模板内容",
   placeholderHelp: "使用 <字段名> 表示变量。相同名称共用一个值。",
+  reorderHelp: "拖动点状手柄或使用箭头调整顺序。",
   fields: "采集顺序",
   noFields: "没有占位符，可直接复制模板内容。",
   moveUp: "上移",

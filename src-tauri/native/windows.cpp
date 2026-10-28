@@ -131,9 +131,20 @@ extern "C" int vf_deliver(const char *text, int tab) {
 
 // Get/SetWindowPlacement use the same workspace coordinates, including taskbar offsets.
 // Save once before compact sizing, not after a session has been snapped/resized.
+// Tauri invokes commands and window APIs on different threads. Use one DPI
+// coordinate space for both save and restore instead of virtualized rectangles.
+class PlacementDpiScope {
+    DPI_AWARENESS_CONTEXT previous;
+public:
+    PlacementDpiScope() : previous(SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) {}
+    bool valid() const { return previous != nullptr; }
+    ~PlacementDpiScope() { if (previous) SetThreadDpiAwarenessContext(previous); }
+};
 static WINDOWPLACEMENT sessionPlacement = {};
 static HWND placementWindow = nullptr;
 extern "C" int vf_session_placement(void *handle, int compact) {
+    PlacementDpiScope dpiScope;
+    if (!dpiScope.valid()) return 0;
     HWND window = static_cast<HWND>(handle);
     if (compact) {
         if (placementWindow == window) return 1;

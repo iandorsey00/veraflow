@@ -1,5 +1,9 @@
 # Release and rollback
 
+## 0.7.3 ordering, update placement and Windows DPI
+
+FRC selected for Windows native placement changes, native WebView drag configuration, and the compatible Tokio safety patch. Window placement now saves/restores under per-monitor DPI awareness and restores the caller’s context. Existing once-per-session snapshots and Snap restoration remain. Real Windows 11 125/150/200% scaling, mixed-monitor DPI, and repeated session acceptance remain required; macOS placement is unchanged. Drag ordering keeps arrows and existing fieldOrder/email metadata; Scanner order is session-local and does not change table schemas. No schema or permissions change. Native file-drop interception is disabled so Windows WebView supports internal HTML drag; external drops do not import anything. Back up the library before upgrading; 0.7.2 remains schema-compatible. Public package/signature/checksum/feed gates remain mandatory.
+
 ## 0.7.2 verification layout and individual templates
 
 Published as [v0.7.2](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.2). Both platform checks, three packages, updater signatures/authenticated versions, public payload checksums and live feed were verified; see [validation](validation.md).

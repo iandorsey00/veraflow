@@ -941,3 +941,43 @@ dialog textarea {
     grid-column: 2;
   }
 }
+
+#update-banner:empty {
+  display: none;
+}
+.drag-handle {
+  cursor: grab;
+  flex: none;
+  padding: 6px;
+  color: var(--muted);
+  user-select: none;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.drop-target {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.field-order code,
+.field-order li > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.scanner-field-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.scanner-field-tools button {
+  min-width: 36px;
+  background: transparent;
+}
+
+.email-template .field-order li {
+  grid-template-columns: auto minmax(0, 1fr) 30px 30px;
+}
+.email-template .field-order li:not([data-reorder]) > span {
+  grid-column: 2;
+}

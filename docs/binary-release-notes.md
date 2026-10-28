@@ -1,9 +1,11 @@
-VeraFlow 核流 0.7.2 is a **publisher-unsigned preview** with narrow-window verification layout improvements and individual template sharing.
+VeraFlow 核流 0.7.3 is a **publisher-unsigned preview** improving field ordering, update placement and Windows window restoration.
 
-- Field values, expanded inspection, and mismatch comparisons wrap within the available width. Narrow fields place their status below the value.
-- **Export this template** exports the selected template’s current edits without saving them. **Import one template** accepts a single-template JSON file and adds a fresh copy after confirmation.
-- Existing **Import JSON / Export JSON** still exchange the whole template library. Files contain definitions, including email settings and extra Scanner fields, but never captured session values.
+- Drag dotted handles to reorder template capture fields, email headers, and Scanner fields. Arrow buttons remain available; email Body stays last.
+- Scanner values, verification and the active field stay attached when reordered. Its order is session-local; saved tables retain their column order.
+- Update now appears in the main navigation when available. Settings has its update action beside the heading.
+- Windows placement uses consistent DPI coordinates to avoid size growth after sessions. Repeated high-DPI/Snap acceptance on real Windows 11 remains a manual check; macOS placement is unchanged.
+- Includes the compatible Tokio 1.53.3 safety patch.
 
-Download the Windows x64 installer or the macOS arm64/x64 ZIP. Node.js and Rust are not needed. Verify downloads against SHA256SUMS.txt. The signed updater remains available. Quit via the tray and back up library.json before upgrading; 0.7.1 uses the same schema.
+Download the Windows x64 installer or macOS arm64/x64 ZIP. Node.js and Rust are not needed. Verify downloads against SHA256SUMS.txt. The signed updater remains available. Quit via the tray and back up library.json before upgrading; 0.7.2 uses the same schema.
 
-Updater signatures are mandatory; Apple Developer ID/notarization and Windows Authenticode signing remain unconfigured. Real Windows WebView wrapping, cross-app paste/focus, permissions, Snap layouts and in-place update/relaunch remain manual acceptance checks.
+Updater signatures are mandatory; Apple Developer ID/notarization and Windows Authenticode signing remain unconfigured. Cross-app paste/focus, permissions, Snap layouts and actual in-place update/relaunch remain manual acceptance checks.
