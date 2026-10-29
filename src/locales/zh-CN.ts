@@ -242,6 +242,13 @@ export const zh: Record<keyof typeof en, string> = {
   captureHelp:
     "在来源应用中选择文本，然后按采集快捷键复制并前进到下一个待处理字段。",
   verifyHelp: "再次选择原始文本，然后按核验快捷键。",
+  verifyAgain: "重新核验…",
+  reverifyField: "重新核验所选字段",
+  reverifyAll: "重新核验所有已填写字段",
+  reverifyHelp:
+    "保留已采集文本，并清除所选字段的核验状态。复制新的来源文本进行比对后重新核验。",
+  reorderFields: "调整字段顺序",
+  doneReordering: "完成排序",
   verifyStart: "开始核验",
   verifySelected: "核验选中文本",
   captureSelected: "采集选中文本",

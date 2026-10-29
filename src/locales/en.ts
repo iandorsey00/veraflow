@@ -260,6 +260,13 @@ export const en = {
     "Select text in your source app, then press the capture shortcut to copy and advance to the next pending field.",
   verifyHelp:
     "Select the original text again, then press the verification shortcut.",
+  verifyAgain: "Verify again…",
+  reverifyField: "Reverify selected field",
+  reverifyAll: "Reverify all filled fields",
+  reverifyHelp:
+    "Keeps captured text and clears verification for the chosen fields. Compare a fresh source copy to verify them again.",
+  reorderFields: "Reorder fields",
+  doneReordering: "Done reordering",
   verifyStart: "Start verification",
   verifySelected: "Verify selection",
   captureSelected: "Capture selection",

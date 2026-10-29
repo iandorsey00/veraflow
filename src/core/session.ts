@@ -84,6 +84,23 @@ export function beginVerification(s: Session): void {
   s.mode = index === -1 ? "ready" : "verify";
   if (index !== -1) s.active = index;
 }
+/** Recheck original values without replacing them or changing unrelated fields. */
+export function beginReverification(s: Session, all = false): void {
+  if (!["capture", "verify", "ready"].includes(s.mode))
+    throw Error("sessionComplete");
+  const indices = all
+    ? s.fields.flatMap((field, index) => (field.value !== null ? [index] : []))
+    : s.fields[s.active]?.value != null
+      ? [s.active]
+      : [];
+  if (!indices.length) throw Error("noValue");
+  for (const index of indices) {
+    s.fields[index].status = "captured";
+    delete s.fields[index].candidate;
+  }
+  s.active = indices[0];
+  s.mode = "verify";
+}
 export function verify(s: Session, candidate: string, advance = true): boolean {
   editable(s);
   if (s.mode !== "verify") throw new Error("notVerifying");
@@ -100,8 +117,14 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   delete field.candidate;
   if (s.fields.every((f) => f.status === "verified" || f.status === "skipped"))
     s.mode = "ready";
-  else if (advance)
-    s.active = findNext(s, (f) => f.value !== null && f.status !== "verified");
+  else if (advance) {
+    const next = findNext(
+      s,
+      (f) => f.value !== null && f.status !== "verified",
+    );
+    if (next !== -1) s.active = next;
+    else s.mode = "capture";
+  }
   return true;
 }
 export function renderSession(s: Session): string {

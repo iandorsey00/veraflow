@@ -56,6 +56,7 @@ import {
   clear,
   skip,
   beginVerification,
+  beginReverification,
   renderSession,
   renderEmail,
   deliverEmailSection,
@@ -114,6 +115,8 @@ let pendingFocus: string | null = null;
 let manualOpen = false;
 let sessionOptionsOpen = false;
 let scannerMoreOpen = false;
+let scannerReordering = false;
+let reverification: "field" | "all" | null = null;
 let extraFieldInput: string | null = null;
 let extraFieldsInvalid = false;
 let mouseMode = false;
@@ -544,6 +547,7 @@ async function launchScanner(saved?: Session, confirmed = false) {
     startScanner(library.preferences, t("scanner"), `${t("scannerField")} 1`);
   session.scannerId ??= veraId();
   scannerMoreOpen = false;
+  scannerReordering = false;
   manualOpen = true;
   scannerOutput = "copy";
   render();
@@ -1154,6 +1158,7 @@ async function launch(
     eraseRetainedScanner();
     returnToScanner = false;
   }
+  reverification = null;
   manualOpen = false;
   sessionOptionsOpen = false;
   mouseMode = true;
@@ -1213,12 +1218,13 @@ function sessionView(): string {
   <details id="session-options" class="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
   ${s.mode !== "ready" ? check("preserve-clipboard", "preserveClipboard", preserveClipboard) + `<p class="hint">${esc(t("preserveClipboardHelp"))}</p>` : ""}
   ${check("mouse-mode", "mouseMode", mouseMode)}<p class="hint">${esc(t("mouseHelp"))}</p></details>
-  ${s.scanner ? `<div class="section-head scanner-field-heading"><h2>${esc(t("scannerFields"))}</h2>${button("scanner-add", "addField")}</div><p class="hint">${esc(t("scannerFieldsHelp"))}</p>` : ""}
-  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li ${s.scanner ? `data-reorder="${index}"` : ""}><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button>${s.scanner ? `<div class="scanner-field-tools">${dragHandle()}<span><button data-scanner-up="${index}" aria-label="${esc(t("moveUp") + " " + field.name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-scanner-down="${index}" aria-label="${esc(t("moveDown") + " " + field.name)}" ${index === s.fields.length - 1 ? "disabled" : ""}>↓</button></span></div>` : ""}</li>`).join("")}</ol>
+  ${s.scanner ? `<div class="section-head scanner-field-heading"><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("scanner-add", "addField")}<button id="scanner-reorder" aria-pressed="${scannerReordering}">${esc(t(scannerReordering ? "doneReordering" : "reorderFields"))}</button></div></div><p class="hint">${esc(t("scannerFieldsHelp"))}</p>` : ""}
+  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li ${s.scanner ? `data-reorder="${index}"` : ""}><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button>${s.scanner && scannerReordering ? `<div class="scanner-field-tools">${dragHandle()}<span><button data-scanner-up="${index}" aria-label="${esc(t("moveUp") + " " + field.name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-scanner-down="${index}" aria-label="${esc(t("moveDown") + " " + field.name)}" ${index === s.fields.length - 1 ? "disabled" : ""}>↓</button></span></div>` : ""}</li>`).join("")}</ol>
   ${f ? `<details class="inspect"><summary>${esc(t("expand"))}: ${esc(f.name)}</summary><pre>${esc(f.value ?? "—")}</pre></details>` : ""}
   ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
 
+  ${s.fields.some((field) => field.value !== null) ? `<details class="reverification"><summary>${esc(t("verifyAgain"))}</summary><div class="toolbar">${button("reverify-field", "reverifyField", "", !f || f.value === null)}${button("reverify-all", "reverifyAll")}</div><p class="hint">${esc(t("reverifyHelp"))}</p></details>` : ""}
   ${!s.scanner ? `<div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>` : ""}
   ${s.scanner ? scannerControls() : s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
   ${preview ? `<pre class="output">${esc(rendered)}</pre>` : ""}
@@ -1270,6 +1276,20 @@ function scannerFieldMenu(index: number, x: number, y: number) {
 }
 function bindSession() {
   bindScannerExtras();
+  click("scanner-reorder", () => {
+    scannerReordering = !scannerReordering;
+    render();
+    focus("scanner-reorder");
+  });
+  for (const scope of ["field", "all"] as const)
+    click(`reverify-${scope}`, () => {
+      beginReverification(session!, scope === "all");
+      reverification = scope;
+      preview = false;
+      message = "";
+      render();
+      focus(manualOpen ? "manual-value" : `field-${session!.active}`);
+    });
   if (session?.scanner) {
     const moveField = (from: number, to: number) => {
       const s = session!;
@@ -1281,7 +1301,11 @@ function bindSession() {
       render();
       focus(`field-${s.fields.indexOf(field)}`);
     };
-    bindReorder(root.querySelector(".capture-fields"), moveField, () => !busy);
+    bindReorder(
+      root.querySelector(".capture-fields"),
+      moveField,
+      () => !busy && scannerReordering,
+    );
     for (const direction of ["up", "down"] as const)
       root
         .querySelectorAll<HTMLButtonElement>(`[data-scanner-${direction}]`)
@@ -1425,6 +1449,7 @@ function bindSession() {
     (el) =>
       (el.onclick = () =>
         void run(() => {
+          reverification = null;
           session!.active = Number(el.dataset.field);
           if (session!.scanner) session!.mode = "capture";
           preview = false;
@@ -1459,10 +1484,12 @@ function bindSession() {
   ] as Action[])
     click(action, () => perform(action));
   click("verify-start", () => {
+    reverification = null;
     if (session!.scanner) {
       if (session!.fields[session!.active].value === null)
         throw Error("noValue");
-      session!.mode = "verify";
+      beginReverification(session!);
+      reverification = "field";
     } else beginVerification(session!);
     message = "";
     render();
@@ -1499,9 +1526,28 @@ async function accept(
 ) {
   if (!session) return;
   if (value.length > 1024 * 1024) throw new Error("invalidText");
-  if (session.mode === "verify")
-    verify(session, value, session.scanner ? false : advance);
-  else if (session.scanner) captureScanner(session, value, advance);
+  if (session.mode !== "verify") reverification = null;
+  if (session.mode === "verify") {
+    const scope = reverification;
+    const matches = verify(
+      session,
+      value,
+      scope === "all"
+        ? true
+        : scope === "field" || session.scanner
+          ? false
+          : advance,
+    );
+    if (matches && scope === "field") {
+      reverification = null;
+      session.mode = session.fields.every(
+        (f) => f.status === "verified" || f.status === "skipped",
+      )
+        ? "ready"
+        : "capture";
+    } else if (["ready", "capture"].includes(session.mode as Session["mode"]))
+      reverification = null;
+  } else if (session.scanner) captureScanner(session, value, advance);
   else capture(session, value, advance);
   if (session.scanner && session.mode === "ready") session.mode = "capture";
   message = "";
@@ -1544,9 +1590,15 @@ async function perform(action: Action, global = false) {
         await accept(await platform.capture(preserveClipboard), true);
       return;
     case "verify":
+      if (s.mode === "ready") {
+        beginReverification(s);
+        reverification = "field";
+        break;
+      }
       if (s.scanner && s.mode !== "verify") {
         if (s.fields[s.active].value === null) throw Error("noValue");
-        s.mode = "verify";
+        beginReverification(s);
+        reverification = "field";
         break;
       }
       if (s.mode === "capture") {
@@ -1557,10 +1609,12 @@ async function perform(action: Action, global = false) {
         await accept(await platform.capture(preserveClipboard), true);
       return;
     case "previous":
+      reverification = null;
       move(s, -1);
       if (s.scanner) s.mode = "capture";
       break;
     case "next":
+      reverification = null;
       move(s, 1);
       if (s.scanner) s.mode = "capture";
       break;
@@ -1676,6 +1730,34 @@ root.addEventListener("input", () => {
 root.addEventListener("change", () => {
   if (view !== "session") void platform.active(true).catch(report);
 });
+// Native paste events supply plain text directly, without clipboard-read permission.
+window.addEventListener("paste", (event) => {
+  if (
+    view !== "session" ||
+    !session ||
+    busy ||
+    document.querySelector("dialog[open]") ||
+    !["capture", "verify", "ready"].includes(session.mode)
+  )
+    return;
+  const target = event.target as HTMLElement;
+  if (
+    target.closest(
+      "input, textarea, select, [contenteditable]:not([contenteditable=false])",
+    )
+  )
+    return;
+  const field = target.closest<HTMLElement>("[data-field]");
+  if (!field || !event.clipboardData?.types.includes("text/plain")) return;
+  event.preventDefault();
+  const index = Number(field.dataset.field);
+  const value = event.clipboardData.getData("text/plain");
+  void run(async () => {
+    if (!session?.fields[index]) return;
+    session.active = index;
+    await accept(value);
+  });
+});
 window.addEventListener("keydown", (event) => {
   if (
     event.repeat ||
@@ -1718,6 +1800,7 @@ window.addEventListener("keydown", (event) => {
         Number(fieldButton.dataset.field) + (event.shiftKey ? -1 : 1);
       if (next >= 0 && next < session.fields.length) {
         event.preventDefault();
+        reverification = null;
         session.active = next;
         session.mode = "capture";
         render();

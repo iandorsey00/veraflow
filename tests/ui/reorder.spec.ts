@@ -77,6 +77,8 @@ test("Scanner drag and arrow moves preserve active field, values and verificatio
   await page.locator("#apply-value").click();
   await addField(page, "address");
   await page.locator("#field-0").click();
+  await expect(page.locator(".scanner-field-tools")).toHaveCount(0);
+  await page.locator("#scanner-reorder").click();
   await drag(page, ".capture-fields", 0, 1);
   await expect(page.locator(".capture-field strong")).toHaveText([
     "address",

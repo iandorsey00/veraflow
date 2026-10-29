@@ -30,7 +30,7 @@ Excel is not imported directly in this release. Export the intended sheet as **C
 
 Free Scanner and Table settings can infer fields from a supplied template when the field list is blank. Brace placeholders support spaces, such as `{{full name}}`; surrounding padding is ignored (`{{ full name }}` matches `full name`). Internal spaces remain significant. Line breaks and control characters are invalid within placeholders. Legacy angle syntax stays unchanged. Scanner opens at 360px wide and can shrink to 300px; controls and long values wrap instead of widening the page.
 
-## Extra Scanner fields (0.7.3)
+## Extra Scanner fields (0.7.4)
 
 Templates and email templates have an optional **Extra Scanner fields** input: one name per line, with spaces allowed. Empty lines and repeated names are ignored; a name also used by a placeholder is captured once. Extra fields appear in capture order and use the template's verification rules. They do not add text or placeholders to Body, Subject, To, Cc, or Bcc.
 
@@ -46,7 +46,7 @@ Global shortcuts default to Ctrl+Alt+1–8 on Windows (Cmd+Option+1–8 on macOS
 
 ## Download
 
-Get the [v0.7.3 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.3): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+Get the [v0.7.4 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.4): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 
@@ -185,3 +185,5 @@ Release verification: all 54 tests passed on each CI platform, along with native
 Export this template shares the selected template’s current edits as `veraflow-template.json` without saving the draft. Import one template adds a fresh copy from a single-template JSON file; use Import JSON / Export JSON for the whole template library. Both formats contain definitions only, never captured session values. Scanner and verification text wrap within narrow windows, including mismatch comparisons.
 
 Drag dotted handles to reorder template capture fields, email headers, and Scanner fields; arrow buttons remain available for keyboard use. Email Body stays last. Scanner reordering keeps values and verification with their fields and is session-local (saved tables keep their column order). Update now appears in the main navigation when a newer version is available; Settings has its update action beside the heading. Windows placement uses consistent DPI coordinates to avoid size growth after sessions.
+
+Version 0.7.4: select a session field and press Ctrl+V (Cmd+V on macOS) to capture text, or compare it during verification. Text boxes keep normal paste behavior. **Verify again…** offers the selected field or all filled fields and preserves the captured text. Scanner hides drag handles and arrow controls by default; choose **Reorder fields** to show them and **Done reordering** to hide them. Template capture-order and email paste-order controls remain visible.

@@ -1,5 +1,9 @@
 # Release and rollback
 
+## 0.7.4 direct paste, reverification and compact Scanner
+
+RC selected for frontend-only clipboard-event handling, reuse of existing comparison/capture state, and progressive disclosure of Scanner reorder controls. No native code, schema, dependencies, permissions or updater trust changes. Focused field buttons consume only user-initiated plain-text paste events; editable inputs/dialogs retain normal paste. Single/all-filled reverification preserves values and invalidates only chosen verification. Scanner reorder controls start hidden; template/email ordering is unchanged. Back up the library before upgrading; 0.7.3 remains schema-compatible. Existing platform checks, three packages, independent updater signatures/authenticated versions, downloaded checksums and public feed checks remain mandatory.
+
 ## 0.7.3 ordering, update placement and Windows DPI
 
 Published as [v0.7.3](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.3). Both platform checks, native Windows placement regression, three packages, updater signatures/authenticated versions, public payload checksums and live feed were verified; see [validation](validation.md).
