@@ -1,7 +1,7 @@
-VeraFlow 核流 0.8.0 is a **publisher-unsigned preview** introducing titled, literal snippets for tables and Unfiled.
+VeraFlow 核流 0.8.1 is a **publisher-unsigned preview** introducing titled, literal snippets for tables and Unfiled.
 
 - Open a table’s collapsible **Snippets** section, or choose **Unfiled snippets** in the Workspace sidebar. Each snippet has a required title and text; braces and email addresses remain literal, with no field capture/verification session.
-- Select a snippet and press **Ctrl+V** (Cmd+V on macOS) to transfer its text to the clipboard. **Ctrl+C/Cmd+C** also works, and the mouse button is **Transfer to clipboard**. Text boxes retain normal paste.
+- Select a snippet and press **Ctrl+C** (Cmd+C on macOS) to transfer its text to the clipboard, or use the mouse **Transfer to clipboard** button. Text boxes retain normal paste.
 - In the desktop app, place the caret in your destination app, return to VeraFlow, then choose **Paste to last app**. It emits no Tab or Send.
 - Edit titles/text, move between tables and Unfiled, and exchange snippet JSON. Table exports include their snippets; database exports include all snippets. Imports create independent copies when needed. Deleting a table moves its snippets to Unfiled.
 

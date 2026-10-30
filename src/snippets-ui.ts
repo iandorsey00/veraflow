@@ -123,7 +123,7 @@ export function snippetsUI(deps: {
   return {
     hasSnippets: () => items().length > 0,
     view: () =>
-      `<section class="snippets" aria-labelledby="snippets-heading"><h2 id="snippets-heading">${l("Snippets", "文本片段")}</h2><p class="hint">${l("Select a snippet, then Ctrl/Cmd+V or Ctrl/Cmd+C transfers it to the clipboard. You can also click Transfer to clipboard. Text boxes keep normal paste.", "选择片段后，按 Ctrl/Cmd+V 或 Ctrl/Cmd+C 可传至剪贴板，也可点击“传至剪贴板”。文本框保留正常粘贴行为。")}</p><div class="toolbar">${btn("new", l("New snippet", "新建片段"))}${btn("import", l("Import snippets JSON", "导入片段 JSON"))}${btn("export", l("Export snippets JSON", "导出片段 JSON"), "", !items().length)}</div><div class="snippet-list">${
+      `<section class="snippets" aria-labelledby="snippets-heading"><h2 id="snippets-heading">${l("Snippets", "文本片段")}</h2><p class="hint">${l("Select a snippet, then Ctrl/Cmd+C transfers it to the clipboard. You can also click Transfer to clipboard. Text boxes keep normal paste.", "选择片段后，按 Ctrl/Cmd+C 可传至剪贴板，也可点击“传至剪贴板”。文本框保留正常粘贴行为。")}</p><div class="toolbar">${btn("new", l("New snippet", "新建片段"))}${btn("import", l("Import snippets JSON", "导入片段 JSON"))}${btn("export", l("Export snippets JSON", "导出片段 JSON"), "", !items().length)}</div><div class="snippet-list">${
         items()
           .map(
             (s) =>
@@ -159,11 +159,11 @@ export function snippetsUI(deps: {
             event.shiftKey ||
             event.repeat ||
             event.isComposing ||
-            !["c", "v"].includes(key) ||
+            key !== "c" ||
             (event.target as HTMLElement).closest(
               "input,textarea,select,[contenteditable]",
             ) ||
-            (key === "c" && window.getSelection()?.toString())
+            window.getSelection()?.toString()
           )
             return;
           const snippet = items().find((s) => s.id === card.dataset.snippet);

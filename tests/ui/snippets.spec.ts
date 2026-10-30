@@ -1,6 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
+// Chromium's Windows clipboard bridge normalizes LF to CRLF. Compare logical
+// lines without changing stored/exported text or masking extra line breaks.
+async function clipboardText(page: Page) {
+  return (await page.evaluate(() => navigator.clipboard.readText())).replace(
+    /\r\n/g,
+    "\n",
+  );
+}
 async function table(page: Page, name = "Trips") {
   await page.getByRole("button", { name: "Create table", exact: true }).click();
   await page.locator("#dialog-name").fill(name);
@@ -33,7 +41,7 @@ test("titled table snippets copy literal text, move to Unfiled, edit and return 
     "Hello {{not a field}}\n<joe@example.test>\n<script>alert(1)</script>";
   await snippet(page, "Confirmation", text);
   await page.locator("[data-snippet-action=copy]").click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
+  await expect.poll(() => clipboardText(page)).toBe(text);
   await expect(page.locator(".capture-panel")).toHaveCount(0);
   await page.locator("[data-snippet-action=move]").click();
   await page.locator("#dialog-tableId").selectOption("");
@@ -267,7 +275,7 @@ for (const chinese of [false, true])
     ).toEqual([]);
   });
 
-test("selecting a snippet supports Ctrl/Cmd+V and Ctrl/Cmd+C transfer while editor paste stays native", async ({
+test("selecting a snippet supports Ctrl/Cmd+C transfer and leaves Ctrl/Cmd+V unchanged", async ({
   page,
   context,
 }) => {
@@ -287,21 +295,15 @@ test("selecting a snippet supports Ctrl/Cmd+V and Ctrl/Cmd+C transfer while edit
   const modifier = process.platform === "darwin" ? "Meta" : "Control";
   await page.evaluate(() => navigator.clipboard.writeText("old"));
   await page.keyboard.press(`${modifier}+V`);
-  await expect
-    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toBe(text);
+  await expect.poll(() => clipboardText(page)).toBe("old");
   await expect(page.locator(".snippet-card")).toBeFocused();
   await page.evaluate(() => navigator.clipboard.writeText("old"));
   await page.keyboard.press(`${modifier}+C`);
-  await expect
-    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toBe(text);
+  await expect.poll(() => clipboardText(page)).toBe(text);
   await page
     .getByRole("button", { name: "Transfer to clipboard", exact: true })
     .click();
-  await expect
-    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toBe(text);
+  await expect.poll(() => clipboardText(page)).toBe(text);
   await page.locator(".snippet-preview").evaluate((el) => {
     const range = document.createRange();
     range.setStart(el.firstChild!, 0);
@@ -310,9 +312,7 @@ test("selecting a snippet supports Ctrl/Cmd+V and Ctrl/Cmd+C transfer while edit
     window.getSelection()!.addRange(range);
   });
   await page.keyboard.press(`${modifier}+C`);
-  await expect
-    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toBe("Literal");
+  await expect.poll(() => clipboardText(page)).toBe("Literal");
   await page.evaluate(() => window.getSelection()!.removeAllRanges());
   await page.locator("[data-snippet-action=edit]").click();
   await page.locator("#dialog-content").fill("Prefix ");
