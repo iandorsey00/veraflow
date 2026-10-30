@@ -227,6 +227,58 @@ try {
     path: "docs/portfolio/screenshots/07-workspace.png",
     fullPage: true,
   });
+  const snippetPage = await context.newPage();
+  await snippetPage.setViewportSize({ width: 1440, height: 1100 });
+  await snippetPage.goto(url);
+  await snippetPage
+    .getByRole("button", { name: "Create table", exact: true })
+    .click();
+  await snippetPage.locator("#dialog-name").fill("Travel messages");
+  await snippetPage
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save table", exact: true })
+    .click();
+  await snippetPage.locator("#table-snippets > summary").click();
+  async function demoSnippet(title, content) {
+    await snippetPage
+      .getByRole("button", { name: "New snippet", exact: true })
+      .click();
+    await snippetPage.locator("#dialog-title").fill(title);
+    await snippetPage.locator("#dialog-content").fill(content);
+    await snippetPage
+      .getByRole("dialog")
+      .getByRole("button", { name: "Save snippet", exact: true })
+      .click();
+    await expect(snippetPage.locator("#app")).not.toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+  }
+  await demoSnippet(
+    "Booking confirmation",
+    "Your booking is confirmed.\nPlease retain this message for your records.",
+  );
+  await demoSnippet(
+    "Arrival instructions",
+    "Please arrive at the main entrance.\nContact our team if you need assistance.",
+  );
+  await snippetPage.locator(".snippet-card h3").first().click();
+  await snippetPage.screenshot({
+    path: "docs/portfolio/screenshots/08-table-snippets.png",
+    fullPage: true,
+  });
+  await snippetPage
+    .getByRole("button", { name: "Unfiled snippets", exact: true })
+    .click();
+  await demoSnippet(
+    "Thank you",
+    "Thank you for your message.\nWe will be in touch shortly.",
+  );
+  await snippetPage.locator(".snippet-card h3").click();
+  await snippetPage.screenshot({
+    path: "docs/portfolio/screenshots/09-unfiled-snippets.png",
+    fullPage: true,
+  });
 } finally {
   await browser.close();
 }

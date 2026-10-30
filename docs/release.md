@@ -1,5 +1,11 @@
 # Release and rollback
 
+## 0.8.0 titled table snippets
+
+FRC selected for persisted snippet records, extended JSON archives and reuse of native clipboard/source-focus output. Snippets have stable IDs, required titles, literal text and table links; empty tableId means Unfiled. Optional metadata preserves existing libraries. Native/frontend validators enforce bounds, IDs and parent links, and deny session/unknown properties. Database imports remap conflicts and snippet table links; snippet-only imports create fresh IDs in the chosen scope. Table deletion unfiles snippets. Clipboard transfer is explicit via selected-card Ctrl/Cmd+V or Ctrl/Cmd+C or mouse Transfer to clipboard. Direct app paste reuses the existing adapter with no Tab/Send. Dialogs guard unsaved work. No new permissions, dependencies or updater-trust changes.
+
+Back up library.json before upgrading. 0.7.4 and earlier reject workspace.snippets; restore a compatible pre-upgrade backup to downgrade. Never replace published binaries or move the feed backwards. Real Windows/macOS cross-app snippet paste, permissions, restart persistence and updater/relaunch remain manual acceptance checks. Both platform checks, three packages, independent signatures/authenticated versions, downloaded checksums and public feed verification remain mandatory.
+
 ## 0.7.4 direct paste, reverification and compact Scanner
 
 Published as [v0.7.4](https://github.com/iandorsey00/veraflow/releases/tag/v0.7.4). Both platform checks, three packages, updater signatures/authenticated versions, public payload checksums and live feed were verified; see [validation](validation.md).

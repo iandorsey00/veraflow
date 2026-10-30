@@ -143,6 +143,8 @@ export const en = {
     "Choose a JSON file containing one template. Use Import JSON for a whole template library.",
   importTemplates: "Import JSON",
   exportTemplates: "Export JSON",
+  invalidSnippetImport:
+    "Choose a valid VeraFlow snippets JSON file (up to 16 MB). Snippets need titles and text; nothing was imported.",
   invalidImport:
     "This is not a valid VeraFlow template export, or it exceeds the size/template limit. No templates were imported.",
   importConfirm:

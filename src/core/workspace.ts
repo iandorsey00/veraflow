@@ -17,9 +17,16 @@ export type DataTable = {
   externalIds: ExternalId[];
   rows: DataRow[];
 };
+export type Snippet = {
+  id: string;
+  title: string;
+  content: string;
+  tableId: string;
+};
 export type Workspace = {
   folders: { id: string; name: string }[];
   tables: DataTable[];
+  snippets?: Snippet[];
 };
 export const emptyWorkspace = (): Workspace => ({ folders: [], tables: [] });
 export const veraId = () => `VF-${crypto.randomUUID()}`;
@@ -61,11 +68,12 @@ const object = (x: unknown): x is Record<string, unknown> =>
 function keys(
   x: unknown,
   allowed: string[],
+  optional: string[] = [],
 ): asserts x is Record<string, unknown> {
   if (
     !object(x) ||
     Object.keys(x).some((k) => !allowed.includes(k)) ||
-    allowed.some((k) => !(k in x))
+    allowed.some((k) => !optional.includes(k) && !(k in x))
   )
     throw Error("invalidImport");
 }
@@ -82,7 +90,7 @@ function refs(x: unknown) {
   }
 }
 export function validateWorkspace(value: unknown): Workspace {
-  keys(value, ["folders", "tables"]);
+  keys(value, ["folders", "tables", "snippets"], ["snippets"]);
   if (
     !Array.isArray(value.folders) ||
     !Array.isArray(value.tables) ||
@@ -146,6 +154,29 @@ export function validateWorkspace(value: unknown): Workspace {
         throw Error("invalidImport");
     }
   }
+  if (value.snippets !== undefined) {
+    if (!Array.isArray(value.snippets) || value.snippets.length > 1000)
+      throw Error("invalidImport");
+    for (const snippet of value.snippets) {
+      keys(snippet, ["id", "title", "content", "tableId"]);
+      take(snippet.id);
+      if (
+        !text(snippet.title, 250) ||
+        !snippet.title.trim() ||
+        /[\p{Cc}\p{Cf}]/u.test(snippet.title) ||
+        !text(snippet.content, 1024 * 1024) ||
+        !snippet.content.trim() ||
+        snippet.content.includes("\0") ||
+        new TextEncoder().encode(snippet.content).length > 1024 * 1024 ||
+        !text(snippet.tableId, 100) ||
+        (snippet.tableId !== "" &&
+          !value.tables.some((t) => t.id === snippet.tableId))
+      )
+        throw Error("invalidImport");
+    }
+  }
+  if (new TextEncoder().encode(JSON.stringify(value)).length > 16 * 1024 * 1024)
+    throw Error("invalidImport");
   return structuredClone(value) as Workspace;
 }
 export function exportWorkspace(workspace: Workspace): string {
@@ -165,12 +196,14 @@ export function importWorkspace(json: string, current: Workspace): Workspace {
     throw Error("invalidImport");
   const incoming = validateWorkspace(data.workspace),
     all = new Set([
+      ...(current.snippets ?? []).map((s) => s.id),
       ...current.folders.map((f) => f.id),
       ...current.tables.flatMap((t) => [t.id, ...t.rows.map((r) => r.id)]),
     ]);
   // Preserve identities on a clean import; remap conflicts rather than overwrite saved work.
   const remap = new Map<string, string>();
   for (const old of [
+    ...(incoming.snippets ?? []).map((s) => s.id),
     ...incoming.folders.map((f) => f.id),
     ...incoming.tables.flatMap((t) => [t.id, ...t.rows.map((r) => r.id)]),
   ]) {
@@ -182,7 +215,16 @@ export function importWorkspace(json: string, current: Workspace): Workspace {
     t.folderId = remap.get(t.folderId) ?? "";
     for (const r of t.rows) r.id = remap.get(r.id)!;
   }
+  for (const snippet of incoming.snippets ?? []) {
+    snippet.id = remap.get(snippet.id)!;
+    snippet.tableId = remap.get(snippet.tableId) ?? "";
+  }
   return validateWorkspace({
+    ...(current.snippets || incoming.snippets
+      ? {
+          snippets: [...(current.snippets ?? []), ...(incoming.snippets ?? [])],
+        }
+      : {}),
     folders: [...current.folders, ...incoming.folders],
     tables: [...current.tables, ...incoming.tables],
   });
@@ -240,4 +282,47 @@ export function scannerTemplateParts(
   content: string,
 ): { text: string; name?: string }[] {
   return tokens(content, "braces");
+}
+
+export function exportSnippets(snippets: Snippet[]): string {
+  validateWorkspace({
+    folders: [],
+    tables: [],
+    snippets: snippets.map((s) => ({ ...s, tableId: "" })),
+  });
+  return (
+    JSON.stringify(
+      {
+        format: "veraflow-snippets",
+        version: 1,
+        snippets: snippets.map(({ title, content }) => ({ title, content })),
+      },
+      null,
+      2,
+    ) + "\n"
+  );
+}
+export function importSnippets(json: string, tableId = ""): Snippet[] {
+  if (new TextEncoder().encode(json).length > 16 * 1024 * 1024)
+    throw Error("invalidImport");
+  const value: unknown = JSON.parse(json);
+  keys(value, ["format", "version", "snippets"]);
+  if (
+    value.format !== "veraflow-snippets" ||
+    value.version !== 1 ||
+    !Array.isArray(value.snippets) ||
+    !value.snippets.length ||
+    value.snippets.length > 1000
+  )
+    throw Error("invalidImport");
+  const snippets = value.snippets.map((s) => {
+    keys(s, ["title", "content"]);
+    return { id: veraId(), title: s.title, content: s.content, tableId: "" };
+  });
+  const validated = validateWorkspace({
+    folders: [],
+    tables: [],
+    snippets,
+  }).snippets!;
+  return validated.map((s) => ({ ...s, tableId }));
 }

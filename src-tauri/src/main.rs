@@ -433,6 +433,7 @@ async fn export_templates(
                 "veraflow-templates.json",
                 "veraflow-template.json",
                 "veraflow-scanner.json",
+                "veraflow-snippets.json",
                 "veraflow-table.json",
                 "veraflow-database.json",
             ]

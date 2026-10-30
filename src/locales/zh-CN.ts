@@ -133,6 +133,8 @@ export const zh: Record<keyof typeof en, string> = {
     "请选择只含一个模板的 JSON 文件。整个模板库请使用导入 JSON。",
   importTemplates: "导入 JSON",
   exportTemplates: "导出 JSON",
+  invalidSnippetImport:
+    "请选择有效的 VeraFlow 片段 JSON 文件（最多 16 MB）。每个片段需要标题和文本；未导入任何内容。",
   invalidImport:
     "这不是有效的 VeraFlow 模板导出文件，或超出了大小/模板数量限制。未导入任何模板。",
   importConfirm: "将这些模板导入为新副本？现有模板将保留。",

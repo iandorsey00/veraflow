@@ -19,3 +19,5 @@ The editor uses the shared 1440 × 1000 baseline at 2×; the floating panel uses
 The October 20 scenes show Workspace as the opening page, a bottom Free Scanner action, generic brace/email defaults, and bottom Scanner actions. `07-workspace.png` shows a synthetic travel row with stable IDs. Existing custom templates and legacy syntax are not rewritten.
 
 The 0.7.1 email-template scene includes synthetic extra Scanner field definitions (booking reference and contact phone) that do not appear in the Body or email headers. The capture script removes these definitions before the independent delivery scene.
+
+`08-table-snippets.png` shows titled synthetic travel messages inside a table with literal-text transfer controls and selected-card keyboard hints. `09-unfiled-snippets.png` shows a titled reusable acknowledgement without a table. Clipboard transfer/source-window paste are not executed by the capture script; these remain browser previews.

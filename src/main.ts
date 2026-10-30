@@ -101,11 +101,17 @@ const workspace = workspaceUI({
   render,
   run,
   open: openRow,
+  copied: () => notify("copied"),
+  pasted: () => notify("pasteRequested"),
   confirm: (detail, action) =>
     confirmAction("workspaceConfirm", detail, action),
 });
 function privateWork() {
-  return !!retainedScanner || (!!session && session.mode !== "complete");
+  return (
+    !!document.querySelector("dialog[open]") ||
+    !!retainedScanner ||
+    (!!session && session.mode !== "complete")
+  );
 }
 function eraseRetainedScanner() {
   if (retainedScanner) eraseSession(retainedScanner);
@@ -130,10 +136,11 @@ let mousePolling = false;
 setInterval(async () => {
   if (mousePolling) return;
   const enabled =
-    mouseMode &&
-    view === "session" &&
-    !!session &&
-    ["capture", "verify"].includes(session.mode);
+    (mouseMode &&
+      view === "session" &&
+      !!session &&
+      ["capture", "verify"].includes(session.mode)) ||
+    (view === "workspace" && workspace.hasSnippets());
   if (!enabled && !watchingSource) return;
   mousePolling = true;
   try {
@@ -143,6 +150,11 @@ setInterval(async () => {
       "mouse-transfer",
     ) as HTMLButtonElement | null;
     if (transfer) transfer.disabled = busy || !available;
+    root
+      .querySelectorAll<HTMLButtonElement>('[data-snippet-action="paste"]')
+      .forEach((button) => {
+        button.disabled = busy || !available;
+      });
   } catch {
     /* Transfer reports an actionable error when requested. */
   } finally {

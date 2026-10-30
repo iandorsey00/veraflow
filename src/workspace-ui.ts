@@ -1,3 +1,4 @@
+import { snippetsUI } from "./snippets-ui";
 import { parseCSV, suggestHeader, csvTable } from "./core/csv";
 import { parseFields } from "./core/template";
 import {
@@ -19,12 +20,13 @@ const esc = (v: unknown) =>
         c
       ]!,
   );
-type Input = {
+export type Input = {
   key: string;
   label: string;
   value?: string;
   lines?: boolean;
   check?: boolean;
+  options?: { value: string; label: string }[];
 };
 export async function formDialog(
   title: string,
@@ -37,11 +39,12 @@ export async function formDialog(
 ): Promise<Record<string, string> | null> {
   const d = document.createElement("dialog");
   d.setAttribute("aria-labelledby", "workspace-dialog-title");
-  d.innerHTML = `<form><h2 id="workspace-dialog-title">${esc(title)}</h2>${fields.map((f) => `<label for="dialog-${f.key}">${esc(f.label)}</label>${f.check ? `<input id="dialog-${f.key}" name="${f.key}" type="checkbox" ${f.value === "true" ? "checked" : ""}>` : f.lines ? `<textarea id="dialog-${f.key}" name="${f.key}" rows="5">${esc(f.value ?? "")}</textarea>` : `<input id="dialog-${f.key}" name="${f.key}" value="${esc(f.value ?? "")}" maxlength="1000">`}`).join("")}<p id="workspace-dialog-error" role="alert"></p><div class="actions"><button type="button" id="dialog-cancel">${esc(cancel)}</button><button type="submit" class="primary">${esc(action)}</button></div></form>`;
+  d.innerHTML = `<form><h2 id="workspace-dialog-title">${esc(title)}</h2>${fields.map((f) => `<label for="dialog-${f.key}">${esc(f.label)}</label>${f.options ? `<select id="dialog-${f.key}" name="${f.key}">${f.options.map((o) => `<option value="${esc(o.value)}" ${o.value === f.value ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>` : f.check ? `<input id="dialog-${f.key}" name="${f.key}" type="checkbox" ${f.value === "true" ? "checked" : ""}>` : f.lines ? `<textarea id="dialog-${f.key}" name="${f.key}" rows="5">${esc(f.value ?? "")}</textarea>` : `<input id="dialog-${f.key}" name="${f.key}" value="${esc(f.value ?? "")}" maxlength="1000">`}`).join("")}<p id="workspace-dialog-error" role="alert"></p><div class="actions"><button type="button" id="dialog-cancel">${esc(cancel)}</button><button type="submit" class="primary">${esc(action)}</button></div></form>`;
   const prior = document.activeElement as HTMLElement | null;
+  await platform.active(true);
   document.body.append(d);
   d.showModal();
-  d.querySelector<HTMLElement>("input,textarea")?.focus();
+  d.querySelector<HTMLElement>("input,textarea,select")?.focus();
   return new Promise((resolve) => {
     let done = false;
     const close = (v: Record<string, string> | null) => {
@@ -107,9 +110,13 @@ export function workspaceUI(deps: {
   run: (f: () => Promise<void> | void) => Promise<void>;
   open: (t: DataTable, r: DataRow) => Promise<void>;
   confirm: (detail: string, action: string) => Promise<boolean>;
+  copied: () => void;
+  pasted: () => void;
 }) {
   let folder = "",
     tableId = "";
+  let unfiledSnippets = false;
+  let snippetsOpen = false;
   const l = (en: string, zh: string) => (deps.lang() ? zh : en);
   const btn = (action: string, label: string, extra = "") =>
     `<button data-workspace="${action}" ${extra}>${esc(label)}</button>`;
@@ -118,6 +125,17 @@ export function workspaceUI(deps: {
     await deps.save(w);
     deps.render();
   }
+  const snippets = snippetsUI({
+    get: deps.get,
+    scope: () => active()?.id ?? "",
+    lang: deps.lang,
+    save,
+    form: formDialog,
+    confirm: deps.confirm,
+    run: deps.run,
+    copied: deps.copied,
+    pasted: deps.pasted,
+  });
   async function tableForm(t?: DataTable) {
     const w = structuredClone(deps.get());
     const input = await formDialog(
@@ -217,6 +235,8 @@ export function workspaceUI(deps: {
     w.tables = t
       ? w.tables.map((x) => (x.id === t.id ? next : x))
       : [...w.tables, next];
+    unfiledSnippets = false;
+    snippetsOpen = false;
     tableId = next.id;
     await save(w);
   }
@@ -254,14 +274,25 @@ export function workspaceUI(deps: {
         )
         .join(
           "",
-        )}${btn("new-table", l("New table", "新建表格"))}<div class="workspace-exchange">${btn("import-csv", l("Import CSV", "导入 CSV"))}${btn("import", l("Import database JSON", "导入数据库 JSON"))}${btn("export", l("Export database JSON", "导出数据库 JSON"))}</div></aside><section class="workspace-content">${t ? `<h1>${esc(t.name)}</h1><p class="vera-id">${esc(t.id)}</p>${t.externalIds.map((r) => `<p>${esc(r.label)}: ${esc(r.value)}</p>`).join("")}<div class="toolbar">${btn("new-row", l("New row", "新建行"))}${btn("edit", l("Table settings", "表格设置"))}${btn("move", l("Move to folder", "移动到文件夹"))}${btn("export-table", l("Export table JSON", "导出表格 JSON"))}${btn("delete-table", l("Delete table", "删除表格"))}</div>${t.output && !t.fields.length ? `<pre class="output">${esc(t.output)}</pre>${btn("copy-text", l("Copy reusable text", "复制常用文本"))}` : ""}<div class="data-table-scroll"><table class="data-table"><thead><tr>${t.rowTitles ? `<th>${l("Title", "标题")}</th>` : ""}<th>${l("VeraFlow ID", "VeraFlow 编号")}</th>${t.fields.map((n) => `<th>${esc(n)}</th>`).join("")}<th>${l("Actions", "操作")}</th></tr></thead><tbody>${t.rows.map((r) => `<tr>${t.rowTitles ? `<td>${esc(r.title)}</td>` : ""}<td class="vera-id">${esc(r.id)}</td>${t.fields.map((n) => `<td>${esc(Object.hasOwn(r.values, n) ? r.values[n] : "—")}</td>`).join("")}<td>${btn("open", l("Open Scanner", "打开扫描器"), `data-id="${esc(r.id)}" ${!t.fields.length ? "disabled" : ""}`)}${btn("row-details", l("Row details", "行详情"), `data-id="${esc(r.id)}"`)}${btn("delete-row", l("Delete row", "删除行"), `data-id="${esc(r.id)}"`)}</td></tr>`).join("")}</tbody></table></div>${!t.rows.length ? `<p>${l("No rows yet. Add a row or save Free Scanner as a row.", "暂无数据行。可添加行，或将自由扫描器保存为行。")}</p>` : ""}` : `<h1>${l("Your tables", "我的表格")}</h1><p>${l("Create a table for trips, shipments, contacts, or any repeatable set of fields. Every row opens in Scanner.", "为旅行、货运、联系人等创建表格。每一行都可在扫描器中打开。")}</p>${btn("new-table", l("Create table", "创建表格"))}`}</section></main>`;
+        )}${btn("new-table", l("New table", "新建表格"))}${btn("unfiled-snippets", l("Unfiled snippets", "未归档片段"), unfiledSnippets ? 'aria-current="page"' : "")}<div class="workspace-exchange">${btn("import-csv", l("Import CSV", "导入 CSV"))}${btn("import", l("Import database JSON", "导入数据库 JSON"))}${btn("export", l("Export database JSON", "导出数据库 JSON"))}</div></aside><section class="workspace-content">${unfiledSnippets ? `<h1>${l("Unfiled snippets", "未归档片段")}</h1>${snippets.view()}` : t ? `<h1>${esc(t.name)}</h1><p class="vera-id">${esc(t.id)}</p>${t.externalIds.map((r) => `<p>${esc(r.label)}: ${esc(r.value)}</p>`).join("")}<div class="toolbar">${btn("new-row", l("New row", "新建行"))}${btn("edit", l("Table settings", "表格设置"))}${btn("move", l("Move to folder", "移动到文件夹"))}${btn("export-table", l("Export table JSON", "导出表格 JSON"))}${btn("delete-table", l("Delete table", "删除表格"))}</div>${`<details id="table-snippets" ${snippetsOpen ? "open" : ""}><summary>${l("Snippets", "文本片段")} · ${(w.snippets ?? []).filter((s) => s.tableId === t.id).length}</summary>${snippets.view()}</details>`}${t.output && !t.fields.length ? `<pre class="output">${esc(t.output)}</pre>${btn("copy-text", l("Copy reusable text", "复制常用文本"))}` : ""}<div class="data-table-scroll"><table class="data-table"><thead><tr>${t.rowTitles ? `<th>${l("Title", "标题")}</th>` : ""}<th>${l("VeraFlow ID", "VeraFlow 编号")}</th>${t.fields.map((n) => `<th>${esc(n)}</th>`).join("")}<th>${l("Actions", "操作")}</th></tr></thead><tbody>${t.rows.map((r) => `<tr>${t.rowTitles ? `<td>${esc(r.title)}</td>` : ""}<td class="vera-id">${esc(r.id)}</td>${t.fields.map((n) => `<td>${esc(Object.hasOwn(r.values, n) ? r.values[n] : "—")}</td>`).join("")}<td>${btn("open", l("Open Scanner", "打开扫描器"), `data-id="${esc(r.id)}" ${!t.fields.length ? "disabled" : ""}`)}${btn("row-details", l("Row details", "行详情"), `data-id="${esc(r.id)}"`)}${btn("delete-row", l("Delete row", "删除行"), `data-id="${esc(r.id)}"`)}</td></tr>`).join("")}</tbody></table></div>${!t.rows.length ? `<p>${l("No rows yet. Add a row or save Free Scanner as a row.", "暂无数据行。可添加行，或将自由扫描器保存为行。")}</p>` : ""}` : `<h1>${l("Your tables", "我的表格")}</h1><p>${l("Create a table for trips, shipments, contacts, or any repeatable set of fields. Every row opens in Scanner.", "为旅行、货运、联系人等创建表格。每一行都可在扫描器中打开。")}</p>${btn("new-table", l("Create table", "创建表格"))}`}</section></main>`;
     },
+    hasSnippets: () =>
+      (unfiledSnippets || (snippetsOpen && !!active())) &&
+      snippets.hasSnippets(),
     bind(root: HTMLElement) {
+      snippets.bind(root);
+      root
+        .querySelector("#table-snippets")
+        ?.addEventListener("toggle", (event) => {
+          const target = event.target as HTMLDetailsElement;
+          if (target.isConnected) snippetsOpen = target.open;
+        });
       root
         .querySelector("#workspace-folder")
         ?.addEventListener("change", (e) => {
           folder = (e.target as HTMLSelectElement).value;
           tableId = "";
+          unfiledSnippets = false;
           deps.render();
         });
       root.querySelectorAll<HTMLButtonElement>("[data-workspace]").forEach(
@@ -271,7 +302,12 @@ export function workspaceUI(deps: {
               const action = b.dataset.workspace!,
                 t = active(),
                 w = structuredClone(deps.get());
-              if (action === "select") {
+              if (action === "unfiled-snippets") {
+                tableId = "";
+                unfiledSnippets = true;
+                deps.render();
+              } else if (action === "select") {
+                unfiledSnippets = false;
                 tableId = b.dataset.id!;
                 deps.render();
               } else if (action === "new-table") await tableForm();
@@ -319,8 +355,8 @@ export function workspaceUI(deps: {
                 if (
                   !(await deps.confirm(
                     l(
-                      "Export includes saved row values. Review the file before sharing.",
-                      "导出文件包含已保存的行值。分享前请检查内容。",
+                      "Export includes saved row values and snippets. Review the file before sharing.",
+                      "导出文件包含已保存的行值和片段。分享前请检查内容。",
                     ),
                     l("Export JSON", "导出 JSON"),
                   ))
@@ -335,6 +371,13 @@ export function workspaceUI(deps: {
                             (f) => f.id === t?.folderId,
                           ),
                           tables: t ? [t] : [],
+                          ...(w.snippets
+                            ? {
+                                snippets: w.snippets.filter(
+                                  (s) => s.tableId === t?.id,
+                                ),
+                              }
+                            : {}),
                         },
                   ),
                   action === "export"
@@ -422,7 +465,7 @@ export function workspaceUI(deps: {
                 if (
                   !(await deps.confirm(
                     l(
-                      "Add the imported folders, tables, and saved values? Existing rows will not be overwritten.",
+                      "Add the imported folders, tables, saved values and snippets? Existing data will not be overwritten.",
                       "添加导入的文件夹、表格及已保存的值？现有行不会被覆盖。",
                     ),
                     l("Import JSON", "导入 JSON"),
@@ -434,14 +477,17 @@ export function workspaceUI(deps: {
                 if (
                   !(await deps.confirm(
                     l(
-                      "Delete this table and all saved row values?",
-                      "删除此表格及所有已保存的行值？",
+                      "Delete this table and all saved row values? Its snippets will move to Unfiled.",
+                      "删除此表格及所有已保存的行值？片段将移至未归档。",
                     ),
                     l("Delete table", "删除表格"),
                   ))
                 )
                   return;
                 w.tables = w.tables.filter((x) => x.id !== t.id);
+                w.snippets?.forEach((s) => {
+                  if (s.tableId === t.id) s.tableId = "";
+                });
                 tableId = "";
                 await save(w);
               } else if (action === "move" && t) {
@@ -523,6 +569,7 @@ export function workspaceUI(deps: {
       );
     },
     select(id: string) {
+      unfiledSnippets = false;
       tableId = id;
       folder = deps.get().tables.find((t) => t.id === id)?.folderId ?? "";
     },

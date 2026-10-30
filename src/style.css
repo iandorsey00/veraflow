@@ -981,3 +981,44 @@ dialog textarea {
 .email-template .field-order li:not([data-reorder]) > span {
   grid-column: 2;
 }
+
+.snippets {
+  margin: 24px 0;
+  min-width: 0;
+}
+.snippet-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.snippet-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.snippet-card h3 {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.snippet-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.snippet-card pre {
+  white-space: break-spaces;
+}
+.snippet-card .toolbar,
+.snippets > .toolbar {
+  flex-wrap: wrap;
+}
+
+.snippet-card.selected {
+  border-color: var(--focus);
+  background: var(--selected);
+}
+.snippet-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}

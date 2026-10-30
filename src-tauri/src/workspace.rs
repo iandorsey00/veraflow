@@ -37,6 +37,16 @@ pub struct Table {
 pub struct Workspace {
     pub folders: Vec<Folder>,
     pub tables: Vec<Table>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub snippets: Vec<Snippet>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Snippet {
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    pub table_id: String,
 }
 fn valid_id(id: &str) -> bool {
     id.len() == 39
@@ -94,6 +104,23 @@ impl Workspace {
                 }
             }
         }
+        if self.snippets.len() > 1000 {
+            return false;
+        }
+        for s in &self.snippets {
+            if !valid_id(&s.id)
+                || !ids.insert(&s.id)
+                || s.title.trim().is_empty()
+                || s.title.len() > 1000
+                || s.title.chars().any(|c| c.is_control())
+                || s.content.trim().is_empty()
+                || s.content.len() > 1024 * 1024
+                || s.content.contains('\0')
+                || (!s.table_id.is_empty() && !self.tables.iter().any(|t| t.id == s.table_id))
+            {
+                return false;
+            }
+        }
         true
     }
 }
@@ -124,6 +151,34 @@ mod tests {
             .validate());
         let mut value = fixture();
         value["tables"][0]["rows"][0]["verified"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<Workspace>(value).is_err());
+    }
+    #[test]
+    fn snippets_round_trip_and_validate_table_links_and_literal_text() {
+        let mut value = fixture();
+        value["snippets"] = serde_json::json!([
+            {"id":"VF-33333333-3333-4333-8333-333333333333","title":"Confirmation","content":"Hello {{literal}}\n<email@example.test>","tableId":"VF-11111111-1111-4111-8111-111111111111"},
+            {"id":"VF-44444444-4444-4444-8444-444444444444","title":"Thanks","content":"Thank you.","tableId":""}
+        ]);
+        let w: Workspace = serde_json::from_value(value.clone()).unwrap();
+        assert!(w.validate());
+        assert_eq!(serde_json::to_value(w).unwrap(), value);
+        for (key, bad) in [
+            (
+                "tableId",
+                serde_json::json!("VF-55555555-5555-4555-8555-555555555555"),
+            ),
+            ("id", value["tables"][0]["id"].clone()),
+            ("title", serde_json::json!("")),
+            ("content", serde_json::json!("\0")),
+        ] {
+            let mut invalid = value.clone();
+            invalid["snippets"][0][key] = bad;
+            assert!(!serde_json::from_value::<Workspace>(invalid)
+                .unwrap()
+                .validate());
+        }
+        value["snippets"][0]["verified"] = serde_json::json!(true);
         assert!(serde_json::from_value::<Workspace>(value).is_err());
     }
 }
