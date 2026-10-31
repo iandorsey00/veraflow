@@ -2,6 +2,8 @@
 
 ## 0.8.1 titled table snippets
 
+Published as [v0.8.1](https://github.com/iandorsey00/veraflow/releases/tag/v0.8.1). Both platform checks, three packages, updater signatures/authenticated versions, public payload checksums and live feed were verified; see [validation](validation.md).
+
 The 0.8.0 candidate was never published: Windows clipboard newline assertions blocked it. Its tag is retained; 0.8.1 corrects those assertions and uses only Ctrl/Cmd+C for snippet transfer, leaving normal paste unchanged.
 
 FRC selected for persisted snippet records, extended JSON archives and reuse of native clipboard/source-focus output. Snippets have stable IDs, required titles, literal text and table links; empty tableId means Unfiled. Optional metadata preserves existing libraries. Native/frontend validators enforce bounds, IDs and parent links, and deny session/unknown properties. Database imports remap conflicts and snippet table links; snippet-only imports create fresh IDs in the chosen scope. Table deletion unfiles snippets. Clipboard transfer is explicit via selected-card Ctrl/Cmd+C or mouse Transfer to clipboard. Direct app paste reuses the existing adapter with no Tab/Send. Dialogs guard unsaved work. No new permissions, dependencies or updater-trust changes.
