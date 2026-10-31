@@ -13,7 +13,7 @@ for (const kind of ["scanner", "template", "email"])
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.goto("/");
+    await page.goto("/?workflow=classic");
     const scanner = kind === "scanner";
     if (scanner) {
       await page.locator("#nav-scanner").click();
@@ -67,7 +67,7 @@ test("paste in editable text remains normal editing and field replacement loses 
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-scanner").click();
   await defineScanner(page);
   await paste(page, 0, "Original");

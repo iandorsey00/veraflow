@@ -6,6 +6,12 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ![VeraFlow workspace with a synthetic travel booking row](docs/portfolio/screenshots/07-workspace.png)
 
+## Focused workflow trial (this branch)
+
+The `codex/focused-workflow` branch adds an active-field view, a compact checklist, explicit source-match/transfer messages, and in-memory Pause/Resume. **Classic view** stays available without losing session values or unfinished typing. Saved-library format and public 0.8.1 downloads are unchanged.
+
+Start with the [Focused workflow guide](docs/focused-workflow.md) for a two-field exercise, keyboard/mouse instructions, email recovery, saving, and switching back. Each branch check builds an isolated Windows **VeraFlow Test** installer after its checks pass; it uses a separate library and leaves the public updater untouched.
+
 ## Workspace preview (0.7.0)
 
 The app opens to **Workspace**. Organize work into folders and tables; column headers are field names, and each row opens in Scanner. Tables and rows have stable VeraFlow IDs. Add labeled external IDs in Table settings or Row details, for example `Booking=AB-104`. External IDs are references, not unique keys. Tables can show optional row titles or hide them. Open each table’s collapsible Snippets section for titled literal text, or use Unfiled snippets in the sidebar. Existing templates remain available under Templates; there is no duplicate Scanner tab.

@@ -3,6 +3,8 @@ import { mkdir } from "node:fs/promises";
 const url = process.env.PORTFOLIO_URL || "http://127.0.0.1:1420";
 if (!["localhost", "127.0.0.1"].includes(new URL(url).hostname))
   throw new Error("Portfolio captures require a local preview.");
+const classicUrl = new URL(url);
+classicUrl.searchParams.set("workflow", "classic");
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({
@@ -14,7 +16,7 @@ try {
     reducedMotion: "reduce",
   });
   const page = await context.newPage();
-  await page.goto(url);
+  await page.goto(classicUrl.href);
   await page.getByRole("button", { name: "Templates", exact: true }).click();
   await mkdir("docs/portfolio/screenshots", { recursive: true });
   await page.screenshot({
@@ -107,7 +109,7 @@ try {
   });
   const emailPage = await context.newPage();
   await emailPage.setViewportSize({ width: 1440, height: 2300 });
-  await emailPage.goto(url);
+  await emailPage.goto(classicUrl.href);
   await emailPage
     .getByRole("button", { name: "Templates", exact: true })
     .click();
@@ -166,7 +168,7 @@ try {
   });
   const scannerPage = await context.newPage();
   await scannerPage.setViewportSize({ width: 360, height: 900 });
-  await scannerPage.goto(url);
+  await scannerPage.goto(classicUrl.href);
   await scannerPage
     .getByRole("button", { name: "Free Scanner", exact: true })
     .click();
@@ -190,7 +192,7 @@ try {
     fullPage: true,
   });
   const workspacePage = await context.newPage();
-  await workspacePage.goto(url);
+  await workspacePage.goto(classicUrl.href);
   await workspacePage
     .getByRole("button", { name: "Create table", exact: true })
     .click();
@@ -229,7 +231,7 @@ try {
   });
   const snippetPage = await context.newPage();
   await snippetPage.setViewportSize({ width: 1440, height: 1100 });
-  await snippetPage.goto(url);
+  await snippetPage.goto(classicUrl.href);
   await snippetPage
     .getByRole("button", { name: "Create table", exact: true })
     .click();

@@ -1,4 +1,51 @@
 export const en = {
+  quickGuide: "Quick guide",
+  guideCapture:
+    "Select a field. Capture selected source text, or open Enter value manually and paste or type it.",
+  guideCheck:
+    "Choose Check field, then select the original text again or paste a fresh copy to compare. A mismatch keeps the captured value. Templates start their check pass after capture.",
+  guideCopy:
+    "Copy field or Ctrl/Cmd+C on a selected Scanner field copies its value after any required check. Paste into your destination and inspect the result.",
+  guidePause:
+    "Pause returns to Workspace. Resume task restores your place and unfinished typing. Choose Classic view to switch layouts without losing values.",
+
+  focusedView: "Focused view",
+  classicView: "Classic view",
+  pauseTask: "Pause",
+  resumeTask: "Resume task",
+  taskPaused: "Task paused",
+  pausePrivacy:
+    "Kept in memory while VeraFlow is open. Quitting clears this session; saved rows stay saved.",
+  taskTools: "Edit fields and output",
+  progressCaptured: "captured",
+  progressMatched: "matched source",
+  matchedSource: "Matched source",
+  matchMeaning:
+    "Matched source means the selected text agrees under your comparison rules. Check that it is the correct record. It does not confirm the destination.",
+  nextCapture: "Next: capture this field",
+  nextCompare: "Next: compare a fresh source selection",
+  nextCheck: "Next: check this field against the source",
+  nextCopy: "Next: copy or paste this field",
+  nextPending: "Next: select an empty field to capture",
+  nextOutput: "Ready: choose your output",
+  nextEmail: "Next: fill the current email section",
+  nextMismatch: "Next: compare again or correct the captured value",
+  checkField: "Check field",
+  compareSelection: "Compare selection",
+  lastAction: "Last action",
+  noActionYet: "Nothing captured or transferred in this session yet",
+  stepCaptured: "Captured",
+  stepMatched: "Matched source",
+  stepMismatch: "Source differed; captured value kept",
+  stepCopied: "Copied to clipboard",
+  stepPaste: "Paste requested; destination not checked",
+  stepPasteUncertain:
+    "Paste uncertain; inspect the destination before retrying",
+  stepManual: "Advanced manually; paste not confirmed",
+  transferPending: "Not transferred",
+  focusGuideHint:
+    "Need the previous layout? Choose Classic view above. See the Focused workflow guide in the repository’s docs folder.",
+
   extraScannerFields: "Extra Scanner fields (optional)",
   extraFieldsHelp:
     "One field name per line. Capture and verify these alongside the template fields, then open them in Scanner after completion. They are never added to template text or email sections. Blank lines and repeated names are ignored.",

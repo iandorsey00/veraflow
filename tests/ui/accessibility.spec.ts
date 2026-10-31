@@ -4,7 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 for (const colorScheme of ["light", "dark"] as const)
   test(`accessible editor and capture in ${colorScheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
-    await page.goto("/");
+    await page.goto("/?workflow=classic");
     await page.locator("#nav-templates").click();
     await page.getByRole("button", { name: "Templates", exact: true }).click();
     await legacyTemplate(page);

@@ -6,7 +6,7 @@ for (const scanner of [true, false])
       page,
     }) => {
       await page.setViewportSize({ width, height: 740 });
-      await page.goto("/");
+      await page.goto("/?workflow=classic");
       if (scanner) {
         await page
           .getByRole("button", { name: "Free Scanner", exact: true })

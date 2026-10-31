@@ -34,7 +34,7 @@ test("titled table snippets copy literal text, move to Unfiled, edit and return 
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await table(page);
   const id = await page.locator(".workspace-content > .vera-id").innerText();
   const text =
@@ -76,7 +76,7 @@ test("titled table snippets copy literal text, move to Unfiled, edit and return 
 test("snippet title/text validation stays editable and deletion/table removal preserve expected scopes", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await table(page);
   await page.getByRole("button", { name: "New snippet", exact: true }).click();
   await page.locator("#dialog-content").fill("Saved text");
@@ -117,7 +117,7 @@ test("snippet title/text validation stays editable and deletion/table removal pr
 test("snippet-only/table/database JSON export and import include proper scope and independent copies", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await table(page);
   await snippet(page, "Table note", "Literal {{reference}}");
   const download = async (button: string) => {
@@ -185,7 +185,7 @@ test("malformed snippets do not import and snippet paste sends literal text only
         "\nplatform.pasteToSource=async text=>{if(window.__failSnippetPaste)throw Error('sourceFocus');window.__snippetPaste=text;};",
     });
   });
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page
     .getByRole("button", { name: "Unfiled snippets", exact: true })
     .click();
@@ -231,7 +231,7 @@ for (const chinese of [false, true])
   test(`snippets accessible and wrap narrow text (Chinese=${chinese})`, async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/?workflow=classic");
     if (chinese) {
       await page.locator("#nav-settings").click();
       await page.locator("#language").selectOption("zh-CN");
@@ -280,7 +280,7 @@ test("selecting a snippet supports Ctrl/Cmd+C transfer and leaves Ctrl/Cmd+V unc
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page
     .getByRole("button", { name: "Unfiled snippets", exact: true })
     .click();

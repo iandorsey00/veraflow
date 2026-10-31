@@ -1,5 +1,50 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  quickGuide: "快速指南",
+  guideCapture: "选择字段。采集来源中选定的文本，或展开手动输入以粘贴或输入。",
+  guideCheck:
+    "选择检查字段，再次选择原文或粘贴新副本进行比较。不匹配时保留已采集的值。模板在采集后开始核验。",
+  guideCopy:
+    "使用复制字段，或选中扫描器字段后按 Ctrl/Cmd+C，在完成所需核验后复制。请粘贴到目标并检查结果。",
+  guidePause:
+    "暂停返回工作区。恢复任务会保留位置和未提交的输入。选择经典视图可切换布局而不丢失值。",
+
+  focusedView: "专注视图",
+  classicView: "经典视图",
+  pauseTask: "暂停",
+  resumeTask: "恢复任务",
+  taskPaused: "任务已暂停",
+  pausePrivacy:
+    "VeraFlow 运行期间保留在内存中。退出会清除此会话；已保存的行不受影响。",
+  taskTools: "编辑字段和输出",
+  progressCaptured: "已采集",
+  progressMatched: "与来源匹配",
+  matchedSource: "与来源匹配",
+  matchMeaning:
+    "与来源匹配表示所选文本符合比较规则。请确认选中了正确的记录；这不代表目标内容已检查。",
+  nextCapture: "下一步：采集此字段",
+  nextCompare: "下一步：重新选择来源文本进行比较",
+  nextCheck: "下一步：与来源比较此字段",
+  nextCopy: "下一步：复制或粘贴此字段",
+  nextPending: "下一步：选择空字段进行采集",
+  nextOutput: "已就绪：选择输出方式",
+  nextEmail: "下一步：填写当前邮件部分",
+  nextMismatch: "下一步：重新比较或更正已采集的值",
+  checkField: "检查字段",
+  compareSelection: "比较所选文本",
+  lastAction: "上次操作",
+  noActionYet: "本次会话尚未采集或传输文本",
+  stepCaptured: "已采集",
+  stepMatched: "与来源匹配",
+  stepMismatch: "来源不同；保留已采集的值",
+  stepCopied: "已复制到剪贴板",
+  stepPaste: "已请求粘贴；尚未检查目标",
+  stepPasteUncertain: "无法确认粘贴；重试前请检查目标",
+  stepManual: "已手动前进；未确认粘贴",
+  transferPending: "尚未传输",
+  focusGuideHint:
+    "需要原来的布局？请选择上方的经典视图。使用说明见仓库 docs 文件夹中的专注工作流程指南。",
+
   extraScannerFields: "额外扫描器字段（可选）",
   extraFieldsHelp:
     "每行一个字段名。这些字段与模板字段一起采集和验证，完成后可在扫描器中打开，不会添加到模板文本或邮件各部分中。空行和重复名称将忽略。",

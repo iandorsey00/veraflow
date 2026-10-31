@@ -1,7 +1,7 @@
 import { legacyTemplate } from "./fixtures";
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.getByRole("button", { name: "Templates", exact: true }).click();
   await legacyTemplate(page);
 });

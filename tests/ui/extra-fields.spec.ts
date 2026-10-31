@@ -5,7 +5,7 @@ for (const email of [false, true])
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.goto("/");
+    await page.goto("/?workflow=classic");
     await page.locator("#nav-templates").click();
     if (!email) await page.locator("#email-enabled").uncheck();
     await page.locator("#template-content").fill("Hello {{full name}}");
@@ -52,7 +52,7 @@ for (const email of [false, true])
 test("invalid extra field names stay editable without damaging the draft or persisted template", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-templates").click();
   await page.locator("#extra-scanner-fields").fill("{{bad}}");
   await page.locator("#save").click();
@@ -73,7 +73,7 @@ test("ordinary template extra fields require an explicit clear choice and never 
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-templates").click();
   await page.locator("#email-enabled").uncheck();
   await page.locator("#template-content").fill("Hello {{name}}");
