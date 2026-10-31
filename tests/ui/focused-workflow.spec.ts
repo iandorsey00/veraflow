@@ -286,3 +286,28 @@ test("focused keyboard field paste and copy preserve other fields’ unfinished 
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toBe("AB-104");
 });
+
+test("keyboard and mouse navigation keep the focused Scanner in its source-check pass", async ({
+  page,
+}) => {
+  await scanner(page);
+  await fill(page, "Alex Example");
+  await fill(page, "AB-104");
+  await page.locator("#task-tools summary").first().click();
+  await page.locator("#reverify-all").click();
+  await page.locator("#field-0").focus();
+  await page.keyboard.press("Tab");
+  await expect(page.locator("#apply-value")).toHaveText("Compare value");
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect(page.locator("#apply-value")).toHaveText("Compare value");
+  await page.locator("#field-1").click();
+  await fill(page, "AB-104");
+  await expect(page.locator("#field-0")).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await fill(page, "Alex Example");
+  await expect(page.locator(".task-progress")).toContainText(
+    "2/2 matched source",
+  );
+});

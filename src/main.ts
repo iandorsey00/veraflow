@@ -1462,6 +1462,26 @@ function scannerFieldMenu(index: number, x: number, y: number) {
     } else if (e.target === menu) menu.close();
   });
 }
+function selectSessionField(index: number) {
+  const s = session!;
+  s.active = index;
+  const keepChecking =
+    focusedWorkflow &&
+    s.scanner &&
+    s.mode === "verify" &&
+    s.fields[index]?.value !== null;
+  if (keepChecking) reverification ??= "field";
+  else {
+    reverification = null;
+    if (s.scanner) s.mode = "capture";
+  }
+  if (
+    focusedWorkflow &&
+    s.scanner &&
+    (keepChecking || s.fields[index]?.value === null)
+  )
+    manualOpen = true;
+}
 function bindSession() {
   const input = document.getElementById(
     "manual-value",
@@ -1661,15 +1681,7 @@ function bindSession() {
     (el) =>
       (el.onclick = () =>
         void run(() => {
-          reverification = null;
-          session!.active = Number(el.dataset.field);
-          if (
-            session!.scanner &&
-            (!focusedWorkflow ||
-              session!.mode !== "verify" ||
-              session!.fields[session!.active].value === null)
-          )
-            session!.mode = "capture";
+          selectSessionField(Number(el.dataset.field));
           preview = false;
           render();
           root
@@ -1872,14 +1884,12 @@ async function perform(action: Action, global = false) {
         await accept(await platform.capture(preserveClipboard), true);
       return;
     case "previous":
-      reverification = null;
       move(s, -1);
-      if (s.scanner) s.mode = "capture";
+      selectSessionField(s.active);
       break;
     case "next":
-      reverification = null;
       move(s, 1);
-      if (s.scanner) s.mode = "capture";
+      selectSessionField(s.active);
       break;
     case "clear":
       clear(s);
@@ -2075,9 +2085,7 @@ window.addEventListener("keydown", (event) => {
         Number(fieldButton.dataset.field) + (event.shiftKey ? -1 : 1);
       if (next >= 0 && next < session.fields.length) {
         event.preventDefault();
-        reverification = null;
-        session.active = next;
-        session.mode = "capture";
+        selectSessionField(next);
         render();
         focus(`field-${next}`);
       }
