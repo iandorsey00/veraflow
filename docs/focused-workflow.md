@@ -4,6 +4,12 @@ This guide covers the experimental `codex/focused-workflow` branch. The public 0
 
 ![Focused Scanner with a matched booking reference and a three-field checklist](portfolio/screenshots/10-focused-scanner.png)
 
+## Get the Windows trial
+
+Download [VeraFlow Test for Windows](https://github.com/iandorsey00/veraflow/actions/runs/41226152738/artifacts/13051744830) while signed into GitHub. Extract the ZIP, then run `VeraFlow-Test-abc349d6-setup.exe`. The archive also contains `BUILD.txt` and `SHA256.txt`. This is the isolated test app, with its own library and no public updates. The download expires after 14 days; the branch can be rebuilt from Actions.
+
+The [successful Windows/macOS check run](https://github.com/iandorsey00/veraflow/actions/runs/41226152738) tested source commit `abc349d6cf83917e851fa8308bb01d2a96c5e9f6`: 52 core, 15 Rust, and 73 browser/accessibility tests on each platform, plus native checks and desktop compilation. Actual cross-app capture/paste still needs your Windows acceptance test.
+
 ## Start with a small task
 
 Try one synthetic record before using real work. For example, use two fields:
@@ -88,7 +94,13 @@ The branch adds no saved-library properties or migrations. To return to the publ
 
 For Windows, the branch’s **Check** workflow produces an isolated **VeraFlow Test** installer after all checks pass. It uses a separate library and cannot install public updates. Export/import synthetic tables or templates explicitly to try them there. The public app and its update feed are unchanged. Test artifacts expire after 14 days and require GitHub sign-in to download.
 
-For a local developer preview, check out this branch and run `npm ci`, then `npm run desktop` (native app) or `npm run dev` (browser-only preview). A browser URL ending in `/?workflow=classic` starts directly in Classic view; the ordinary URL starts Focused view. No keyboard shortcuts need to be reconfigured.
+For a local developer preview, check out this branch and run `npm ci`, then `npm run dev` for a browser-only, memory-only preview. To run an isolated native trial on Mac, use:
+
+```sh
+VITE_TEST_BUILD=1 npm run desktop -- --features test-build --config src-tauri/tauri.test.conf.json
+```
+
+This uses the Test identity and separate library. Plain `npm run desktop` uses the public app identity and its existing local library. A browser URL ending in `/?workflow=classic` starts directly in Classic view; the ordinary URL starts Focused view. No keyboard shortcuts need to be reconfigured.
 
 ## What to evaluate
 
