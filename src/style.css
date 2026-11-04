@@ -1105,3 +1105,17 @@ dialog textarea {
 .email-checklist [aria-current] {
   color: var(--accent);
 }
+
+.template-form-field {
+  margin-block: 1rem;
+  min-width: 0;
+}
+
+.template-form-field textarea {
+  display: block;
+  width: 100%;
+}
+
+.template-form-field small {
+  color: var(--muted);
+}

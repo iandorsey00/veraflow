@@ -96,6 +96,7 @@ test("template capture, check, preview and completion remain available in focuse
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
   await page.locator("#nav-templates").click();
+  await page.locator("#template-edit > summary").click();
   await page.locator("#email-enabled").uncheck();
   await page.locator("#template-content").fill("Hello {{name}}.");
   await page.locator("#start").click();
@@ -129,6 +130,7 @@ test("email checklist distinguishes manual advancement, copying, requested paste
   });
   await page.goto("/");
   await page.locator("#nav-templates").click();
+  await page.locator("#template-edit > summary").click();
   await page.locator("#email-subject").fill("Update");
   await page.locator("#email-to").fill("alex@example.test");
   await page.locator("#template-content").fill("Hello");

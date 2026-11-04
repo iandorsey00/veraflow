@@ -1,4 +1,9 @@
 export const en = {
+  editTemplate: "Edit template",
+  fillForm: "Fill form",
+  openInScanner: "Open in Scanner",
+  formCheckHint:
+    "Use Scanner to check these values against the source before copying.",
   quickGuide: "Quick guide",
   guideCapture:
     "Select a field. Capture selected source text, or open Enter value manually and paste or type it.",

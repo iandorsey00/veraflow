@@ -114,3 +114,11 @@ Try a short real Windows task and interrupt it halfway through. Check whether yo
 - Work at your preferred narrow width without horizontal scrolling.
 
 This trial does not add persistent session drafts, internal Undo, destination-content inspection, macros, or a unified Scanner/template/email data model. Those remain possible later steps, after testing whether the focused workflow helps.
+
+## Form and Scanner trial
+
+On the `codex/template-forms` branch, select a template and choose **Fill form** or **Open in Scanner**. Open **Edit template** to change its definition. Form shows all the template's fields together, with one text box per distinct placeholder. Scanner keeps the field-by-field capture and comparison workflow. Both actions save the template definition before starting, just as starting a template session does.
+
+Use **Open in Scanner** from the form to capture or compare source text. Select **Fill form** in Scanner to return to the same session. Changing a value clears its prior source match. **Preview**, **Copy result**, and **Prepare email output** use the template's existing completeness and verification rules. Use **Pause** to preserve the session in memory while you visit another screen.
+
+This trial uses multiline text boxes for all fields. The form adds no saved field settings. The installer linked earlier in this guide is for the focused-workflow trial. Find the form trial's isolated Windows installer in the [template-forms branch checks](https://github.com/iandorsey00/veraflow/actions/workflows/check.yml?query=branch%3Acodex%2Ftemplate-forms).

@@ -93,6 +93,8 @@ let selected = "",
 let focusedWorkflow =
   new URLSearchParams(location.search).get("workflow") !== "classic";
 let paused = false;
+let templateForm = false;
+let templateEditorOpen = false;
 let taskGeneration = 0;
 const manualDrafts = new Map<string, string>();
 let lastStep: { key: Key; name: string } | null = null;
@@ -149,6 +151,7 @@ setInterval(async () => {
     (mouseMode &&
       view === "session" &&
       !paused &&
+      !templateForm &&
       !!session &&
       ["capture", "verify"].includes(session.mode)) ||
     (view === "workspace" && workspace.hasSnippets());
@@ -619,11 +622,20 @@ function libraryView(): string {
       .join("")}</select>
     <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${captureFieldNames(item).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
     <div class="toolbar template-transfer">${button("import-template", "importTemplate", "", locked)}${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
-    <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? editorView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
+    <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? selectedTemplateView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
 function comparisonView(rules: Comparison, prefix: string): string {
   return `<label for="${prefix}-mode">${esc(t("comparison"))}</label><select id="${prefix}-mode"><option value="exact" ${rules.mode === "exact" ? "selected" : ""}>${esc(t("exact"))}</option><option value="whitespace" ${rules.mode === "whitespace" ? "selected" : ""}>${esc(t("whitespace"))}</option></select>
     ${check(prefix + "-case", "caseSensitive", rules.caseSensitive)}${check(prefix + "-unicode", "unicode", rules.unicode)}${check(prefix + "-punctuation", "punctuation", rules.punctuation)}${check(prefix + "-lines", "collapseLines", rules.collapseLines)}<p class="hint">${esc(t("rulesNote"))}</p>`;
+}
+function selectedTemplateView(): string {
+  if (!focusedWorkflow) return editorView();
+  return `<h2>${esc(draft!.name)}</h2>
+    <div class="actions">${button("start-form", "fillForm", "primary")}${button("start", "openInScanner")}</div>
+    <details id="template-edit" ${templateEditorOpen || dirty ? "open" : ""}>
+      <summary>${esc(t("editTemplate"))}</summary>
+      ${editorView()}
+    </details>`;
 }
 function editorView(): string {
   const d = draft!;
@@ -635,7 +647,7 @@ function editorView(): string {
   <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t(d.placeholderStyle === "braces" ? "bracePlaceholderHelp" : "placeholderHelp"))}</p>
   <label for="extra-scanner-fields">${esc(t("extraScannerFields"))}</label><textarea id="extra-scanner-fields" rows="3" spellcheck="false" aria-describedby="extra-fields-help extra-fields-error">${esc(extraFieldInput ?? (d.extraFields ?? []).join("\n"))}</textarea><p id="extra-fields-help" class="hint">${esc(t("extraFieldsHelp"))}</p><p id="extra-fields-error" role="alert" ${extraFieldsInvalid ? "" : "hidden"}>${extraFieldsInvalid ? esc(t("invalidExtraFields")) : ""}</p>
   <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><p class="hint">${esc(t("reorderHelp"))}</p><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
-  <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
+  <div class="actions">${button("save", "save")}${focusedWorkflow ? "" : button("start-form", "fillForm", "primary") + button("start", "start")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
 }
 function emailOrderView(template: Template): string {
   const parts = emailSections(template).filter((p) => p.key !== "body");
@@ -738,6 +750,10 @@ function bindComparison(prefix: string, rules: Comparison) {
     });
 }
 function bindLibrary() {
+  on("template-edit", "toggle", (event) => {
+    const details = event.target as HTMLDetailsElement;
+    if (details.isConnected) templateEditorOpen = details.open;
+  });
   click("export-templates", async () => {
     await platform.exportTemplates(exportTemplateArchive(library.templates));
   });
@@ -940,12 +956,17 @@ function bindLibrary() {
     dirty = false;
     notify("deleted");
   });
+  click("start-form", async () => {
+    await saveDraft();
+    await launch(draft!, undefined, false, true);
+  });
   click("start", async () => {
     await saveDraft();
     await launch(draft!);
   });
 }
 function selectTemplate(id: string) {
+  templateEditorOpen = false;
   extraFieldInput = null;
   extraFieldsInvalid = false;
   selected = id;
@@ -1019,6 +1040,7 @@ async function navigate(next: typeof view) {
     try {
       await bindShortcuts(
         library.preferences.globalShortcuts &&
+          !templateFormActive() &&
           !["review", "complete"].includes(session!.mode)
           ? library.preferences.shortcuts
           : null,
@@ -1041,9 +1063,11 @@ async function navigate(next: typeof view) {
   render();
   if (next === "session")
     focus(
-      document.getElementById("manual-value")
-        ? "manual-value"
-        : `field-${session?.active ?? 0}`,
+      templateFormActive()
+        ? `form-field-${session!.active}`
+        : document.getElementById("manual-value")
+          ? "manual-value"
+          : `field-${session?.active ?? 0}`,
     );
   if (shortcutError) report(shortcutError);
 }
@@ -1190,10 +1214,31 @@ function bindSettings() {
     notify("saved");
   });
 }
+async function configureSessionShortcuts(enabled: boolean) {
+  try {
+    await bindShortcuts(
+      enabled && library.preferences.globalShortcuts
+        ? library.preferences.shortcuts
+        : null,
+      dispatch,
+    );
+  } catch (error) {
+    await bindShortcuts(null, dispatch);
+    return error;
+  }
+}
+function templateFormActive() {
+  return (
+    templateForm &&
+    !!session &&
+    ["capture", "verify", "ready"].includes(session.mode)
+  );
+}
 async function launch(
   template: Template,
   scannerSource?: Session,
   confirmed = false,
+  form = false,
 ) {
   if (
     ((session && session.mode !== "complete") || retainedScanner) &&
@@ -1209,18 +1254,7 @@ async function launch(
       !template.email.to.trim())
   )
     throw new Error("emailRequired");
-  let shortcutError: unknown;
-  try {
-    await bindShortcuts(
-      library.preferences.globalShortcuts
-        ? library.preferences.shortcuts
-        : null,
-      dispatch,
-    );
-  } catch (error) {
-    await bindShortcuts(null, dispatch);
-    shortcutError = error;
-  }
+  const shortcutError = await configureSessionShortcuts(!form);
   const nextSession = scannerSource
     ? applyScanner(scannerSource, template)
     : startSession(template);
@@ -1229,6 +1263,7 @@ async function launch(
   await platform.compact(true, library.preferences.alwaysOnTop);
   if (session) eraseSession(session);
   session = nextSession;
+  templateForm = form;
   paused = false;
   taskGeneration++;
   manualDrafts.clear();
@@ -1247,7 +1282,7 @@ async function launch(
   preview = false;
   message = "";
   render();
-  focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
+  focus(form ? "form-field-0" : `field-${session.active}`);
   if (shortcutError) report(shortcutError);
   return true;
 }
@@ -1288,7 +1323,7 @@ function focusedSessionView(s: Session): string {
   const p = library.preferences,
     f = s.fields[s.active],
     progress = sessionProgress(s);
-  const toolbar = `<div class="task-toolbar">${button("pause-task", "pauseTask")}${button("toggle-workflow", "classicView")}</div>`;
+  const toolbar = `<div class="task-toolbar">${!s.scanner && s.mode !== "delivery" ? button("switch-form", "fillForm") : ""}${button("pause-task", "pauseTask")}${button("toggle-workflow", "classicView")}</div>`;
   const heading = `<header class="task-heading"><h1>${esc(taskName(s))}</h1>${toolbar}<p class="task-progress">${esc(progressText(s))}</p></header>`;
   if (s.mode === "delivery") {
     const parts = renderEmail(s),
@@ -1333,11 +1368,56 @@ function focusedSessionView(s: Session): string {
     <details class="focus-guide"><summary>${esc(t("quickGuide"))}</summary><ol><li>${esc(t("guideCapture"))}</li><li>${esc(t("guideCheck"))}</li><li>${esc(t("guideCopy"))}</li><li>${esc(t("guidePause"))}</li></ol><p class="hint">${esc(t("focusGuideHint"))}</p></details><div class="actions">${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
 }
 
+function templateFormView(s: Session): string {
+  const output = preview
+    ? s.template.email?.enabled
+      ? renderEmail(s)
+          .map((part) => `${t(part.key)}: ${part.text}`)
+          .join("\n\n")
+      : renderSession(s)
+    : "";
+  return `<main class="capture-panel template-form">
+    <h1>${esc(s.template.name)}</h1>
+    <div class="task-toolbar">${button("switch-scanner", "openInScanner")}${button("pause-task", "pauseTask")}</div>
+    ${s.template.verificationEnabled && s.fields.length ? `<p class="hint">${esc(t("formCheckHint"))}</p>` : ""}
+    ${s.fields
+      .map(
+        (field, index) => `<div class="template-form-field">
+      <label for="form-field-${index}">${esc(field.name)}</label>
+      <textarea id="form-field-${index}" rows="2" aria-describedby="form-state-${index}">
+${esc(field.value ?? "")}</textarea>
+      <small id="form-state-${index}">${esc(t(field.status === "verified" ? "matchedSource" : field.status))}</small>
+    </div>`,
+      )
+      .join("")}
+    <div class="actions">${button("preview", preview ? "hidePreview" : "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>
+    ${preview ? `<pre id="form-output" class="output">${esc(output)}</pre>` : ""}
+    <div class="actions">${button("cancel-session", "cancelSession", "quiet danger")}</div>
+  </main>`;
+}
+
+async function switchTemplateView(form: boolean) {
+  const s = session!;
+  const shortcutError = await configureSessionShortcuts(!form);
+  if (!form && s.mode === "capture") {
+    const empty = s.fields.findIndex((field) => field.status === "empty");
+    if (empty >= 0) s.active = empty;
+    else if (s.template.verificationEnabled) beginVerification(s);
+    else s.mode = "ready";
+  }
+  templateForm = form;
+  preview = false;
+  message = "";
+  render();
+  focus(form ? `form-field-${s.active}` : "switch-form");
+  if (shortcutError) report(shortcutError);
+}
 function sessionView(): string {
   if (!session) return "";
   const s = session,
     p = library.preferences,
     f = s.fields[s.active];
+  if (templateFormActive()) return templateFormView(s);
   if (focusedWorkflow && !["review", "complete"].includes(s.mode))
     return focusedSessionView(s);
   if (s.mode === "review")
@@ -1375,7 +1455,7 @@ function sessionView(): string {
       preview = false;
     }
   }
-  return `<main class="capture-panel ${s.scanner ? "scanner-panel" : ""}"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${button("toggle-workflow", "focusedView")}${button("pause-task", "pauseTask")}${button("session-back", s.scanner ? "workspace" : "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
+  return `<main class="capture-panel ${s.scanner ? "scanner-panel" : ""}"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${!s.scanner ? button("switch-form", "fillForm") : ""}${button("toggle-workflow", "focusedView")}${button("pause-task", "pauseTask")}${button("session-back", s.scanner ? "workspace" : "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
   ${s.scanner ? `<p class="vera-id">${esc(s.rowLink?.rowId ?? s.scannerId)}${s.rowLink ? `<br>${esc(s.rowLink.tableId)}` : ""}</p><p class="hint">${esc(t(s.rowLink ? "rowSaveHelp" : "scannerTemporary"))}</p>` : ""}
   ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>${!s.scanner ? `<p class="hint">${esc(t("clipboardHelp"))}</p>` : ""}</details>` : ""}
   ${mouseMode ? `<div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
@@ -1483,6 +1563,36 @@ function selectSessionField(index: number) {
     manualOpen = true;
 }
 function bindSession() {
+  click("switch-form", () => switchTemplateView(true));
+  click("switch-scanner", () => switchTemplateView(false));
+  if (templateFormActive()) {
+    session!.fields.forEach((field, index) => {
+      on(`form-field-${index}`, "input", (event) => {
+        const input = event.target as HTMLTextAreaElement;
+        const s = session!;
+        s.active = index;
+        if (input.value === (field.value ?? "")) return;
+        if (input.value.length > 1024 * 1024) {
+          input.value = field.value ?? "";
+          report(Error("invalidText"));
+          return;
+        }
+        if (input.value.trim()) capture(s, input.value, false);
+        else clear(s);
+        manualDrafts.delete(`capture:${field.name}`);
+        manualDrafts.delete(`verify:${field.name}`);
+        reverification = null;
+        preview = false;
+        document.getElementById("form-output")?.remove();
+        document.getElementById("preview")!.textContent = t("preview");
+        document.getElementById(`form-state-${index}`)!.textContent = t(
+          field.status,
+        );
+        document.getElementById("notice")!.hidden = true;
+        message = "";
+      });
+    });
+  }
   const input = document.getElementById(
     "manual-value",
   ) as HTMLTextAreaElement | null;
@@ -1727,6 +1837,11 @@ function bindSession() {
     focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
   });
   click("preview", () => {
+    if (templateFormActive() && !preview) {
+      if (session!.template.email?.enabled) renderEmail(session!);
+      else renderSession(session!);
+    }
+    message = "";
     preview = !preview;
     render();
     focus("finish");
@@ -1826,7 +1941,7 @@ async function perform(action: Action, global = false) {
   const s = session;
   if (!s || s.mode === "complete") return;
   // Global navigation is frozen while an editor/settings screen or confirmation is open.
-  if (view !== "session" || paused) return;
+  if (view !== "session" || paused || (global && templateFormActive())) return;
   if (s.mode === "review") return;
   if (s.mode === "delivery" && action !== "cancel") {
     const part = renderEmail(s)[s.deliveryIndex ?? 0];
@@ -1922,11 +2037,16 @@ async function perform(action: Action, global = false) {
       }
       if (s.template.email?.enabled) {
         renderEmail(s);
+        const shortcutError = templateFormActive()
+          ? await configureSessionShortcuts(true)
+          : undefined;
         s.mode = "delivery";
         s.deliveryIndex = 0;
         s.deliveryDone = false;
         emailSteps.clear();
+        message = "";
         render();
+        if (shortcutError) report(shortcutError);
         return;
       }
       const output = renderSession(s);
@@ -2052,6 +2172,7 @@ window.addEventListener("keydown", (event) => {
     document.querySelector("dialog[open]")
   )
     return;
+  if (view === "session" && templateFormActive()) return;
   if (view === "session" && session?.scanner) {
     const target = event.target as HTMLElement;
     const fieldButton = target.closest<HTMLButtonElement>("[data-field]");

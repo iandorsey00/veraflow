@@ -1,5 +1,9 @@
 import type { en } from "./en";
 export const zh: Record<keyof typeof en, string> = {
+  editTemplate: "编辑模板",
+  fillForm: "填写表单",
+  openInScanner: "在扫描器中打开",
+  formCheckHint: "复制前请在扫描器中对照来源核验这些值。",
   quickGuide: "快速指南",
   guideCapture: "选择字段。采集来源中选定的文本，或展开手动输入以粘贴或输入。",
   guideCheck:
