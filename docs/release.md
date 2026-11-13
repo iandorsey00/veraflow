@@ -1,5 +1,7 @@
 # Release and rollback
 
+This page records the public release process and release history. For trial branch downloads, see [Windows test builds](windows-testing.md) and the [branch README](../README.md).
+
 ## 0.8.1 titled table snippets
 
 Published as [v0.8.1](https://github.com/iandorsey00/veraflow/releases/tag/v0.8.1). Both platform checks, three packages, updater signatures/authenticated versions, public payload checksums and live feed were verified; see [validation](validation.md).
@@ -125,7 +127,7 @@ Full release cycle (FRC): the complete first MVP was uncommitted, including secu
 5. On macOS run `clang -fobjc-arc tests/native/macos-text.m -framework AppKit -framework ApplicationServices -o /tmp/veraflow-text-test && /tmp/veraflow-text-test` to check Unicode/NUL handling without touching the clipboard.
 6. Build local platform packages with `npm run desktop:build`. On macOS `-- --bundles app` builds the app without making a disk image. Vite emits hashed assets, and Tauri bundles them directly; there is no service worker or external asset cache.
 7. Review the native acceptance matrix in validation.md. Sign and notarize macOS artifacts and sign Windows installers before a stable release; unsigned previews must be labeled explicitly. Credentials are not part of the repository.
-8. Review staged files and diff hygiene, commit, push, and inspect both platform CI jobs. Branch checks do not publish binaries. Version tags invoke the gated release workflow described above.
+8. Review staged files and diff hygiene, commit, push, and inspect both platform CI jobs. Branch checks upload Windows test installers to Actions. Version tags invoke the public release workflow described above.
 
 ## Install and upgrade
 

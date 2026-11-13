@@ -1,14 +1,20 @@
-# Focused workflow trial
+# Template Forms trial
 
-This guide covers the experimental `codex/focused-workflow` branch. The public 0.8.1 app remains available. This trial changes the working interface without changing the saved-library format.
+This guide covers `codex/template-forms`. It includes the focused Scanner workflow and a form for entering template values.
 
 ![Focused Scanner with a matched booking reference and a three-field checklist](portfolio/screenshots/10-focused-scanner.png)
 
-## Get the Windows trial
+## Install this trial
 
-Download [VeraFlow Test for Windows](https://github.com/iandorsey00/veraflow/actions/runs/41226152738/artifacts/13051744830) while signed into GitHub. Extract the ZIP, then run `VeraFlow-Test-abc349d6-setup.exe`. The archive also contains `BUILD.txt` and `SHA256.txt`. This is the isolated test app, with its own library and no public updates. The download expires after 14 days; the branch can be rebuilt from Actions.
+Use the [installation instructions in this branch’s README](../README.md#install) to find the Windows download or launch from source on macOS.
 
-The [successful Windows/macOS check run](https://github.com/iandorsey00/veraflow/actions/runs/41226152738) tested source commit `abc349d6cf83917e851fa8308bb01d2a96c5e9f6`: 52 core, 15 Rust, and 73 browser/accessibility tests on each platform, plus native checks and desktop compilation. Actual cross-app capture/paste still needs your Windows acceptance test.
+## Form and Scanner trial
+
+On the `codex/template-forms` branch, select a template and choose **Fill form** or **Open in Scanner**. Open **Edit template** to change its definition. Form shows all the template's fields together, with one text box per distinct placeholder. Scanner keeps the field-by-field capture and comparison workflow. Both actions save the template definition before starting, just as starting a template session does.
+
+Use **Open in Scanner** from the form to capture or compare source text. Select **Fill form** in Scanner to return to the same session. Changing a value clears its prior source match. **Preview**, **Copy result**, and **Prepare email output** use the template's existing completeness and verification rules. Use **Pause** to preserve the session in memory while you visit another screen.
+
+This trial generates one multiline text box per distinct placeholder.
 
 ## Start with a small task
 
@@ -92,16 +98,6 @@ Choose **Classic view** at the top of the working window. Choose **Focused view*
 
 The branch adds no saved-library properties or migrations. To return to the public app, close the test app and open the public version. Keep a backup before experimenting, since explicitly editing/saving/deleting rows or templates still changes the library of the app you are using.
 
-For Windows, the branch’s **Check** workflow produces an isolated **VeraFlow Test** installer after all checks pass. It uses a separate library and cannot install public updates. Export/import synthetic tables or templates explicitly to try them there. The public app and its update feed are unchanged. Test artifacts expire after 14 days and require GitHub sign-in to download.
-
-For a local developer preview, check out this branch and run `npm ci`, then `npm run dev` for a browser-only, memory-only preview. To run an isolated native trial on Mac, use:
-
-```sh
-VITE_TEST_BUILD=1 npm run desktop -- --features test-build --config src-tauri/tauri.test.conf.json
-```
-
-This uses the Test identity and separate library. Plain `npm run desktop` uses the public app identity and its existing local library. A browser URL ending in `/?workflow=classic` starts directly in Classic view; the ordinary URL starts Focused view. No keyboard shortcuts need to be reconfigured.
-
 ## What to evaluate
 
 Try a short real Windows task and interrupt it halfway through. Check whether you can:
@@ -114,11 +110,3 @@ Try a short real Windows task and interrupt it halfway through. Check whether yo
 - Work at your preferred narrow width without horizontal scrolling.
 
 This trial does not add persistent session drafts, internal Undo, destination-content inspection, macros, or a unified Scanner/template/email data model. Those remain possible later steps, after testing whether the focused workflow helps.
-
-## Form and Scanner trial
-
-On the `codex/template-forms` branch, select a template and choose **Fill form** or **Open in Scanner**. Open **Edit template** to change its definition. Form shows all the template's fields together, with one text box per distinct placeholder. Scanner keeps the field-by-field capture and comparison workflow. Both actions save the template definition before starting, just as starting a template session does.
-
-Use **Open in Scanner** from the form to capture or compare source text. Select **Fill form** in Scanner to return to the same session. Changing a value clears its prior source match. **Preview**, **Copy result**, and **Prepare email output** use the template's existing completeness and verification rules. Use **Pause** to preserve the session in memory while you visit another screen.
-
-This trial uses multiline text boxes for all fields. The form adds no saved field settings. The installer linked earlier in this guide is for the focused-workflow trial. Find the form trial's isolated Windows installer in the [template-forms branch checks](https://github.com/iandorsey00/veraflow/actions/workflows/check.yml?query=branch%3Acodex%2Ftemplate-forms).
