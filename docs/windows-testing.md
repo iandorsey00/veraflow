@@ -1,33 +1,17 @@
-# Windows testing from a Mac
+# Windows test builds
 
-Use test builds for day-to-day Windows feedback, then publish a public release after acceptance. The Check workflow builds a Windows installer for branch changes only after automated checks pass. You can also use Run workflow on the Check page to request a build without creating a new release. These are workflow artifacts, not GitHub Releases, and they never update the public feed. Rust dependency caching and cancellation of superseded runs reduce repeated work.
+Choose a trial branch in the [README](../README.md), then use its **Windows x64** instructions to open the matching GitHub Actions runs. GitHub Releases hosts the public VeraFlow downloads. Each trial branch packages its own **VeraFlow Test** installer as an Actions artifact.
 
-## Previous workspace test build
+1. Sign in to GitHub and open a successful **Check** run for the branch you want. Confirm the branch beside the run title.
+2. In **Artifacts** on the run summary, download `VeraFlow-Windows-Test-<commit>`. Artifacts are available for 14 days after upload. If the download has expired, select **Run workflow** on the Check workflow page, choose the branch you want, and wait for the new run to succeed. A repository member with write access can start the run.
+3. Extract the ZIP. `BUILD.txt` identifies the source commit. To check the installer, compare its PowerShell `Get-FileHash <installer> -Algorithm SHA256` result with `SHA256.txt`.
+4. Quit any running VeraFlow or VeraFlow Test instance from the system tray so it releases the global shortcuts. Run `VeraFlow-Test-<commit>-setup.exe`, then launch **VeraFlow Test** from Start. These installers are publisher unsigned.
 
-[Download build b0956a56](https://github.com/iandorsey00/veraflow/actions/runs/39539572305/artifacts/12318967250) (GitHub sign-in required). This previous Windows x64 test installer includes the October 20 workspace and Scanner changes, but not October 21 CSV import or the 300px layout, with a separate library and public updates disabled. Extract the ZIP, then run `VeraFlow-Test-b0956a56-setup.exe`. Its source record and checksum are included. The artifact expires after 14 days; future runs produce new downloads. [Check run and logs](https://github.com/iandorsey00/veraflow/actions/runs/39539572305).
+VeraFlow Test uses its own library and app identity (`com.veraflow.test`). Both trial branches share that Test installation and library. To switch trials, quit VeraFlow Test and run the other branch’s installer. The banner shows the build commit. To upgrade a trial, download and install a newer artifact manually.
 
-Back up the test library before upgrading. Saved rows use the new optional workspace property; older test binaries reject it. Rollback requires restoring a compatible pre-upgrade library. Production VeraFlow's library is separate.
+GitHub checks cover compilation and automated tests. Try capture, paste, and keyboard shortcuts with the Windows apps you use.
 
-## Download and install
-
-1. Open the repository's [Check runs](https://github.com/iandorsey00/veraflow/actions/workflows/check.yml), select the run for the intended commit, and wait for Windows success.
-2. Sign in to GitHub and download the `VeraFlow-Windows-Test-<commit>` artifact from the run's Artifacts section. Artifacts are retained for 14 days. Extract the ZIP.
-3. Check the installer with PowerShell `Get-FileHash <installer> -Algorithm SHA256` against the included SHA256.txt. BUILD.txt identifies the exact commit. Install only your intended build; these installers remain publisher unsigned.
-4. Install **VeraFlow Test** alongside VeraFlow. Its identifier is `com.veraflow.test`; it uses a separate app-data library and installation name. The test configuration preserves normal window constraints. Export/import template JSON explicitly if needed; captured values never transfer through JSON.
-5. Check capture from the Windows apps you use, verification, clipboard output, focus the target before the output shortcut, Paste/Tab field order, failed-paste recovery, template handoff, Return to Scanner, post-email Open fields in Scanner versus Clear fields and close, bottom field actions and the right-click menu, stock Ctrl+Alt shortcut migration, and top/bottom Snap restoration. Test with synthetic data first.
-6. Quit regular VeraFlow through its tray menu before testing; closing its window can leave it running. Both apps use the same default shortcut combinations (now Ctrl+Alt+1–8 for stock bindings). A shortcut collision still permits manual capture. Uninstalling the test app does not uninstall the production app; retain or delete its separate data deliberately.
-
-The test app shows a banner. Frontend startup update checks are disabled, and native `test-build` handlers reject both update checking and installation before any network/download operation. Test builds do not use the private updater key. Install a newer test artifact manually. Public VeraFlow 0.8.1 is distributed through the [release page](https://github.com/iandorsey00/veraflow/releases/tag/v0.8.1); test builds remain separate and cannot install public updates.
-
-GitHub-hosted Windows checks validate compilation, core behavior, browser accessibility, and native placement logic. They do not prove cross-app focus, real Outlook behavior, Snap layouts, permission prompts, or keyboard hooks on your desktop. Use the existing Windows machine for those checks; remote access to it from the Mac can reduce switching. A Windows VM is another option if you prefer a local test desktop, but is not required for this workflow.
-
-After Windows acceptance, use the normal full release workflow to package signed updater bundles for all three platforms, verify signatures and downloaded checksums, publish the preview, and update the feed. Keep the current production installer and a library backup for rollback. Fixes to published releases require a higher version.
-
-References: [GitHub artifact downloads](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) and [Tauri isolated beta configuration](https://v2.tauri.app/develop/configuration-files/).
-
-The October 19 build adds an optional one-time shortcut migration marker. Back up the test library before upgrading; older test binaries reject the new property. To roll back a test installation, restore its compatible pre-upgrade library backup. Production VeraFlow's separate library is unaffected.
-
-## October 20 workspace acceptance
+## Historical Windows acceptance notes
 
 Test the new build with synthetic travel/logistics rows: create a folder and table; toggle row titles; add table and row external IDs; capture and save a row, quit/reopen, and confirm saved values remain but must be verified again. Cancel edits and confirm unsaved values are lost only after the explicit erase choice. Save Free Scanner to both a new table and an existing table; check added columns leave other rows intact. Export/import field-only Scanner JSON, value-inclusive Scanner JSON, one table, and the database; import the same file again and confirm independent copies instead of overwrites. Verify JSON before sharing because it includes saved values.
 

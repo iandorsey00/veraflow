@@ -4,6 +4,23 @@ A local desktop utility for capturing, verifying, and reusing text. Organize rep
 
 Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, analytics, or AI service. The app contacts GitHub for update checks and downloads; template and session values stay local. Preview binaries use verified updater signatures but do not yet have Apple notarization or Windows publisher signing. Native runtime acceptance remains incomplete.
 
+## Install the public preview
+
+Get the [v0.8.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.8.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+
+On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
+
+Back up `library.json` before upgrading. See [release and rollback instructions](docs/release.md) and [preview limitations](docs/binary-release-notes.md).
+
+## Experimental branches
+
+| Branch                   | What you can try                                                          | Install                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `codex/focused-workflow` | Compact task view, progress checklist, and Pause/Resume                   | [Focused Workflow instructions](https://github.com/iandorsey00/veraflow/tree/codex/focused-workflow#install) |
+| `codex/template-forms`   | Focused Workflow plus Form and Scanner views of the same template session | [Template Forms instructions](https://github.com/iandorsey00/veraflow/tree/codex/template-forms#install)     |
+
+Both branches offer a Windows x64 **VeraFlow Test** installer through GitHub Actions. Each branch README links to its own builds and has instructions for running from source on macOS.
+
 ![VeraFlow workspace with a synthetic travel booking row](docs/portfolio/screenshots/07-workspace.png)
 
 ## Workspace preview (0.7.0)
@@ -43,14 +60,6 @@ Back up the library before upgrading. Version 0.7.0 and earlier reject saved `ex
 Fresh installations include generic English and Chinese email templates with separate Subject/To/Body and `{{double_braces}}` placeholders. Blank new templates also use braces. Legacy angle syntax remains optional so existing templates and imports keep working; no automatic text rewriting occurs. Existing libraries and templates are preserved.
 
 Global shortcuts default to Ctrl+Alt+1–8 on Windows (Cmd+Option+1–8 on macOS). Previously unchanged stock Ctrl+Shift bindings migrate once to these defaults; later explicit changes are respected; customized bindings remain untouched, and migration avoids collisions with existing shortcuts. Local Cmd/Ctrl+Enter and Alt+Left/Right remain available.
-
-## Download
-
-Get the [v0.8.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.8.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
-
-On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
-
-Back up `library.json` before upgrading. See [release and rollback instructions](docs/release.md) and [preview limitations](docs/binary-release-notes.md).
 
 ## Run
 
@@ -162,7 +171,7 @@ JSON exports include the optional Subject toggle and paste order. Old libraries 
 
 The v0.6.0 release passed 48 automated tests on each supported CI platform, native compilation checks, and updater signature/checksum verification. Native cross-app acceptance and visible updater relaunch remain the preview limitations recorded in [validation](docs/validation.md).
 
-## Latest release: v0.6.2
+## v0.6.2
 
 Sessions use a compact heading, with manual entry directly below it and expandable session options and guidance. Status notices have balanced spacing, and template import/export controls are separated from the list.
 
@@ -172,7 +181,7 @@ Leaving or completing a session restores the pre-session window bounds. Windows 
 
 Release verification: all 56 core, Rust, and browser/accessibility tests passed on each CI platform, along with native compilation and the platform-specific native checks. All three binary packages passed updater-signature and downloaded-checksum verification. The v0.6.2 update feed is live for Windows x64 and both Mac architectures. Binaries remain publisher-unsigned previews.
 
-## Previous release: v0.6.1
+## v0.6.1
 
 Clipboard preservation starts off for new and existing installations. Existing preferences migrate once; later explicit opt-in in Settings is respected. Capture replaces the clipboard while restoration is off.
 
