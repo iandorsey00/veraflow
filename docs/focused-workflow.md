@@ -31,13 +31,13 @@ Choose an option once and reuse its ID across other parts of the template. For e
 
 ```text
 Recipient: {{select people: steve="Steve Sample" | joe="Joe Example"}}
-{{choice people: steve="Hello Steve" | joe="Hello Joe"}}
+{{when people=steve: "Hello Steve"}}{{when people=joe: "Hello Joe"}}
 
 Update available.
-{{choice people: steve="Best regards, Steve" | joe="Best regards, Joe"}}
+{{when people=steve: "Best regards, Steve"}}{{when people=joe: "Best regards, Joe"}}
 ```
 
-Email Mode can define a selection in **To** and reference it in **Subject** or **Body**. A choice can omit an option to emit empty text for that option. Quoted values can use JSON escapes such as `\n` for a multiline block. The first radio or dropdown option is the default. Checkboxes and switches start off. Conditional fields keep their responses while hidden and omit them from the output.
+Email Mode can define a selection in **To** and reference it in **Subject** or **Body**. A `when` expression writes its quoted text only when the named field has the given option ID. Put expressions next to each other when exactly one should produce text on the same line. Existing `choice` maps still load and render. Quoted values can use JSON escapes such as `\n` for a multiline block. The first radio or dropdown option is the default. Checkboxes and switches start off. Conditional fields keep their responses while hidden and omit them from the output.
 
 In Scanner, select a configured field to use its control or capture a value. For a selection, the stored value is its option ID. The preview shows the text associated with that ID.
 

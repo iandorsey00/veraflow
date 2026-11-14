@@ -169,3 +169,9 @@ Local verification also passed all 52 core and 73 browser tests, production buil
 ## Unified workflows on main
 
 The merge integrates the Focused Workflow and Template Forms trials. Local checks passed 55 core tests, 15 Rust tests, and 76 browser tests, plus the production build, formatting, version consistency, and Rust Clippy. Form coverage includes reusable option IDs, hidden responses, live previews, email header checks, separate verification, retained results, and fresh restarts. Native cross-app capture and paste remain interactive desktop checks.
+
+## 0.9.0 conditional output and unified workflows
+
+Local checks passed 56 core tests, 15 Rust tests, and 76 browser scenarios. The cases include conditional output in email, unknown option IDs, and compatibility with existing choice maps. Production build, formatting, version consistency, and Clippy passed.
+
+The release audit identified RUSTSEC-2026-0486 on the macOS updater dependency path. The lockfile now selects rustix 1.1.6. The repeat audits report zero vulnerability-class advisories. Rust informational findings include nine unmaintained dependencies, the unsupported-Linux glib advisory, and a yanked async-executor version outside the shipped targets.

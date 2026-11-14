@@ -15,7 +15,7 @@ test("Typing workflow previews fields and can restart completed responses when r
   await page
     .locator("#template-content")
     .fill(
-      'Booking {{text reference:}} for {{select people: steve="Steve" | joe="Joe"}}. {{choice people: joe="Goodbye Joe"}}',
+      'Booking {{text reference:}} for {{select people: steve="Steve" | joe="Joe"}}. {{when people=joe: "Goodbye Joe"}}',
     );
   await expect(page.locator("#template-preview mark")).toHaveText(
     "{{text reference:}}",
@@ -92,7 +92,7 @@ test("a selection can hide a field, preserve its entry, and change email headers
   await page
     .locator("#template-content")
     .fill(
-      '{{choice people: steve="Hi Steve" | joe="Hi Joe"}}\n{{textarea note: when people=joe}}',
+      '{{when people=steve: "Hi Steve"}}{{when people=joe: "Hi Joe"}}\n{{textarea note: when people=joe}}',
     );
   await page.locator("#start-form").click();
   await expect(page.getByLabel("note", { exact: true })).toHaveCount(0);

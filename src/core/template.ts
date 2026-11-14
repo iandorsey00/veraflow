@@ -14,7 +14,7 @@ export function tokens(
 ) {
   const pattern =
     style === "braces" && withControls
-      ? /\\(?:\\|\{\{)|\{\{(\s*(?:select|radio|dropdown|checkbox|switch|choice|text|textarea|email|date|number) [\w-]+\??:(?:[^"<>{}\p{Cc}\p{Cf}\u2028\u2029]|"(?:[^"\\\p{Cc}\p{Cf}]|\\[^\p{Cc}\p{Cf}])*")*)\}\}|\{\{([^<>{}\p{Cc}\p{Cf}\u2028\u2029]+)\}\}/gu
+      ? /\\(?:\\|\{\{)|\{\{(\s*(?:(?:select|radio|dropdown|checkbox|switch|choice|text|textarea|email|date|number) [\w-]+\??|when [\w-]+[^\S\r\n]*=[^\S\r\n]*[\w-]+):(?:[^"<>{}\p{Cc}\p{Cf}\u2028\u2029]|"(?:[^"\\\p{Cc}\p{Cf}]|\\[^\p{Cc}\p{Cf}])*")*)\}\}|\{\{([^<>{}\p{Cc}\p{Cf}\u2028\u2029]+)\}\}/gu
       : style === "braces"
         ? /\\(?:\\|\{\{)|\{\{([^<>{}\p{Cc}\p{Cf}\u2028\u2029]+)\}\}/gu
         : /\\(?:\\|<)|<([^<>{}\s\p{Cc}\p{Cf}]+)>/gu;

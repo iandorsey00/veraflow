@@ -1,5 +1,9 @@
 # Release and rollback
 
+## 0.9.0 unified template workflows
+
+Full release cycle for shared template workflows, form directives, and optional persisted preferences. Back up the library before upgrading. For rollback to 0.8.1, restore the pre-upgrade library while VeraFlow is closed.
+
 This page records the public release process and release history. For trial branch downloads, see [Windows test builds](windows-testing.md) and the [branch README](../README.md).
 
 ## 0.8.1 titled table snippets

@@ -87,7 +87,7 @@ test("rejects malformed selections and validates conditional email header output
   const s = startSession({
     ...definition,
     verificationEnabled: false,
-    content: 'Hi {{choice person: a="Alex" | b="Bo"}}',
+    content: 'Hi {{when person = a: "Alex <team>"}}{{when person=b: "Bo"}}',
     email: {
       enabled: true,
       subject: "Update",
@@ -102,6 +102,39 @@ test("rejects malformed selections and validates conditional email header output
     renderEmail(s).find((p) => p.key === "to")?.text,
     "Alex <alex@example.test>",
   );
+  assert.equal(
+    renderEmail(s).find((p) => p.key === "body")?.text,
+    "Hi Alex <team>",
+  );
   capture(s, "b");
   assert.throws(() => renderEmail(s), /emailHeaderInvalid/);
+});
+
+test("when validates its field and option and existing choice maps remain compatible", () => {
+  const content =
+    '{{radio team: a="A" | b="B"}}{{when team=b: " (selected)"}}{{choice team: a=" legacy A" | b=" legacy B"}}';
+  const s = startSession({
+    ...definition,
+    content,
+    verificationEnabled: false,
+  });
+  assert.equal(renderSession(s), "A legacy A");
+  capture(s, "b");
+  assert.equal(renderSession(s), "B (selected) legacy B");
+  assert.throws(
+    () =>
+      startSession({
+        ...definition,
+        content: content + '{{when team=c: "Unknown"}}',
+      }),
+    /invalidFormDirective/,
+  );
+  assert.throws(
+    () =>
+      startSession({
+        ...definition,
+        content: content + '{{when missing=a: "Unknown"}}',
+      }),
+    /invalidFormDirective/,
+  );
 });

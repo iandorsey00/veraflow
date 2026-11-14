@@ -21,6 +21,10 @@ export type Directive = {
 };
 
 const quoted = '"(?:[^"\\\\]|\\\\.)*"';
+const conditionalOutput = new RegExp(
+  `^when ([\\w-]+)\\s*=\\s*([\\w-]+):\\s*(${quoted})$`,
+  "u",
+);
 const inputDirective = new RegExp(
   `^(text|textarea|email|date|number) ([\\w-]+)(\\?)?:(?:\\s*(${quoted}))?(?:\\s*when ([\\w-]+)=([\\w-]+))?\\s*$`,
   "u",
@@ -56,6 +60,13 @@ function options(source: string) {
 
 // Reserved brace syntax. Quoted values use JSON string escapes.
 export function formDirective(name: string): Directive {
+  const condition = conditionalOutput.exec(name);
+  if (condition) {
+    const [, field, value, output] = condition;
+    return { name: field, choices: new Map([[value, parseQuoted(output)]]) };
+  }
+  if (/^when [\w-]+\s*=\s*[\w-]+:/u.test(name))
+    throw Error("invalidFormDirective");
   const selection =
     /^(select|radio|dropdown|checkbox|switch|choice) ([\w-]+):\s*(.*)$/u.exec(
       name,

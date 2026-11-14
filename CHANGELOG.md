@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+Unified Scanner and Typing workflows, opt-in Focused view, live previews, session restart, and form controls. Use `{{when field=option: "text"}}` for conditional output. Existing choice maps remain supported.
+
 ## 0.4.0 — 2026-09-29
 
 - Optional per-template email mode with Subject, To, Body, and independently enabled Cc/Bcc, all off by default.
