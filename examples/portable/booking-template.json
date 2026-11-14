@@ -1,0 +1,31 @@
+{
+  "format": "veraflow-templates",
+  "version": 1,
+  "templates": [
+    {
+      "id": "example-routing",
+      "name": "Booking notice",
+      "folder": "Examples",
+      "placeholderStyle": "braces",
+      "content": "Routing: {{radio DOA: no=\"Standard\" | yes=\"DOA review\"}}\nBooking {{reference}} for {{name}} ({{reference}}).{{when DOA=yes: \"\\nReview note: \"}}{{text note: when DOA=yes}}\nRegards, Ops",
+      "fieldOrder": ["reference", "name", "DOA", "note"],
+      "verificationEnabled": false,
+      "comparison": {
+        "mode": "exact",
+        "caseSensitive": true,
+        "unicode": false,
+        "punctuation": false,
+        "collapseLines": false
+      },
+      "email": {
+        "enabled": true,
+        "subject": "Booking {{reference}}",
+        "to": "{{when DOA=no: \"dispatch@example.test\"}}{{when DOA=yes: \"review@example.test\"}}",
+        "cc": "",
+        "bcc": "",
+        "ccEnabled": false,
+        "bccEnabled": false
+      }
+    }
+  ]
+}

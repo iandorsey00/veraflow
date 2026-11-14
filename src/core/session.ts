@@ -205,36 +205,13 @@ function validateOutput(s: Session) {
   if (s.fields.some((f) => needsCapture(s, f))) throw Error("incomplete");
   if (verificationRequired(s) && s.fields.some((f) => needsCheck(s, f)))
     throw Error("unverified");
-  for (const field of s.fields) {
-    const control = s.controls?.get(field.name);
-    if (
-      control &&
-      fieldVisible(s, field.name) &&
-      field.value !== null &&
-      !validControlValue(control, field.value)
-    )
-      throw Error("invalidControlValue");
-  }
 }
-export function previewSections(template: Template, s?: Session) {
-  const controls = s?.controls ?? templateControls(template);
-  const values = new Map<string, string>();
-  if (s) {
-    for (const field of s.fields) {
-      if (
-        field.value !== null ||
-        field.status === "skipped" ||
-        controls.get(field.name)?.optional
-      )
-        values.set(field.name, field.value ?? "");
-    }
-  } else {
-    for (const [name, control] of controls) {
-      if (control.defaultValue !== undefined)
-        values.set(name, control.defaultValue);
-      else if (control.optional) values.set(name, "");
-    }
-  }
+
+function renderParts(
+  template: Template,
+  values: ReadonlyMap<string, string>,
+  controls: NonNullable<Session["controls"]>,
+) {
   return emailSections(template).map((part) => ({
     key: part.key,
     parts: outputParts(
@@ -246,12 +223,79 @@ export function previewSections(template: Template, s?: Session) {
     ),
   }));
 }
+
+export function renderTemplateValues(
+  template: Template,
+  input: ReadonlyMap<string, string>,
+) {
+  const controls = templateControls(template);
+  const values = new Map(input);
+  for (const [name, control] of controls) {
+    if (!values.has(name)) {
+      if (control.defaultValue !== undefined)
+        values.set(name, control.defaultValue);
+      else if (control.optional) values.set(name, "");
+    }
+  }
+  const rendered = checkedParts(template, values, controls);
+  return template.email?.enabled ? checkedEmail(template, rendered) : rendered;
+}
+
+function checkedParts(
+  template: Template,
+  values: ReadonlyMap<string, string>,
+  controls: NonNullable<Session["controls"]>,
+) {
+  for (const [name, control] of controls) {
+    if (control.when && values.get(control.when.name) !== control.when.value)
+      continue;
+    const value = values.get(name);
+    if (value === undefined) throw Error("missingValue");
+    if (
+      !(control.optional && value === "") &&
+      !validControlValue(control, value)
+    )
+      throw Error("invalidControlValue");
+  }
+  return renderParts(template, values, controls).map(({ key, parts }) => {
+    if (parts.some((part) => part.missing)) throw Error("missingValue");
+    const text = parts.map((part) => part.text).join("");
+    return { key, text: key === "body" ? text : text.trim() };
+  });
+}
+
+function sessionValues(s: Session) {
+  return new Map(
+    s.fields.flatMap((field) =>
+      field.value !== null ||
+      field.status === "skipped" ||
+      s.controls?.get(field.name)?.optional
+        ? [[field.name, field.value ?? ""] as const]
+        : [],
+    ),
+  );
+}
+
+export function previewSections(template: Template, s?: Session) {
+  const controls = s?.controls ?? templateControls(template);
+  const values = s ? sessionValues(s) : new Map<string, string>();
+  if (!s) {
+    for (const [name, control] of controls) {
+      if (control.defaultValue !== undefined)
+        values.set(name, control.defaultValue);
+      else if (control.optional) values.set(name, "");
+    }
+  }
+  return renderParts(template, values, controls);
+}
+
 export function renderSession(s: Session): string {
   validateOutput(s);
-  return previewSections(s.template, s)
-    .find((part) => part.key === "body")!
-    .parts.map((part) => part.text)
-    .join("");
+  return checkedParts(
+    s.template,
+    sessionValues(s),
+    s.controls ?? templateControls(s.template),
+  ).find((part) => part.key === "body")!.text;
 }
 export function eraseSession(s: Session): void {
   for (const field of s.fields) {
@@ -274,12 +318,22 @@ export class EmailHeaderError extends Error {
 }
 export function renderEmail(s: Session) {
   validateOutput(s);
-  const sections = previewSections(s.template, s).map((part) => {
-    const text = part.parts.map((token) => token.text).join("");
-    return { key: part.key, text: part.key === "body" ? text : text.trim() };
-  });
+  return checkedEmail(
+    s.template,
+    checkedParts(
+      s.template,
+      sessionValues(s),
+      s.controls ?? templateControls(s.template),
+    ),
+  );
+}
+
+function checkedEmail(
+  template: Template,
+  sections: { key: EmailHeader | "body"; text: string }[],
+) {
   if (
-    (s.template.email?.subjectEnabled !== false &&
+    (template.email?.subjectEnabled !== false &&
       !sections.find((p) => p.key === "subject")?.text.trim()) ||
     !sections.find((p) => p.key === "to")?.text.trim()
   )

@@ -1,5 +1,7 @@
 # Templates and workflows
 
+For portable syntax, exact output examples, and workspace exchange, see the [portable specification](portable-templates.md).
+
 ## Template workflows
 
 Select a template to see its preview. **Scanner workflow** captures text from another app and uses the template’s Scanner verification setting. **Typing workflow** opens a full-window form with a live output preview. Highlighted placeholders mark required values still waiting for input. Switch workflows in the session to keep your responses. Each workflow verifies with its own method.

@@ -6,11 +6,15 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ## Install the public preview
 
-Get the [v0.9.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.9.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
+Get the [v0.9.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.9.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 
 Back up `library.json` before upgrading. To try the current source on Windows, use the [main branch Check runs](https://github.com/iandorsey00/veraflow/actions/workflows/check.yml?query=branch%3Amain) and follow the [Windows Test instructions](docs/windows-testing.md). See [release and rollback instructions](docs/release.md) and [preview limitations](docs/binary-release-notes.md).
+
+## Portable templates and saved information
+
+The [portable specification](docs/portable-templates.md) explains how to fill a template by hand, reproduce its output in another app, and exchange saved tables. It includes a synthetic email example, test fixtures, and an independent Python reader.
 
 ## Templates on main
 

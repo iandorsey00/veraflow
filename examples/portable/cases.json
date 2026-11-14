@@ -1,0 +1,130 @@
+[
+  {
+    "name": "literal Unicode and escapes",
+    "text": "{{  名字 }} / {{名字}} / \\{{名字}} / \\\\ / {{note}}",
+    "values": {
+      "名字": "李梅",
+      "note": "{{literal}}"
+    },
+    "output": "李梅 / 李梅 / {{名字}} / \\ / {{literal}}"
+  },
+  {
+    "name": "explicit empty plain value",
+    "text": "[{{value}}]",
+    "values": {
+      "value": ""
+    },
+    "output": "[]"
+  },
+  {
+    "name": "case-sensitive missing value",
+    "text": "[{{value}}]",
+    "values": {
+      "Value": ""
+    },
+    "error": "missingValue"
+  },
+  {
+    "name": "routing hides conditional field",
+    "archive": "booking-template.json",
+    "values": {
+      "reference": "AB-104",
+      "name": "李梅",
+      "DOA": "no",
+      "note": "This response is hidden"
+    },
+    "parts": [
+      {
+        "key": "subject",
+        "text": "Booking AB-104"
+      },
+      {
+        "key": "to",
+        "text": "dispatch@example.test"
+      },
+      {
+        "key": "body",
+        "text": "Routing: Standard\nBooking AB-104 for 李梅 (AB-104).\nRegards, Ops"
+      }
+    ]
+  },
+  {
+    "name": "routing defaults to first ID",
+    "archive": "booking-template.json",
+    "values": {
+      "reference": "AB-104",
+      "name": "李梅",
+      "note": "This response is hidden"
+    },
+    "parts": [
+      {
+        "key": "subject",
+        "text": "Booking AB-104"
+      },
+      {
+        "key": "to",
+        "text": "dispatch@example.test"
+      },
+      {
+        "key": "body",
+        "text": "Routing: Standard\nBooking AB-104 for 李梅 (AB-104).\nRegards, Ops"
+      }
+    ]
+  },
+  {
+    "name": "conditional field visible",
+    "archive": "booking-template.json",
+    "values": {
+      "reference": "AB-104",
+      "name": "李梅",
+      "DOA": "yes",
+      "note": "Inspect {{literal}} on arrival."
+    },
+    "parts": [
+      {
+        "key": "subject",
+        "text": "Booking AB-104"
+      },
+      {
+        "key": "to",
+        "text": "review@example.test"
+      },
+      {
+        "key": "body",
+        "text": "Routing: DOA review\nBooking AB-104 for 李梅 (AB-104).\nReview note: Inspect {{literal}} on arrival.\nRegards, Ops"
+      }
+    ]
+  },
+  {
+    "name": "visible required field missing",
+    "archive": "booking-template.json",
+    "values": {
+      "reference": "AB-104",
+      "name": "李梅",
+      "DOA": "yes"
+    },
+    "error": "missingValue"
+  },
+  {
+    "name": "explicit empty required typed field",
+    "archive": "booking-template.json",
+    "values": {
+      "reference": "AB-104",
+      "name": "李梅",
+      "DOA": "yes",
+      "note": ""
+    },
+    "error": "invalidControlValue"
+  },
+  {
+    "name": "unknown option ID",
+    "archive": "booking-template.json",
+    "values": {
+      "reference": "AB-104",
+      "name": "李梅",
+      "DOA": "No",
+      "note": "This response is hidden"
+    },
+    "error": "invalidControlValue"
+  }
+]

@@ -1,5 +1,9 @@
 # Release and rollback
 
+## 0.9.1 portable templates
+
+Full release cycle for the portable specification and the renderer shared by Typing, Scanner, and saved value maps. The template and workspace archives continue to use version 1. See the [portable specification](portable-templates.md) and [validation](validation.md).
+
 ## 0.9.0 unified template workflows
 
 Full release cycle for shared template workflows, form directives, and optional persisted preferences. Back up the library before upgrading. For rollback to 0.8.1, restore the pre-upgrade library while VeraFlow is closed.

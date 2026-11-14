@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+Published the portable template and workspace specification, shared rendering fixtures, and standalone Python reader. Typing and Scanner use the same final rendering and validation as the portable value-map entry point.
+
 ## 0.9.0
 
 Unified Scanner and Typing workflows, opt-in Focused view, live previews, session restart, and form controls. Use `{{when field=option: "text"}}` for conditional output. Existing choice maps remain supported.

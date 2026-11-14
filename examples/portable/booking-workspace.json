@@ -1,0 +1,75 @@
+{
+  "format": "veraflow-workspace",
+  "version": 1,
+  "workspace": {
+    "folders": [
+      {
+        "id": "VF-00000000-0000-4000-8000-000000000001",
+        "name": "Operations"
+      }
+    ],
+    "tables": [
+      {
+        "id": "VF-00000000-0000-4000-8000-000000000002",
+        "name": "Bookings",
+        "folderId": "VF-00000000-0000-4000-8000-000000000001",
+        "fields": ["reference", "name", "DOA", "note"],
+        "rowTitles": true,
+        "output": "Booking {{reference}} for {{name}}",
+        "externalIds": [
+          {
+            "label": "source",
+            "value": "demo"
+          }
+        ],
+        "rows": [
+          {
+            "id": "VF-00000000-0000-4000-8000-000000000003",
+            "title": "Standard",
+            "externalIds": [
+              {
+                "label": "locator",
+                "value": "AB-104"
+              }
+            ],
+            "values": {
+              "reference": "AB-104",
+              "name": "李梅",
+              "DOA": "no"
+            }
+          },
+          {
+            "id": "VF-00000000-0000-4000-8000-000000000004",
+            "title": "Review",
+            "externalIds": [],
+            "values": {
+              "reference": "AB-104",
+              "name": "李梅",
+              "DOA": "yes",
+              "note": "Inspect {{literal}} on arrival."
+            }
+          },
+          {
+            "id": "VF-00000000-0000-4000-8000-000000000005",
+            "title": "Explicit blank note",
+            "externalIds": [],
+            "values": {
+              "reference": "AB-105",
+              "name": "李梅",
+              "DOA": "no",
+              "note": ""
+            }
+          }
+        ]
+      }
+    ],
+    "snippets": [
+      {
+        "id": "VF-00000000-0000-4000-8000-000000000006",
+        "title": "Signature",
+        "content": "Regards, Ops",
+        "tableId": "VF-00000000-0000-4000-8000-000000000002"
+      }
+    ]
+  }
+}
