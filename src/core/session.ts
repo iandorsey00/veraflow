@@ -1,39 +1,109 @@
 import { compare } from "./compare";
 import {
   captureFieldNames,
-  renderTemplate,
-  templateSource,
+  outputParts,
+  templateControls,
   emailSections,
 } from "./template";
+import { validControlValue } from "./form";
 import type { Session, Template, EmailHeader } from "./model";
+export function verificationRequired(s: Session) {
+  return s.typing
+    ? s.template.typingVerification === true
+    : s.template.verificationEnabled;
+}
+export function fieldVisible(s: Session, name: string) {
+  const when = s.controls?.get(name)?.when;
+  return (
+    !when ||
+    s.fields.find((field) => field.name === when.name)?.value === when.value
+  );
+}
+function needsCapture(s: Session, field: Session["fields"][number]) {
+  return (
+    fieldVisible(s, field.name) &&
+    (field.status === "empty" ||
+      (field.status === "skipped" &&
+        (s.typing === true || s.controls?.has(field.name) === true))) &&
+    !s.controls?.get(field.name)?.optional
+  );
+}
+function needsCheck(s: Session, field: Session["fields"][number]) {
+  return (
+    fieldVisible(s, field.name) &&
+    field.value !== null &&
+    field.status !== "verified"
+  );
+}
 export function startSession(template: Template): Session {
-  const fields = captureFieldNames(template).map((name) => ({
-    name,
-    value: null,
-    status: "empty" as const,
-  }));
-  return {
+  const controls = templateControls(template);
+  const fields: Session["fields"] = captureFieldNames(template).map((name) => {
+    const value = controls.get(name)?.defaultValue ?? null;
+    return { name, value, status: value === null ? "empty" : "captured" };
+  });
+  const s: Session = {
     template: structuredClone(template),
+    controls,
     fields,
     active: 0,
-    mode: fields.length ? "capture" : "ready",
+    mode: "capture",
   };
+  if (!fields.length) s.mode = "ready";
+  else if (controls.size) {
+    const first = fields.findIndex((field) => needsCapture(s, field));
+    if (first >= 0) s.active = first;
+    else if (verificationRequired(s)) beginVerification(s);
+    else s.mode = "ready";
+  }
+  return s;
+}
+
+export function prepareWorkflow(s: Session, typing: boolean) {
+  s.typing = typing;
+  for (const field of s.fields) {
+    if (field.status === "verified" && !!field.checkedByTyping !== typing) {
+      field.status = "captured";
+      delete field.checkedByTyping;
+    }
+    if (field.status === "mismatch") {
+      field.status = "captured";
+      delete field.checkedByTyping;
+      delete field.candidate;
+    }
+  }
+  const first = s.fields.findIndex((field) => needsCapture(s, field));
+  if (first >= 0) {
+    s.mode = "capture";
+    if (!typing) s.active = first;
+  } else if (verificationRequired(s)) beginVerification(s);
+  else s.mode = "ready";
 }
 function editable(s: Session) {
   if (s.mode === "complete") throw new Error("sessionComplete");
 }
 export function move(s: Session, offset: number): void {
   editable(s);
-  if (!s.fields.length) return;
-  s.active = (s.active + offset + s.fields.length) % s.fields.length;
+  const visible = s.fields.flatMap((field, index) =>
+    fieldVisible(s, field.name) ? [index] : [],
+  );
+  if (!visible.length) return;
+  const current = visible.indexOf(s.active);
+  s.active =
+    current < 0
+      ? visible[0]
+      : visible[(current + offset + visible.length) % visible.length];
 }
 export function capture(s: Session, value: string, advance = true): void {
   editable(s);
   if (!value.trim()) throw new Error("emptySelection");
   const field = s.fields[s.active];
   if (!field) throw new Error("noField");
+  const control = s.controls?.get(field.name);
+  if (control && !validControlValue(control, value))
+    throw Error("invalidControlValue");
   field.value = field.removeBlankLines ? stripBlankLines(value) : value;
   field.status = "captured";
+  delete field.checkedByTyping;
   delete field.candidate;
   s.mode = "capture";
   if (advance) advanceCapture(s);
@@ -45,10 +115,13 @@ export function clear(s: Session): void {
   field.value = null;
   field.status = "empty";
   delete field.removeBlankLines;
+  delete field.checkedByTyping;
   delete field.candidate;
   s.mode = "capture";
 }
 export function skip(s: Session, advance = true): void {
+  const control = s.controls?.get(s.fields[s.active]?.name);
+  if (control && !control.optional) throw Error("incomplete");
   clear(s);
   const field = s.fields[s.active];
   if (!field) return;
@@ -56,12 +129,12 @@ export function skip(s: Session, advance = true): void {
   if (advance) advanceCapture(s);
 }
 function advanceCapture(s: Session): void {
-  const next = findNext(s, (field) => field.status === "empty");
+  const next = findNext(s, (field) => needsCapture(s, field));
   if (next !== -1) {
     s.active = next;
     return;
   }
-  if (s.template.verificationEnabled) beginVerification(s);
+  if (verificationRequired(s)) beginVerification(s);
   else s.mode = "ready";
 }
 function findNext(
@@ -76,11 +149,9 @@ function findNext(
 }
 export function beginVerification(s: Session): void {
   editable(s);
-  if (s.fields.some((field) => field.status === "empty"))
+  if (s.fields.some((field) => needsCapture(s, field)))
     throw new Error("incomplete");
-  const index = s.fields.findIndex(
-    (field) => field.value !== null && field.status !== "verified",
-  );
+  const index = s.fields.findIndex((field) => needsCheck(s, field));
   s.mode = index === -1 ? "ready" : "verify";
   if (index !== -1) s.active = index;
 }
@@ -89,7 +160,9 @@ export function beginReverification(s: Session, all = false): void {
   if (!["capture", "verify", "ready"].includes(s.mode))
     throw Error("sessionComplete");
   const indices = all
-    ? s.fields.flatMap((field, index) => (field.value !== null ? [index] : []))
+    ? s.fields.flatMap((field, index) =>
+        fieldVisible(s, field.name) && field.value !== null ? [index] : [],
+      )
     : s.fields[s.active]?.value != null
       ? [s.active]
       : [];
@@ -108,41 +181,82 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   if (!field || field.value === null) throw new Error("noValue");
   if (!candidate.trim()) throw new Error("emptySelection");
   if (field.removeBlankLines) candidate = stripBlankLines(candidate);
-  const matches = compare(field.value, candidate, s.template.comparison);
+  const matches = s.controls?.get(field.name)?.options
+    ? field.value === candidate
+    : compare(field.value, candidate, s.template.comparison);
   field.status = matches ? "verified" : "mismatch";
   if (!matches) {
     field.candidate = candidate;
     return false;
   }
+  delete field.checkedByTyping;
   delete field.candidate;
-  if (s.fields.every((f) => f.status === "verified" || f.status === "skipped"))
+  if (s.typing) field.checkedByTyping = true;
+  if (!s.fields.some((f) => needsCheck(s, f) || needsCapture(s, f)))
     s.mode = "ready";
   else if (advance) {
-    const next = findNext(
-      s,
-      (f) => f.value !== null && f.status !== "verified",
-    );
+    const next = findNext(s, (f) => needsCheck(s, f));
     if (next !== -1) s.active = next;
     else s.mode = "capture";
   }
   return true;
 }
+function validateOutput(s: Session) {
+  if (s.fields.some((f) => needsCapture(s, f))) throw Error("incomplete");
+  if (verificationRequired(s) && s.fields.some((f) => needsCheck(s, f)))
+    throw Error("unverified");
+  for (const field of s.fields) {
+    const control = s.controls?.get(field.name);
+    if (
+      control &&
+      fieldVisible(s, field.name) &&
+      field.value !== null &&
+      !validControlValue(control, field.value)
+    )
+      throw Error("invalidControlValue");
+  }
+}
+export function previewSections(template: Template, s?: Session) {
+  const controls = s?.controls ?? templateControls(template);
+  const values = new Map<string, string>();
+  if (s) {
+    for (const field of s.fields) {
+      if (
+        field.value !== null ||
+        field.status === "skipped" ||
+        controls.get(field.name)?.optional
+      )
+        values.set(field.name, field.value ?? "");
+    }
+  } else {
+    for (const [name, control] of controls) {
+      if (control.defaultValue !== undefined)
+        values.set(name, control.defaultValue);
+      else if (control.optional) values.set(name, "");
+    }
+  }
+  return emailSections(template).map((part) => ({
+    key: part.key,
+    parts: outputParts(
+      part.text,
+      template,
+      values,
+      controls,
+      part.key !== "body",
+    ),
+  }));
+}
 export function renderSession(s: Session): string {
-  if (s.fields.some((f) => f.status === "empty")) throw new Error("incomplete");
-  if (
-    s.template.verificationEnabled &&
-    s.fields.some((f) => f.status !== "skipped" && f.status !== "verified")
-  )
-    throw new Error("unverified");
-  return renderTemplate(
-    s.template.content,
-    new Map(s.fields.map((f) => [f.name, f.value ?? ""])),
-    s.template.placeholderStyle,
-  );
+  validateOutput(s);
+  return previewSections(s.template, s)
+    .find((part) => part.key === "body")!
+    .parts.map((part) => part.text)
+    .join("");
 }
 export function eraseSession(s: Session): void {
   for (const field of s.fields) {
     field.value = null;
+    delete field.checkedByTyping;
     delete field.candidate;
     field.status = "empty";
     delete field.removeBlankLines;
@@ -159,24 +273,11 @@ export class EmailHeaderError extends Error {
   }
 }
 export function renderEmail(s: Session) {
-  renderSession(s); // Apply the same completeness and verification gate to every section.
-  const values = new Map(s.fields.map((f) => [f.name, f.value ?? ""]));
-  const headerValues = new Map(
-    [...values].map(([name, value]) => [name, value.trim()]),
-  );
-  const sections = emailSections(s.template).map((part) => ({
-    ...part,
-    // Selection tools commonly include a trailing newline/tab. Remove edge whitespace only;
-    // never flatten interior lines or alter Body, recipient identity, or captured values.
-    text:
-      part.key === "body"
-        ? renderTemplate(part.text, values, s.template.placeholderStyle)
-        : renderTemplate(
-            part.text,
-            headerValues,
-            s.template.placeholderStyle,
-          ).trim(),
-  }));
+  validateOutput(s);
+  const sections = previewSections(s.template, s).map((part) => {
+    const text = part.parts.map((token) => token.text).join("");
+    return { key: part.key, text: part.key === "body" ? text : text.trim() };
+  });
   if (
     (s.template.email?.subjectEnabled !== false &&
       !sections.find((p) => p.key === "subject")?.text.trim()) ||
@@ -239,10 +340,7 @@ export function cleanBlankLines(s: Session): void {
   if (cleaned === field.value) return;
   field.removeBlankLines = true;
   capture(s, cleaned, false);
-  if (
-    s.template.verificationEnabled &&
-    s.fields.every((f) => f.status !== "empty")
-  ) {
+  if (verificationRequired(s) && !s.fields.some((f) => needsCapture(s, f))) {
     s.mode = "verify";
   }
 }

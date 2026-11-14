@@ -21,3 +21,5 @@ The October 20 scenes show Workspace as the opening page, a bottom Free Scanner 
 The 0.7.1 email-template scene includes synthetic extra Scanner field definitions (booking reference and contact phone) that do not appear in the Body or email headers. The capture script removes these definitions before the independent delivery scene.
 
 `08-table-snippets.png` shows titled synthetic travel messages inside a table with literal-text transfer controls and selected-card keyboard hints. `09-unfiled-snippets.png` shows a titled reusable acknowledgement without a table. Clipboard transfer/source-window paste are not executed by the capture script; these remain browser previews.
+
+`10-focused-scanner.png` documents the experimental focused workflow: one active reference, captured/matched counts, and a compact three-field checklist. Regenerate only this scene with `node scripts/capture-focused.mjs` while the loopback browser preview runs. The script uses fresh synthetic data, requests no clipboard/native transfer, and reads no saved desktop library. The original nine-scene script explicitly uses Classic view so its scenarios continue to document the retained layout.

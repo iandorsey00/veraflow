@@ -11,7 +11,7 @@ async function fill(page: Page, value: string) {
   await page.locator("#apply-value").click();
 }
 async function start(page: Page) {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.getByRole("button", { name: "Free Scanner", exact: true }).click();
   await defineScanner(page);
 }
@@ -64,7 +64,7 @@ for (const keep of [false, true])
         body: (await r.text()) + "\nwindow.__navigate = navigate;",
       });
     });
-    await page.goto("/");
+    await page.goto("/?workflow=classic");
     await page.getByRole("button", { name: "Templates", exact: true }).click();
     await legacyTemplate(page);
     await page

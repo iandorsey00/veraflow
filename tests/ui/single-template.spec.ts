@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 test("one-template export includes current edits and imports a fresh copy", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-templates").click();
   const originalIds = await page
     .locator("[data-template]")
@@ -45,7 +45,7 @@ test("one-template export includes current edits and imports a fresh copy", asyn
 test("one-template import rejects a library and invalid drafts cannot export", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-templates").click();
   const pending = page.waitForEvent("download");
   await page.locator("#export-templates").click();

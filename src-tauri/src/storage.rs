@@ -47,6 +47,8 @@ pub struct Template {
     pub content: String,
     pub field_order: Vec<String>,
     pub verification_enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub typing_verification: Option<bool>,
     pub comparison: Comparison,
 }
 #[derive(Serialize, Deserialize)]
@@ -62,6 +64,8 @@ pub struct Preferences {
     pub auto_advance: bool,
     #[serde(default)]
     pub verified_background: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focused_workflow: Option<bool>,
     pub verification_default: bool,
     pub clear_after_completion: bool,
     pub restore_clipboard: bool,

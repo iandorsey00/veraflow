@@ -1,6 +1,6 @@
 # Windows test builds
 
-Choose a trial branch in the [README](../README.md), then use its **Windows x64** instructions to open the matching GitHub Actions runs. GitHub Releases hosts the public VeraFlow downloads. Each trial branch packages its own **VeraFlow Test** installer as an Actions artifact.
+For the current source, open the [main branch Check runs](https://github.com/iandorsey00/veraflow/actions/workflows/check.yml?query=branch%3Amain). For an earlier trial, use that branch’s README to open its Check runs. GitHub Releases hosts the public VeraFlow downloads. Each trial branch packages its own **VeraFlow Test** installer as an Actions artifact.
 
 1. Sign in to GitHub and open a successful **Check** run for the branch you want. Confirm the branch beside the run title.
 2. In **Artifacts** on the run summary, download `VeraFlow-Windows-Test-<commit>`. Artifacts are available for 14 days after upload. If the download has expired, select **Run workflow** on the Check workflow page, choose the branch you want, and wait for the new run to succeed. A repository member with write access can start the run.

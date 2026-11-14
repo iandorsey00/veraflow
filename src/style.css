@@ -115,7 +115,7 @@ button:disabled {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
-input:not([type="checkbox"]),
+input:not([type="checkbox"]):not([type="radio"]),
 select,
 textarea {
   width: 100%;
@@ -1021,4 +1021,166 @@ dialog textarea {
 .snippet-card:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.task-heading h1 {
+  font-size: 18px;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.task-toolbar,
+.task-primary,
+.task-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.task-progress,
+.task-receipt,
+.active-status {
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.active-task {
+  margin: 20px 0;
+}
+.active-task h2 {
+  margin: 6px 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.active-value {
+  padding: 12px;
+  margin: 8px 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.active-value.verified-background {
+  background: var(--success-bg);
+}
+.task-navigation {
+  margin-top: 12px;
+}
+.focused-session .capture-fields {
+  gap: 4px;
+}
+.focused-session .capture-field {
+  padding: 7px 8px;
+  grid-template-columns: 16px minmax(0, 1fr) minmax(0, 78px);
+}
+.focused-session .capture-field .status-label {
+  grid-column: 3;
+}
+.focused-session .capture-field .field-value {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.task-checklist h2 {
+  font-size: 14px;
+}
+.focused-session > details {
+  margin-top: 16px;
+}
+.paused-task {
+  margin: 20px;
+  padding: 16px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.paused-task h2 {
+  margin-top: 0;
+  font-size: 18px;
+}
+.email-checklist {
+  padding-left: 24px;
+  overflow-wrap: anywhere;
+}
+.email-checklist [aria-current] {
+  color: var(--accent);
+}
+
+.template-form-field {
+  margin-block: 1rem;
+  min-width: 0;
+}
+
+.template-form-field textarea {
+  display: block;
+  width: 100%;
+}
+
+.template-form-field small {
+  color: var(--muted);
+}
+
+.template-form.capture-panel {
+  max-width: 1060px;
+}
+
+.template-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.template-output {
+  min-width: 0;
+}
+
+.template-output pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.template-form-field fieldset {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+@media (max-width: 660px) {
+  .template-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.template-form-field input[type="radio"] {
+  accent-color: var(--accent);
+  flex: none;
+}
+
+input.toggle-switch {
+  appearance: none;
+  width: 34px;
+  height: 18px;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  display: inline-grid;
+  align-items: center;
+  background: var(--surface);
+}
+
+input.toggle-switch::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  margin-inline: 2px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+input.toggle-switch:checked {
+  background: var(--accent);
+}
+
+input.toggle-switch:checked::before {
+  justify-self: end;
+  background: var(--surface);
 }

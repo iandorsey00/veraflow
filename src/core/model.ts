@@ -44,6 +44,7 @@ export type Template = {
   content: string;
   fieldOrder: string[];
   verificationEnabled: boolean;
+  typingVerification?: boolean;
   comparison: Comparison;
 };
 export const actions = [
@@ -66,6 +67,7 @@ export type Preferences = {
   globalShortcuts: boolean;
   autoAdvance: boolean;
   verifiedBackground: boolean;
+  focusedWorkflow?: boolean;
   verificationDefault: boolean;
   clearAfterCompletion: boolean;
   restoreClipboard: boolean;
@@ -112,9 +114,12 @@ export type Field = {
   value: string | null;
   status: "empty" | "captured" | "verified" | "mismatch" | "skipped";
   candidate?: string;
+  checkedByTyping?: boolean;
 };
 export type Session = {
   scanner?: boolean;
+  typing?: boolean;
+  controls?: Map<string, import("./form").Control>;
   scannerId?: string;
   rowLink?: { tableId: string; rowId: string };
   scannerOutputTemplate?: string;

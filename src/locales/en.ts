@@ -1,4 +1,71 @@
 export const en = {
+  scannerWorkflow: "Scanner workflow",
+  outputPreview: "Output preview",
+  typingVerification: "Require a second entry in Typing workflow",
+  invalidFormDirective:
+    "Check the template’s form syntax, option IDs, and field conditions.",
+  invalidControlValue:
+    "Enter a value that matches the field type and allowed choices.",
+  chooseValue: "Choose a value",
+  enableField: "On",
+  reenterValue: "Enter the value again to verify it.",
+  typingMismatch: "The second entry differs. Try again or edit your responses.",
+  editResponses: "Edit responses",
+  matchedEntry: "Matched second entry",
+  sessionResults: "Session results",
+  restartSession: "Restart with fresh fields",
+  reuseSession: "Restart with previous responses",
+
+  editTemplate: "Edit template",
+  fillForm: "Typing workflow",
+  openInScanner: "Open in Scanner",
+  formCheckHint:
+    "After filling the form, enter each response again to verify it.",
+  quickGuide: "Quick guide",
+  guideCapture:
+    "Select a field. Capture selected source text, or open Enter value manually and paste or type it.",
+  guideCheck:
+    "Choose Check field, then select the original text again or paste a fresh copy to compare. A mismatch keeps the captured value. Templates start their check pass after capture.",
+  guideCopy:
+    "Copy field or Ctrl/Cmd+C on a selected Scanner field copies its value after any required check. Paste into your destination and inspect the result.",
+  guidePause:
+    "Pause returns to Workspace. Resume task restores your place and unfinished typing. Choose Classic view to switch layouts without losing values.",
+
+  focusedView: "Focused view",
+  classicView: "Classic view",
+  pauseTask: "Pause",
+  resumeTask: "Resume task",
+  taskPaused: "Task paused",
+  pausePrivacy:
+    "Kept in memory while VeraFlow is open. Quitting clears this session; saved rows stay saved.",
+  taskTools: "Edit fields and output",
+  progressCaptured: "captured",
+  progressMatched: "matched source",
+  matchedSource: "Matched source",
+  matchMeaning:
+    "Matched source means the selected text agrees under your comparison rules. Check that it is the correct record. It does not confirm the destination.",
+  nextCapture: "Next: capture this field",
+  nextCompare: "Next: compare a fresh source selection",
+  nextCheck: "Next: check this field against the source",
+  nextCopy: "Next: copy or paste this field",
+  nextPending: "Next: select an empty field to capture",
+  nextOutput: "Ready: choose your output",
+  nextEmail: "Next: fill the current email section",
+  nextMismatch: "Next: compare again or correct the captured value",
+  checkField: "Check field",
+  compareSelection: "Compare selection",
+  lastAction: "Last action",
+  noActionYet: "Nothing captured or transferred in this session yet",
+  stepCaptured: "Captured",
+  stepMatched: "Matched source",
+  stepMismatch: "Source differed; captured value kept",
+  stepCopied: "Copied to clipboard",
+  stepPaste: "Paste requested; destination not checked",
+  stepPasteUncertain:
+    "Paste uncertain; inspect the destination before retrying",
+  stepManual: "Advanced manually; paste not confirmed",
+  transferPending: "Not transferred",
+
   extraScannerFields: "Extra Scanner fields (optional)",
   extraFieldsHelp:
     "One field name per line. Capture and verify these alongside the template fields, then open them in Scanner after completion. They are never added to template text or email sections. Blank lines and repeated names are ignored.",
@@ -312,7 +379,7 @@ export const en = {
     "Cmd/Ctrl+Enter starts the selected template. In a session, it opens manual entry or submits and advances. Alt+Left/Right moves between fields.",
   autoAdvance: "Advance automatically",
   verification: "Verification",
-  verificationEnabled: "Verify before copying",
+  verificationEnabled: "Verify Scanner workflow before copying",
   verificationDefault: "Enable verification for new templates",
   comparison: "Comparison rules",
   exact: "Exact",

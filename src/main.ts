@@ -1,3 +1,4 @@
+import { sessionProgress } from "./core/progress";
 import { bindReorder } from "./reorder";
 import { workspaceUI, formDialog } from "./workspace-ui";
 import {
@@ -44,12 +45,17 @@ import {
   emailSections,
   rememberedFieldOrder,
   captureFieldNames,
+  templateControls,
   validateExtraFields,
 } from "./core/template";
 import { orderFields } from "./core/template";
 import { difference } from "./core/compare";
 import {
   startSession,
+  prepareWorkflow,
+  fieldVisible,
+  previewSections,
+  verificationRequired,
   capture,
   verify,
   move,
@@ -88,6 +94,20 @@ let selected = "",
   draft: Template | null = null,
   settingsDraft: Preferences | null = null,
   session: Session | null = null;
+// Browser fixture links can open either layout directly.
+const layoutOverride = !desktop
+  ? new URLSearchParams(location.search).get("workflow")
+  : null;
+let focusedWorkflow = layoutOverride === "focused";
+let typingCheck = false;
+let lastTemplate: { definition: Template; typing: boolean } | null = null;
+let paused = false;
+let templateForm = false;
+let templateEditorOpen = false;
+let taskGeneration = 0;
+const manualDrafts = new Map<string, string>();
+let lastStep: { key: Key; name: string } | null = null;
+const emailSteps = new Map<string, Key>();
 let retainedScanner: Session | null = null;
 let returnToScanner = false;
 let scannerOutput: "copy" | "paste" | "tab" = "copy";
@@ -121,6 +141,7 @@ let pendingFocus: string | null = null;
 let manualOpen = false;
 let sessionOptionsOpen = false;
 let scannerMoreOpen = false;
+let taskToolsOpen = false;
 let scannerReordering = false;
 let reverification: "field" | "all" | null = null;
 let extraFieldInput: string | null = null;
@@ -138,6 +159,8 @@ setInterval(async () => {
   const enabled =
     (mouseMode &&
       view === "session" &&
+      !paused &&
+      !templateFormActive() &&
       !!session &&
       ["capture", "verify"].includes(session.mode)) ||
     (view === "workspace" && workspace.hasSnippets());
@@ -241,12 +264,19 @@ function applyAppearance() {
   document.documentElement.dataset.theme = library.preferences.theme;
 }
 function render() {
+  root.oninput = null;
+  const input = document.getElementById(
+    "manual-value",
+  ) as HTMLTextAreaElement | null;
+  if (input?.dataset.owner === String(taskGeneration))
+    manualDrafts.set(input.dataset.draftKey!, input.value);
   applyAppearance();
-  root.className = view === "session" ? "compact" : "";
-  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-workspace", "workspace", view === "workspace" ? "selected" : "")}${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${session ? button("nav-session", "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}<span id="update-banner">${availableUpdate && view !== "settings" ? button("update-now", "updateNow", "primary") : ""}</span></nav></header>` : ""}
+  root.className = view === "session" && !templateFormActive() ? "compact" : "";
+  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${button("nav-workspace", "workspace", view === "workspace" ? "selected" : "")}${session ? button("nav-session", session.mode === "complete" ? "sessionResults" : paused && focusedWorkflow ? "resumeTask" : "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}<span id="update-banner">${availableUpdate && view !== "settings" ? button("update-now", "updateNow", "primary") : ""}</span></nav></header>` : ""}
     ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
+    ${paused && session && view !== "session" ? pausedTaskView() : ""}
     ${view === "workspace" ? workspace.view() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
     ${view !== "session" ? `<footer>${button("nav-scanner", "freeScanner")}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
   click("update-now", updateApp);
@@ -259,7 +289,8 @@ function render() {
   click("nav-templates", () => navigate("templates"));
   click("nav-settings", () => navigate("settings"));
   click("nav-session", () => navigate("session"));
-  if (view === "session" && !session?.scanner)
+  click("resume-task", () => navigate("session"));
+  if (view === "session" && !focusedWorkflow && !session?.scanner)
     root
       .querySelector(".capture-field.active")
       ?.scrollIntoView({ block: "nearest" });
@@ -428,7 +459,11 @@ function bindScannerExtras() {
   });
   click("scanner-import", loadScannerJSON);
   click("scanner-paste", async () => {
-    await platform.pasteToSource(scannerValue(session!));
+    await pasteTask(
+      scannerValue(session!),
+      session!.fields[session!.active].name,
+      (text) => platform.pasteToSource(text),
+    );
     notify("pasteRequested");
   });
   click("scanner-export-fields", () =>
@@ -478,7 +513,7 @@ function bindScannerExtras() {
       })
       .join("");
     if (!text.trim()) throw Error("noValue");
-    await platform.copy(text);
+    await copyTask(text, t("copyTemplate"));
     notify("copied");
   });
   click("scanner-save-row", saveScannerRow);
@@ -560,29 +595,36 @@ async function launchScanner(saved?: Session, confirmed = false) {
   session.scannerId ??= veraId();
   scannerMoreOpen = false;
   scannerReordering = false;
+  taskToolsOpen = false;
   manualOpen = true;
   scannerOutput = "copy";
   render();
   focus(`field-${session.active}`);
 }
-function scannerControls(): string {
+function scannerControls(secondaryOnly = false): string {
   const s = session!;
   return `<section class="scanner-tools" aria-label="${esc(t("scanner"))}">
     <div class="scanner-bottom-actions"><div class="toolbar">
-      ${button("verify-start", "verifyStart")}${button("scanner-copy", "copyField", "primary")}${button("scanner-paste", "pasteToApp", "", !desktop)}
+      ${secondaryOnly ? "" : button("verify-start", "verifyStart") + button("scanner-copy", "copyField", "primary") + button("scanner-paste", "pasteToApp", "", !desktop)}
     </div><div class="toolbar">${button("scanner-capture-mode", "scannerNewValue")}${button("scanner-rename", "renameField")}${button("scanner-save-row", s.rowLink ? "saveRow" : "saveAsRow")}</div></div>
-    <details id="scanner-more" class="scanner-template-panel" ${scannerMoreOpen ? "open" : ""}><summary>${esc(t("scannerMore"))}</summary><h2>${esc(t("scannerTemplate"))}</h2><label for="scanner-output-template">${esc(t("scannerTemplate"))}</label><textarea id="scanner-output-template" rows="3">${esc(s.scannerOutputTemplate ?? "")}</textarea><div id="scanner-template-match" class="template-match" aria-live="polite"></div><div class="toolbar">${button("scanner-add-missing", "addMissing")}${button("scanner-copy-template", "copyTemplate")}</div><h2>${esc(t("scannerOutput"))}</h2><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd> ${esc(t("mousePasteHelp"))}</p><h2>${esc(t("useTemplate"))}</h2><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}<h2>JSON</h2><div class="toolbar">${button("scanner-import", "importScanner")}${button("scanner-export-fields", "exportScannerFields")}${button("scanner-export-values", "exportScannerValues")}</div><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", s.fields[s.active]?.value === null)}${button("skip", "skip")}${button("scanner-remove", "removeField", "quiet danger", s.fields.length === 1)}</div></details>
+    <${secondaryOnly ? "div" : "details"} id="scanner-more" class="scanner-template-panel" ${scannerMoreOpen ? "open" : ""}>${secondaryOnly ? "" : `<summary>${esc(t("scannerMore"))}</summary>`}<h2>${esc(t("scannerTemplate"))}</h2><label for="scanner-output-template">${esc(t("scannerTemplate"))}</label><textarea id="scanner-output-template" rows="3">${esc(s.scannerOutputTemplate ?? "")}</textarea><div id="scanner-template-match" class="template-match" aria-live="polite"></div><div class="toolbar">${button("scanner-add-missing", "addMissing")}${button("scanner-copy-template", "copyTemplate")}</div><h2>${esc(t("scannerOutput"))}</h2><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd> ${esc(t("mousePasteHelp"))}</p><h2>${esc(t("useTemplate"))}</h2><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}<h2>JSON</h2><div class="toolbar">${button("scanner-import", "importScanner")}${button("scanner-export-fields", "exportScannerFields")}${button("scanner-export-values", "exportScannerValues")}</div><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", s.fields[s.active]?.value === null)}${button("skip", "skip")}${button("scanner-remove", "removeField", "quiet danger", s.fields.length === 1)}</div></${secondaryOnly ? "div" : "details"}>
   </section>`;
 }
 
 function libraryView(): string {
-  const items = library.templates.filter(
-    (item) =>
-      (!folder || item.folder === folder) &&
-      `${item.name} ${item.folder}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
+  const items = library.templates
+    .filter(
+      (item) =>
+        (!folder || item.folder === folder) &&
+        `${item.name} ${item.folder}`
+          .toLowerCase()
+          .includes(search.toLowerCase()),
+    )
+    .sort(
+      (a, b) =>
+        a.folder.localeCompare(b.folder, library.preferences.language) ||
+        a.name.localeCompare(b.name, library.preferences.language),
+    );
   return `<div class="library-layout"><aside class="sidebar"><div class="section-head"><h1>${esc(t("templates"))}</h1>${button("new", "newTemplate", "primary", locked)}</div>
     <label class="sr-only" for="search">${esc(t("search"))}</label><input type="search" id="search" placeholder="${esc(t("search"))}" value="${esc(search)}">
     <label class="sr-only" for="folder-filter">${esc(t("folder"))}</label><select id="folder-filter"><option value="">${esc(t("allFolders"))}</option>${[
@@ -596,11 +638,22 @@ function libraryView(): string {
       .join("")}</select>
     <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${captureFieldNames(item).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
     <div class="toolbar template-transfer">${button("import-template", "importTemplate", "", locked)}${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
-    <main class="editor">${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? editorView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
+    <main class="editor">${!session && lastTemplate ? sessionRecovery() : ""}${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? selectedTemplateView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
 function comparisonView(rules: Comparison, prefix: string): string {
   return `<label for="${prefix}-mode">${esc(t("comparison"))}</label><select id="${prefix}-mode"><option value="exact" ${rules.mode === "exact" ? "selected" : ""}>${esc(t("exact"))}</option><option value="whitespace" ${rules.mode === "whitespace" ? "selected" : ""}>${esc(t("whitespace"))}</option></select>
     ${check(prefix + "-case", "caseSensitive", rules.caseSensitive)}${check(prefix + "-unicode", "unicode", rules.unicode)}${check(prefix + "-punctuation", "punctuation", rules.punctuation)}${check(prefix + "-lines", "collapseLines", rules.collapseLines)}<p class="hint">${esc(t("rulesNote"))}</p>`;
+}
+function selectedTemplateView(): string {
+  if (!focusedWorkflow)
+    return `<div id="template-preview">${outputPreview(draft!)}</div>${editorView()}`;
+  return `<h2>${esc(draft!.name)}</h2>
+    <div id="template-preview">${outputPreview(draft!)}</div>
+    <div class="actions">${button("start-form", "fillForm", "primary")}${button("start", "scannerWorkflow")}</div>
+    <details id="template-edit" ${templateEditorOpen || dirty ? "open" : ""}>
+      <summary>${esc(t("editTemplate"))}</summary>
+      ${editorView()}
+    </details>`;
 }
 function editorView(): string {
   const d = draft!;
@@ -611,8 +664,8 @@ function editorView(): string {
   ${d.email?.enabled ? `<section class="email-template"><p class="hint">${esc(t("emailTemplateHelp"))}</p>${check("email-subject-enabled", "enableSubject", d.email.subjectEnabled !== false)}${d.email.subjectEnabled !== false ? field("email-subject", "subject", d.email.subject) : ""}${field("email-to", "to", d.email.to)}${check("email-cc-enabled", "enableCc", d.email.ccEnabled)}${d.email.ccEnabled ? field("email-cc", "cc", d.email.cc) : ""}${check("email-bcc-enabled", "enableBcc", d.email.bccEnabled)}${d.email.bccEnabled ? field("email-bcc", "bcc", d.email.bcc) : ""}<h2>${esc(t("emailOrder"))}</h2><p class="hint">${esc(t("emailOrderHelp"))}</p><p class="hint">${esc(t("reorderHelp"))}</p><ol id="email-order" class="field-order">${emailOrderView(d)}</ol></section>` : ""}
   <label for="template-content">${esc(t(d.email?.enabled ? "body" : "content"))}</label><textarea id="template-content" class="code template-text" spellcheck="false" aria-describedby="placeholder-help">${esc(d.content)}</textarea><p id="placeholder-help" class="hint">${esc(t(d.placeholderStyle === "braces" ? "bracePlaceholderHelp" : "placeholderHelp"))}</p>
   <label for="extra-scanner-fields">${esc(t("extraScannerFields"))}</label><textarea id="extra-scanner-fields" rows="3" spellcheck="false" aria-describedby="extra-fields-help extra-fields-error">${esc(extraFieldInput ?? (d.extraFields ?? []).join("\n"))}</textarea><p id="extra-fields-help" class="hint">${esc(t("extraFieldsHelp"))}</p><p id="extra-fields-error" role="alert" ${extraFieldsInvalid ? "" : "hidden"}>${extraFieldsInvalid ? esc(t("invalidExtraFields")) : ""}</p>
-  <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><p class="hint">${esc(t("reorderHelp"))}</p><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${comparisonView(d.comparison, "template")}</details></div>
-  <div class="actions">${button("save", "save")}${button("start", "start", "primary")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
+  <div class="editor-bottom"><section><h2>${esc(t("fields"))}</h2><p class="hint">${esc(t("reorderHelp"))}</p><ol id="field-order" class="field-order">${orderView()}</ol></section><details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${check("typing-verify", "typingVerification", d.typingVerification ?? false)}${comparisonView(d.comparison, "template")}</details></div>
+  <div class="actions">${button("save", "save")}${focusedWorkflow ? "" : button("start-form", "fillForm", "primary") + button("start", layoutOverride === "classic" ? "start" : "scannerWorkflow")}</div><p class="hint">${esc(t("keyboardHelp"))}</p>`;
 }
 function emailOrderView(template: Template): string {
   const parts = emailSections(template).filter((p) => p.key !== "body");
@@ -714,7 +767,36 @@ function bindComparison(prefix: string, rules: Comparison) {
       dirty = true;
     });
 }
+function refreshTemplatePreview(event: Event) {
+  const target = event.target as HTMLElement;
+  if (
+    ![
+      "template-content",
+      "email-subject",
+      "email-to",
+      "email-cc",
+      "email-bcc",
+    ].includes(target.id)
+  )
+    return;
+  const panel = document.getElementById("template-preview");
+  if (panel && draft) panel.innerHTML = outputPreview(draft);
+}
 function bindLibrary() {
+  root.oninput = refreshTemplatePreview;
+  on("template-edit", "toggle", (event) => {
+    const details = event.target as HTMLDetailsElement;
+    if (details.isConnected) templateEditorOpen = details.open;
+  });
+  click("restart-session", async () => {
+    if (lastTemplate && (await abandonDraft()))
+      await launch(
+        lastTemplate.definition,
+        undefined,
+        false,
+        lastTemplate.typing,
+      );
+  });
   click("export-templates", async () => {
     await platform.exportTemplates(exportTemplateArchive(library.templates));
   });
@@ -827,6 +909,12 @@ function bindLibrary() {
     document.getElementById("field-order")!.innerHTML = orderView();
     bindOrder();
   });
+  on("typing-verify", "change", (e) => {
+    if ((e.target as HTMLInputElement).checked)
+      draft!.typingVerification = true;
+    else delete draft!.typingVerification;
+    dirty = true;
+  });
   on("template-verify", "change", (e) => {
     draft!.verificationEnabled = (e.target as HTMLInputElement).checked;
     dirty = true;
@@ -917,12 +1005,17 @@ function bindLibrary() {
     dirty = false;
     notify("deleted");
   });
+  click("start-form", async () => {
+    await saveDraft();
+    await launch(draft!, undefined, false, true);
+  });
   click("start", async () => {
     await saveDraft();
     await launch(draft!);
   });
 }
 function selectTemplate(id: string) {
+  templateEditorOpen = false;
   extraFieldInput = null;
   extraFieldsInvalid = false;
   selected = id;
@@ -961,6 +1054,7 @@ async function saveDraft() {
   if (!draft?.name.trim()) throw new Error("nameRequired");
   if (extraFieldsInvalid) throw Error("invalidExtraFields");
   validateExtraFields(draft.extraFields);
+  templateControls(draft);
   const saved = structuredClone(draft);
   saved.name = saved.name.trim();
   await persist({
@@ -981,16 +1075,59 @@ async function abandonDraft() {
 async function navigate(next: typeof view) {
   if (!(await abandonDraft())) return;
   if (next === "session" && !session) return;
+  if (
+    view === "session" &&
+    next !== "session" &&
+    session &&
+    session.mode !== "complete"
+  ) {
+    await bindShortcuts(null, dispatch);
+    await platform.mouseSource(false);
+    paused = true;
+  }
+  let shortcutError: unknown;
+  if (next === "session" && paused) {
+    try {
+      await bindShortcuts(
+        library.preferences.globalShortcuts &&
+          !templateFormActive() &&
+          !["review", "complete"].includes(session!.mode)
+          ? library.preferences.shortcuts
+          : null,
+        dispatch,
+      );
+    } catch (error) {
+      await bindShortcuts(null, dispatch);
+      shortcutError = error;
+    }
+    paused = false;
+  }
   view = next;
   message = "";
   if (next === "templates" && selected) selectTemplate(selected);
   if (next === "settings") settingsDraft = structuredClone(library.preferences);
-  await platform.compact(next === "session", library.preferences.alwaysOnTop);
+  await platform.compact(
+    next === "session" &&
+      !templateFormActive() &&
+      !["review", "complete"].includes(session?.mode ?? ""),
+    library.preferences.alwaysOnTop,
+  );
   render();
+  if (next === "session")
+    focus(
+      templateFormActive()
+        ? controlFocus(
+            typingCheck ? "typing-check" : `form-field-${session!.active}`,
+          )
+        : document.getElementById("manual-value")
+          ? "manual-value"
+          : `field-${session?.active ?? 0}`,
+    );
+  if (shortcutError) report(shortcutError);
 }
 function settingsView(): string {
   const p = (settingsDraft ??= structuredClone(library.preferences));
-  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", availableUpdate ? "updateNow" : "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}</section>
+  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", availableUpdate ? "updateNow" : "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}</section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("clipboardDefaultHelp"))}</p><p class="hint">${esc(t("quitPrivacy"))}</p></section>
   <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
@@ -1087,9 +1224,11 @@ function bindSettings() {
     "verifiedBackground",
     "clearAfterCompletion",
     "restoreClipboard",
+    "focusedWorkflow",
   ] as const)
     on(key, "change", (e) => {
       p[key] = (e.target as HTMLInputElement).checked;
+      if (key === "focusedWorkflow" && !p[key]) delete p[key];
       dirty = true;
     });
   bindComparison("default", p.comparison);
@@ -1112,7 +1251,11 @@ function bindSettings() {
       await persist({ ...library, preferences: structuredClone(p) });
     } catch (error) {
       await bindShortcuts(
-        old.globalShortcuts && session && session.mode !== "complete"
+        old.globalShortcuts &&
+          !paused &&
+          view === "session" &&
+          session &&
+          session.mode !== "complete"
           ? old.shortcuts
           : null,
         dispatch,
@@ -1120,17 +1263,42 @@ function bindSettings() {
       await platform.autostart(old.launchAtLogin);
       throw error;
     }
-    if (!session || session.mode === "complete")
+    if (paused || view !== "session" || !session || session.mode === "complete")
       await bindShortcuts(null, dispatch);
     dirty = false;
+    focusedWorkflow = p.focusedWorkflow === true;
+    if (p.clearAfterCompletion && session?.mode === "complete")
+      eraseSession(session);
     await platform.trayLanguage(p.language);
     notify("saved");
   });
+}
+async function configureSessionShortcuts(enabled: boolean) {
+  try {
+    await bindShortcuts(
+      enabled && library.preferences.globalShortcuts
+        ? library.preferences.shortcuts
+        : null,
+      dispatch,
+    );
+  } catch (error) {
+    await bindShortcuts(null, dispatch);
+    return error;
+  }
+}
+function templateFormActive() {
+  return (
+    templateForm &&
+    !!session &&
+    ["capture", "verify", "ready"].includes(session.mode)
+  );
 }
 async function launch(
   template: Template,
   scannerSource?: Session,
   confirmed = false,
+  form = false,
+  reuse?: Session,
 ) {
   if (
     ((session && session.mode !== "complete") || retainedScanner) &&
@@ -1146,26 +1314,38 @@ async function launch(
       !template.email.to.trim())
   )
     throw new Error("emailRequired");
-  let shortcutError: unknown;
-  try {
-    await bindShortcuts(
-      library.preferences.globalShortcuts
-        ? library.preferences.shortcuts
-        : null,
-      dispatch,
-    );
-  } catch (error) {
-    await bindShortcuts(null, dispatch);
-    shortcutError = error;
-  }
   const nextSession = scannerSource
     ? applyScanner(scannerSource, template)
     : startSession(template);
+  if (reuse) {
+    nextSession.fields = reuse.fields.map((field) => ({
+      name: field.name,
+      value: field.value,
+      status:
+        field.value === null
+          ? field.status === "skipped"
+            ? "skipped"
+            : "empty"
+          : "captured",
+      removeBlankLines: field.removeBlankLines,
+    }));
+  }
+  if (form || reuse) prepareWorkflow(nextSession, form);
+  const shortcutError = await configureSessionShortcuts(!form);
   await platform.mouseSource(false);
   await platform.active(true);
-  await platform.compact(true, library.preferences.alwaysOnTop);
+  await platform.compact(!form, library.preferences.alwaysOnTop);
   if (session) eraseSession(session);
   session = nextSession;
+  templateForm = form;
+  typingCheck = false;
+  if (template.id !== "scanner")
+    lastTemplate = { definition: nextSession.template, typing: form };
+  paused = false;
+  taskGeneration++;
+  manualDrafts.clear();
+  lastStep = null;
+  emailSteps.clear();
   if (!scannerSource) {
     eraseRetainedScanner();
     returnToScanner = false;
@@ -1179,23 +1359,269 @@ async function launch(
   preview = false;
   message = "";
   render();
-  focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
+  focus(
+    form
+      ? controlFocus(`form-field-${session.active}`)
+      : `field-${session.active}`,
+  );
+  if (!session.fields.length) focus("finish");
   if (shortcutError) report(shortcutError);
   return true;
+}
+async function copyTask(text: string, name: string) {
+  await platform.copy(text);
+  lastStep = { key: "stepCopied", name };
+}
+async function pasteTask(
+  text: string,
+  name: string,
+  send: (text: string) => Promise<void>,
+) {
+  lastStep = { key: "stepPasteUncertain", name };
+  await send(text);
+  lastStep = { key: "stepPaste", name };
+}
+function taskName(s: Session): string {
+  const table = library.workspace?.tables.find(
+    (table) => table.id === s.rowLink?.tableId,
+  );
+  const row = table?.rows.find((row) => row.id === s.rowLink?.rowId);
+  return table
+    ? `${table.name}${row?.title ? ` · ${row.title}` : ""}`
+    : s.template.name;
+}
+function progressText(s: Session): string {
+  const p = sessionProgress(s);
+  const total = s.fields.filter((f) => fieldVisible(s, f.name)).length;
+  return `${p.filled}/${total} ${t("progressCaptured")} · ${p.matched}/${total} ${t("progressMatched")}${p.skipped ? ` · ${p.skipped} ${t("skipped")}` : ""}`;
+}
+function lastStepView(): string {
+  return `<p class="task-receipt" role="status">${esc(t("lastAction"))}: ${lastStep ? `${esc(t(lastStep.key))}${lastStep.name ? ` · ${esc(lastStep.name)}` : ""}` : esc(t("noActionYet"))}</p>`;
+}
+function pausedTaskView(): string {
+  const s = session!;
+  return `<aside class="paused-task" aria-labelledby="paused-heading"><h2 id="paused-heading">${esc(t("taskPaused"))} · ${esc(taskName(s))}</h2><p>${esc(progressText(s))}</p><p>${esc(t(sessionProgress(s).next))}${s.fields[s.active] ? ` · ${esc(s.fields[s.active].name)}` : ""}</p>${lastStepView()}<p class="hint">${esc(t("pausePrivacy"))}</p>${button("resume-task", "resumeTask", "primary")}</aside>`;
+}
+function focusedSessionView(s: Session): string {
+  const p = library.preferences,
+    f = s.fields[s.active],
+    progress = sessionProgress(s);
+  const toolbar = `<div class="task-toolbar">${!s.scanner && s.mode !== "delivery" ? button("switch-form", "fillForm") : ""}${button("pause-task", "pauseTask")}${button("toggle-workflow", "classicView")}</div>`;
+  const heading = `<header class="task-heading"><h1>${esc(taskName(s))}</h1>${toolbar}<p class="task-progress">${esc(progressText(s))}</p></header>`;
+  if (s.mode === "delivery") {
+    const parts = renderEmail(s),
+      index = s.deliveryIndex ?? 0;
+    return `<main class="capture-panel focused-session">${heading}<h2>${esc(t("nextEmail"))} · ${esc(t(parts[index].key))}</h2><ol class="email-checklist" aria-label="${esc(t("emailOrder"))}">${parts.map((part, i) => `<li ${index === i ? 'aria-current="step"' : ""}><strong>${esc(t(part.key))}</strong> · ${esc(t(emailSteps.get(part.key) ?? "transferPending"))}</li>`).join("")}</ol><pre class="output">${esc(parts[index].text)}</pre><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p>${lastStepView()}<div class="toolbar">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}</div><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p>${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("cancel-session", "cancelSession", "quiet danger")}</div></main>`;
+  }
+  const ready = s.mode === "ready";
+  const configured = f && s.controls?.has(f.name);
+  const status = (key: Session["fields"][number]["status"]) =>
+    key === "verified" ? t("matchedSource") : t(key);
+  const selectedMatched = f?.status === "verified";
+  return `<main class="capture-panel focused-session ${s.scanner ? "scanner-panel" : ""}">${heading}
+    <section class="active-task" aria-labelledby="active-task-heading"><p class="eyebrow">${esc(t(progress.next))}</p><h2 id="active-task-heading">${esc(ready ? t("nextOutput") : (f?.name ?? t("noFields")))}</h2>
+    ${f ? `<pre tabindex="0" aria-label="${esc(t("capturedValue"))}" class="active-value ${p.verifiedBackground && selectedMatched ? "verified-background" : ""}">${esc(f.value ?? t("empty"))}</pre><p class="active-status">${esc(status(f.status))}</p>` : ""}
+    ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
+    ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
+    ${configured ? activeScannerControl(s) : ""}
+    ${!ready && (!s.scanner || progress.checking || f?.value === null) ? `<p class="hint"><kbd>${esc(p.shortcuts[progress.checking ? "verify" : "capture"])}</kbd> ${esc(t(progress.checking ? "compareSelection" : "captureSelected"))}</p>` : ""}
+    ${
+      !ready
+        ? `<div class="toolbar task-primary">${mouseMode && (progress.checking || f?.value === null) ? button("mouse-transfer", progress.checking ? "compareSelection" : "captureSelected", "primary", !desktop) : ""}${s.scanner && f?.value !== null && !progress.checking ? button("verify-start", "checkField", selectedMatched || !s.template.verificationEnabled ? "" : "primary") : ""}${s.scanner && f?.value !== null && !progress.checking ? button("scanner-copy", "copyField", selectedMatched || !s.template.verificationEnabled ? "primary" : "", !selectedMatched && s.template.verificationEnabled) + button("scanner-paste", "pasteToApp", "", !desktop || (!selectedMatched && s.template.verificationEnabled)) : ""}</div>
+    <details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", progress.checking ? "compare" : "apply", !desktop ? "primary" : "")}${button("use-clipboard", "clipboard")}</div></form></details>`
+        : `<div class="toolbar">${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}${button("preview", "preview")}</div>`
+    }
+    <div class="toolbar task-navigation">${button("mouse-back", "previous")}${button("mouse-forward", "next")}</div>${lastStepView()}</section>
+    <section class="task-checklist" aria-labelledby="task-fields"><h2 id="task-fields">${esc(t("scannerFields"))}</h2><ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => (!fieldVisible(s, field.name) ? "" : `<li ${s.scanner ? `data-reorder="${index}"` : ""}><button id="field-${index}" data-field="${index}" class="capture-field ${field.status} ${index === s.active ? "active" : ""} ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${field.status === "verified" ? "✓" : index === s.active ? "→" : "○"}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(status(field.status))}</span></button>${s.scanner && scannerReordering ? `<div class="scanner-field-tools">${dragHandle()}<span><button data-scanner-up="${index}" aria-label="${esc(t("moveUp") + " " + field.name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-scanner-down="${index}" aria-label="${esc(t("moveDown") + " " + field.name)}" ${index === s.fields.length - 1 ? "disabled" : ""}>↓</button></span></div>` : ""}</li>`)).join("")}</ol></section>
+    <details id="task-tools" class="task-tools" ${taskToolsOpen ? "open" : ""}><summary>${esc(t("taskTools"))}</summary><p class="hint">${esc(t("matchMeaning"))}</p>
+    ${s.scanner ? `<div class="toolbar">${button("scanner-add", "addField")}<button id="scanner-reorder" aria-pressed="${scannerReordering}">${esc(t(scannerReordering ? "doneReordering" : "reorderFields"))}</button></div>${scannerControls(true)}` : `<div class="toolbar">${button("verify-start", "verifyStart")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>${!s.template.verificationEnabled && !ready ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish") : ""}`}
+    ${s.fields.some((field) => field.value !== null) ? `<div class="reverification"><h3>${esc(t("verifyAgain"))}</h3><div class="toolbar">${button("reverify-field", "reverifyField", "", !f || f.value === null)}${button("reverify-all", "reverifyAll")}</div></div>` : ""}
+    ${s.scanner ? `<p class="vera-id">${esc(s.scannerId)}${s.rowLink ? `<br>${esc(s.rowLink.tableId)}` : ""}</p><p class="hint">${esc(t(s.rowLink ? "rowSaveHelp" : "scannerTemporary"))}</p>` : ""}
+    </details>
+    <details id="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary>${check("mouse-mode", "mouseMode", mouseMode)}${check("preserve-clipboard", "preserveClipboard", preserveClipboard)}<p class="hint">${esc(t("preserveClipboardHelp"))}</p><p class="hint">${esc(t("mouseHelp"))}</p><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
+    ${
+      preview
+        ? `<pre class="output">${esc(
+            s.template.email?.enabled
+              ? renderEmail(s)
+                  .map((part) => `${t(part.key)}: ${part.text}`)
+                  .join("\n\n")
+              : renderSession(s),
+          )}</pre>`
+        : ""
+    }
+    ${!s.scanner && !preview ? outputPreview(s.template, s) : ""}
+    <details class="focus-guide"><summary>${esc(t("quickGuide"))}</summary><ol><li>${esc(t("guideCapture"))}</li><li>${esc(t("guideCheck"))}</li><li>${esc(t("guideCopy"))}</li><li>${esc(t("guidePause"))}</li></ol></details><div class="actions">${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
+}
+
+function outputPreview(template: Template, s?: Session): string {
+  try {
+    return `<section class="template-output" aria-label="${esc(t("outputPreview"))}">
+      <h2>${esc(t("outputPreview"))}</h2>
+      ${previewSections(template, s)
+        .map(
+          (part) =>
+            `${template.email?.enabled ? `<h3>${esc(t(part.key))}</h3>` : ""}<pre>${part.parts
+              .map((token) =>
+                token.missing
+                  ? `<mark>${esc(token.text)}</mark>`
+                  : esc(token.text),
+              )
+              .join("")}</pre>`,
+        )
+        .join("")}
+    </section>`;
+  } catch (error) {
+    return `<p class="hint">${esc(t(error instanceof Error && error.message === "invalidFormDirective" ? "invalidFormDirective" : "invalidExtraFields"))}</p>`;
+  }
+}
+
+function fieldControl(
+  s: Session,
+  index: number,
+  id: string,
+  comparing = false,
+): string {
+  const field = s.fields[index];
+  const definition = s.controls?.get(field.name);
+  const value = comparing ? "" : (field.value ?? "");
+  const label = `<label for="${id}">${esc(field.name)}</label>`;
+  const attrs = `id="${id}" data-control="${index}" ${id.startsWith("form-field-") ? `aria-describedby="form-state-${index}"` : ""} autocomplete="off"`;
+  if (definition?.options) {
+    const options = [...definition.options];
+    if (definition.kind === "radio") {
+      return `<fieldset id="${id}"><legend>${esc(field.name)}</legend>
+        ${options.map(([key, text], i) => `<label class="check"><input type="radio" id="${id}-${i}" name="${id}" data-control="${index}" value="${esc(key)}" ${key === value ? "checked" : ""}>${esc(text || key)}</label>`).join("")}
+      </fieldset>`;
+    }
+    if (
+      !comparing &&
+      (definition.kind === "checkbox" || definition.kind === "switch")
+    ) {
+      return `<label class="check"><input type="checkbox" ${attrs} ${definition.kind === "switch" ? 'role="switch" class="toggle-switch"' : ""} ${value === "yes" ? "checked" : ""}>${esc(field.name)} · ${esc(definition.options.get("yes") || t("enableField"))}</label>`;
+    }
+    return `${label}<select ${attrs}>
+      <option value="">${esc(t("chooseValue"))}</option>
+      ${options.map(([key, text]) => `<option value="${esc(key)}" ${key === value ? "selected" : ""}>${esc(text || key)}</option>`).join("")}
+    </select>`;
+  }
+  if (!definition || definition.kind === "textarea")
+    return `${label}<textarea ${attrs} rows="2">
+${esc(value)}</textarea>`;
+  return `${label}<input ${attrs} type="${definition.kind}" ${definition.kind === "number" ? 'step="any"' : ""} value="${esc(value)}">`;
+}
+
+function controlValue(
+  element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+) {
+  return element instanceof HTMLInputElement && element.type === "checkbox"
+    ? element.checked
+      ? "yes"
+      : "no"
+    : element.value;
+}
+function controlFocus(id: string) {
+  const element = document.getElementById(id);
+  return (
+    element?.querySelector<HTMLInputElement>("input:checked, input")?.id ?? id
+  );
+}
+function templateFormView(s: Session): string {
+  const fields = s.fields
+    .map((field, index) => ({ field, index }))
+    .filter(({ field }) => fieldVisible(s, field.name));
+  // Dependencies precede their fields. Other selections follow the text fields.
+  const dependencies = new Set(
+    [...(s.controls?.values() ?? [])].flatMap((control) =>
+      control.when ? [control.when.name] : [],
+    ),
+  );
+  const rank = (name: string) =>
+    dependencies.has(name) ? 0 : s.controls?.get(name)?.options ? 2 : 1;
+  fields.sort((a, b) => rank(a.field.name) - rank(b.field.name));
+  const f = s.fields[s.active];
+  return `<main class="capture-panel template-form">
+    <h1>${esc(s.template.name)}</h1>
+    <div class="task-toolbar">${button("switch-scanner", "openInScanner")}${button("pause-task", "pauseTask")}</div>
+    ${
+      typingCheck && f
+        ? `<p>${esc(t("reenterValue"))}</p>
+      ${fieldControl(s, s.active, "typing-check", true)}
+      <div class="actions">${button("submit-typing-check", "compare", "primary")}${button("edit-responses", "editResponses")}</div>`
+        : `<div class="template-form-grid"><div>
+      ${fields
+        .map(
+          ({ field, index }) => `<div class="template-form-field">
+        ${fieldControl(s, index, `form-field-${index}`)}
+        <small id="form-state-${index}">${esc(t(field.status === "verified" ? "matchedEntry" : field.status))}</small>
+      </div>`,
+        )
+        .join("")}
+      <div class="actions">${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>
+    </div><div id="form-output">${outputPreview(s.template, s)}</div></div>`
+    }
+    <div class="actions">${button("cancel-session", "cancelSession", "quiet danger")}</div>
+  </main>`;
+}
+
+async function switchTemplateView(form: boolean) {
+  const s = session!;
+  await platform.compact(!form, library.preferences.alwaysOnTop);
+  const shortcutError = await configureSessionShortcuts(!form);
+  prepareWorkflow(s, form);
+  typingCheck = false;
+  reverification = null;
+  templateForm = form;
+  if (lastTemplate) lastTemplate.typing = form;
+  preview = false;
+  message = "";
+  render();
+  focus(form ? controlFocus(`form-field-${s.active}`) : "switch-form");
+  if (!form && !s.fields[s.active]) focus("finish");
+  if (shortcutError) report(shortcutError);
+}
+function sessionRecovery(s?: Session) {
+  if (!lastTemplate) return "";
+  const reuse =
+    s &&
+    !s.scanner &&
+    s.template.id === lastTemplate.definition.id &&
+    !library.preferences.clearAfterCompletion &&
+    s.fields.some((field) => field.value !== null);
+  return `<div class="actions">${button("restart-session", "restartSession")}${reuse ? button("reuse-session", "reuseSession") : ""}</div>`;
+}
+function activeScannerControl(s: Session) {
+  return `<div class="template-form-field">${fieldControl(s, s.active, "scanner-control", s.mode === "verify")}
+    ${button("use-scanner-control", s.mode === "verify" ? "compare" : "apply")}</div>`;
+}
+function selectedControl(id: string) {
+  const element = document.getElementById(id);
+  const input =
+    element instanceof HTMLFieldSetElement
+      ? element.querySelector<HTMLInputElement>("input:checked")
+      : element;
+  return input
+    ? controlValue(
+        input as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+      )
+    : "";
 }
 function sessionView(): string {
   if (!session) return "";
   const s = session,
     p = library.preferences,
     f = s.fields[s.active];
+  if (templateFormActive()) return templateFormView(s);
+  if (focusedWorkflow && !["review", "complete"].includes(s.mode))
+    return focusedSessionView(s);
   if (s.mode === "review")
-    return `<main class="capture-panel"><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailReviewHelp" : "extraFieldsReviewHelp"))}</p><div class="actions">${button("email-to-scanner", "emailToScanner", "primary")}${button("email-clear-close", "clearClose", "danger")}</div></main>`;
+    return `<main class="capture-panel"><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailReviewHelp" : "extraFieldsReviewHelp"))}</p><div class="actions">${button("email-to-scanner", "emailToScanner", "primary")}${button("email-clear-close", "clearClose", "danger")}</div>${!p.clearAfterCompletion ? outputPreview(s.template, s) + button("retain-email-results", "closeSession") : ""}${sessionRecovery(s)}</main>`;
   if (s.mode === "complete")
-    return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion ? "erased" : "retained"))}</p>${button("close-session", returnToScanner ? "returnScanner" : "closeSession", "primary")}</main>`;
+    return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion || !s.fields.some((f) => f.value !== null) ? "erased" : "retained"))}</p>${button("close-session", returnToScanner ? "returnScanner" : "closeSession", "primary")}${!p.clearAfterCompletion && !s.scanner && s.fields.some((f) => f.value !== null) ? outputPreview(s.template, s) + button("erase-results", "eraseSession", "quiet danger") : ""}${sessionRecovery(s)}</main>`;
   if (s.mode === "delivery") {
     const parts = renderEmail(s),
       index = s.deliveryIndex ?? 0;
-    return `<main class="capture-panel"><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
+    return `<main class="capture-panel"><div class="task-toolbar">${button("pause-task", "pauseTask")}${button("toggle-workflow", "focusedView")}</div><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
   }
   const mode = s.mode === "verify" ? "verify" : "capture";
   const done = s.fields.filter(
@@ -1223,15 +1649,16 @@ function sessionView(): string {
       preview = false;
     }
   }
-  return `<main class="capture-panel ${s.scanner ? "scanner-panel" : ""}"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${button("session-back", s.scanner ? "workspace" : "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
+  return `<main class="capture-panel ${s.scanner ? "scanner-panel" : ""}"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${!s.scanner ? button("switch-form", "fillForm") : ""}${button("toggle-workflow", "focusedView")}${button("pause-task", "pauseTask")}${button("session-back", s.scanner ? "workspace" : "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
   ${s.scanner ? `<p class="vera-id">${esc(s.rowLink?.rowId ?? s.scannerId)}${s.rowLink ? `<br>${esc(s.rowLink.tableId)}` : ""}</p><p class="hint">${esc(t(s.rowLink ? "rowSaveHelp" : "scannerTemporary"))}</p>` : ""}
+  ${f && s.controls?.has(f.name) ? activeScannerControl(s) : ""}
   ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label><textarea id="manual-value" rows="2" spellcheck="false"></textarea><div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>${!s.scanner ? `<p class="hint">${esc(t("clipboardHelp"))}</p>` : ""}</details>` : ""}
   ${mouseMode ? `<div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
   <details id="session-options" class="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
   ${s.mode !== "ready" ? check("preserve-clipboard", "preserveClipboard", preserveClipboard) + `<p class="hint">${esc(t("preserveClipboardHelp"))}</p>` : ""}
   ${check("mouse-mode", "mouseMode", mouseMode)}<p class="hint">${esc(t("mouseHelp"))}</p></details>
   ${s.scanner ? `<div class="section-head scanner-field-heading"><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("scanner-add", "addField")}<button id="scanner-reorder" aria-pressed="${scannerReordering}">${esc(t(scannerReordering ? "doneReordering" : "reorderFields"))}</button></div></div><p class="hint">${esc(t("scannerFieldsHelp"))}</p>` : ""}
-  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => `<li ${s.scanner ? `data-reorder="${index}"` : ""}><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button>${s.scanner && scannerReordering ? `<div class="scanner-field-tools">${dragHandle()}<span><button data-scanner-up="${index}" aria-label="${esc(t("moveUp") + " " + field.name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-scanner-down="${index}" aria-label="${esc(t("moveDown") + " " + field.name)}" ${index === s.fields.length - 1 ? "disabled" : ""}>↓</button></span></div>` : ""}</li>`).join("")}</ol>
+  <ol class="capture-fields" aria-label="${esc(t("fields"))}">${s.fields.map((field, index) => (!fieldVisible(s, field.name) ? "" : `<li ${s.scanner ? `data-reorder="${index}"` : ""}><button id="field-${index}" data-field="${index}" class="capture-field ${p.verifiedBackground && field.status === "verified" ? "verified-background" : ""} ${index === s.active ? "active" : ""} ${field.status}" ${index === s.active ? 'aria-current="step"' : ""}><span class="state-icon" aria-hidden="true">${index === s.active ? "→" : symbols[field.status]}</span><span class="field-body"><strong>${esc(field.name)}</strong><span class="field-value">${esc(field.value ?? "—")}</span></span><span class="status-label">${esc(t(field.status))}</span></button>${s.scanner && scannerReordering ? `<div class="scanner-field-tools">${dragHandle()}<span><button data-scanner-up="${index}" aria-label="${esc(t("moveUp") + " " + field.name)}" ${index === 0 ? "disabled" : ""}>↑</button><button data-scanner-down="${index}" aria-label="${esc(t("moveDown") + " " + field.name)}" ${index === s.fields.length - 1 ? "disabled" : ""}>↓</button></span></div>` : ""}</li>`)).join("")}</ol>
   ${f ? `<details class="inspect"><summary>${esc(t("expand"))}: ${esc(f.name)}</summary><pre>${esc(f.value ?? "—")}</pre></details>` : ""}
   ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
   ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
@@ -1239,7 +1666,7 @@ function sessionView(): string {
   ${s.fields.some((field) => field.value !== null) ? `<details class="reverification"><summary>${esc(t("verifyAgain"))}</summary><div class="toolbar">${button("reverify-field", "reverifyField", "", !f || f.value === null)}${button("reverify-all", "reverifyAll")}</div><p class="hint">${esc(t("reverifyHelp"))}</p></details>` : ""}
   ${!s.scanner ? `<div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>` : ""}
   ${s.scanner ? scannerControls() : s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
-  ${preview ? `<pre class="output">${esc(rendered)}</pre>` : ""}
+  ${preview ? `<pre class="output">${esc(rendered)}</pre>` : !s.scanner ? outputPreview(s.template, s) : ""}
   <details><summary>${esc(t("help"))}</summary><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
   <div class="actions">${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
 }
@@ -1282,11 +1709,172 @@ function scannerFieldMenu(index: number, x: number, y: number) {
     )?.dataset.context;
     if (action) {
       menu.close();
-      document.getElementById(action)?.click();
+      if (!focusedWorkflow) document.getElementById(action)?.click();
+      else
+        void run(async () => {
+          if (action === "scanner-copy") {
+            await copyTask(scannerValue(session!), session!.fields[index].name);
+            notify("copied");
+          } else if (action === "scanner-paste") {
+            await pasteTask(
+              scannerValue(session!),
+              session!.fields[index].name,
+              (text) => platform.pasteToSource(text),
+            );
+            notify("pasteRequested");
+          } else if (action === "verify-start") {
+            beginReverification(session!);
+            reverification = "field";
+            manualOpen = true;
+            render();
+            focus("manual-value");
+          } else {
+            await editScannerName(index);
+            render();
+            focus(`field-${index}`);
+          }
+        });
     } else if (e.target === menu) menu.close();
   });
 }
+function selectSessionField(index: number) {
+  const s = session!;
+  s.active = index;
+  const keepChecking =
+    focusedWorkflow &&
+    s.scanner &&
+    s.mode === "verify" &&
+    s.fields[index]?.value !== null;
+  if (keepChecking) reverification ??= "field";
+  else {
+    reverification = null;
+    if (s.scanner) s.mode = "capture";
+  }
+  if (
+    focusedWorkflow &&
+    s.scanner &&
+    (keepChecking || s.fields[index]?.value === null)
+  )
+    manualOpen = true;
+}
 function bindSession() {
+  click("switch-form", () => switchTemplateView(true));
+  click("switch-scanner", () => switchTemplateView(false));
+  const restart = async (reuse: boolean) => {
+    if (!lastTemplate) return;
+    await launch(
+      lastTemplate.definition,
+      undefined,
+      session?.mode === "complete" || (reuse && session?.mode === "review"),
+      lastTemplate.typing,
+      reuse ? (session ?? undefined) : undefined,
+    );
+  };
+  click("restart-session", () => restart(false));
+  click("reuse-session", () => restart(true));
+  click("use-scanner-control", async () => {
+    const value = selectedControl("scanner-control");
+    await accept(value, true);
+  });
+  click("edit-responses", () => {
+    typingCheck = false;
+    message = "";
+    render();
+    focus(controlFocus(`form-field-${session!.active}`));
+  });
+  click("submit-typing-check", () => {
+    const s = session!;
+    if (!verify(s, selectedControl("typing-check")))
+      throw Error("typingMismatch");
+    typingCheck = s.mode === "verify";
+    message = "";
+    render();
+    focus(typingCheck ? controlFocus("typing-check") : "finish");
+  });
+  if (templateFormActive() && !typingCheck) {
+    root
+      .querySelectorAll<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >(".template-form [data-control]")
+      .forEach((input) => {
+        input.addEventListener("input", () => {
+          const s = session!;
+          const index = Number(input.dataset.control);
+          const field = s.fields[index];
+          s.active = index;
+          const value = controlValue(input);
+          if (
+            value === (field.value ?? "") &&
+            !input.hasAttribute("aria-invalid") &&
+            !input.validity.badInput
+          )
+            return;
+          try {
+            if (input.validity.badInput) throw Error("invalidControlValue");
+            if (value.length > 1024 * 1024 || value.includes("\0"))
+              throw Error("invalidText");
+            if (value.trim()) capture(s, value, false);
+            else clear(s);
+          } catch (error) {
+            // Keep invalid numeric/date input out of the generated output.
+            clear(s);
+            document.getElementById("form-output")!.innerHTML = outputPreview(
+              s.template,
+              s,
+            );
+            const label = document.getElementById(`form-state-${index}`)!;
+            label.textContent = t(
+              error instanceof Error && error.message === "invalidText"
+                ? "invalidText"
+                : "invalidControlValue",
+            );
+            input.setAttribute("aria-invalid", "true");
+            return;
+          }
+          input.removeAttribute("aria-invalid");
+          manualDrafts.delete(`capture:${field.name}`);
+          manualDrafts.delete(`verify:${field.name}`);
+          reverification = null;
+          if (
+            [...(s.controls?.values() ?? [])].some(
+              (control) => control.when?.name === field.name,
+            )
+          ) {
+            render();
+            focus(input.id);
+          } else {
+            document.getElementById("form-output")!.innerHTML = outputPreview(
+              s.template,
+              s,
+            );
+            document.getElementById(`form-state-${index}`)!.textContent = t(
+              field.status,
+            );
+          }
+          document.getElementById("notice")!.hidden = true;
+          message = "";
+        });
+      });
+  }
+  const input = document.getElementById(
+    "manual-value",
+  ) as HTMLTextAreaElement | null;
+  if (input) {
+    const key = `${session!.mode}:${session!.fields[session!.active]?.name ?? ""}`;
+    input.dataset.owner = String(taskGeneration);
+    input.dataset.draftKey = key;
+    input.value = manualDrafts.get(key) ?? "";
+  }
+  click("toggle-workflow", () => {
+    focusedWorkflow = !focusedWorkflow;
+    render();
+    focus("toggle-workflow");
+  });
+  click("pause-task", () => navigate("workspace"));
+  on("task-tools", "toggle", (event) => {
+    if ((event.target as HTMLElement).isConnected)
+      taskToolsOpen = (event.target as HTMLDetailsElement).open;
+  });
   bindScannerExtras();
   click("scanner-reorder", () => {
     scannerReordering = !scannerReordering;
@@ -1296,6 +1884,7 @@ function bindSession() {
   for (const scope of ["field", "all"] as const)
     click(`reverify-${scope}`, () => {
       beginReverification(session!, scope === "all");
+      if (focusedWorkflow) manualOpen = true;
       reverification = scope;
       preview = false;
       message = "";
@@ -1382,7 +1971,10 @@ function bindSession() {
     focus("manual-value");
   });
   click("scanner-copy", async () => {
-    await platform.copy(scannerValue(session!));
+    await copyTask(
+      scannerValue(session!),
+      session!.fields[session!.active].name,
+    );
     notify("copied");
   });
   on("scanner-output", "change", (e) => {
@@ -1425,9 +2017,10 @@ function bindSession() {
   click("email-back", () => perform("previous"));
   click("email-next", () => perform("next"));
   click("email-copy", async () => {
-    await platform.copy(
-      renderEmail(session!)[session!.deliveryIndex ?? 0].text,
-    );
+    const part = renderEmail(session!)[session!.deliveryIndex ?? 0];
+    await copyTask(part.text, t(part.key));
+    emailSteps.set(part.key, "stepCopied");
+    render();
   });
   click("email-done", async () => {
     if (!session?.deliveryDone) return;
@@ -1456,14 +2049,21 @@ function bindSession() {
   click("session-back", () =>
     navigate(session?.scanner ? "workspace" : "templates"),
   );
+  click("erase-results", () => {
+    eraseSession(session!);
+    render();
+    focus("restart-session");
+  });
+  click("retain-email-results", async () => {
+    session!.mode = "complete";
+    await closeSession();
+  });
   click("close-session", closeSession);
   root.querySelectorAll<HTMLButtonElement>("[data-field]").forEach(
     (el) =>
       (el.onclick = () =>
         void run(() => {
-          reverification = null;
-          session!.active = Number(el.dataset.field);
-          if (session!.scanner) session!.mode = "capture";
+          selectSessionField(Number(el.dataset.field));
           preview = false;
           render();
           root
@@ -1503,11 +2103,13 @@ function bindSession() {
       beginReverification(session!);
       reverification = "field";
     } else beginVerification(session!);
+    if (focusedWorkflow) manualOpen = true;
     message = "";
     render();
     focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
   });
   click("preview", () => {
+    message = "";
     preview = !preview;
     render();
     focus("finish");
@@ -1536,7 +2138,10 @@ async function accept(
   value: string,
   advance = library.preferences.autoAdvance,
 ) {
-  if (!session) return;
+  if (!session || paused) return;
+  const activeName = session.fields[session.active]?.name ?? "";
+  const submittedDraftKey = `${session.mode}:${activeName}`;
+  const wasChecking = session.mode === "verify";
   if (value.length > 1024 * 1024) throw new Error("invalidText");
   if (session.mode !== "verify") reverification = null;
   if (session.mode === "verify") {
@@ -1552,16 +2157,38 @@ async function accept(
     );
     if (matches && scope === "field") {
       reverification = null;
-      session.mode = session.fields.every(
-        (f) => f.status === "verified" || f.status === "skipped",
-      )
-        ? "ready"
-        : "capture";
+      if (session.scanner)
+        session.mode = session.fields.every(
+          (f) => f.status === "verified" || f.status === "skipped",
+        )
+          ? "ready"
+          : "capture";
+      else prepareWorkflow(session, false);
     } else if (["ready", "capture"].includes(session.mode as Session["mode"]))
       reverification = null;
   } else if (session.scanner) captureScanner(session, value, advance);
   else capture(session, value, advance);
   if (session.scanner && session.mode === "ready") session.mode = "capture";
+  if (
+    focusedWorkflow &&
+    session.scanner &&
+    session.mode !== "verify" &&
+    session.fields[session.active]?.value !== null
+  )
+    manualOpen = false;
+  lastStep = {
+    key: wasChecking
+      ? session.fields.find((f) => f.name === activeName)?.status === "verified"
+        ? "stepMatched"
+        : "stepMismatch"
+      : "stepCaptured",
+    name: activeName,
+  };
+  const input = document.getElementById(
+    "manual-value",
+  ) as HTMLTextAreaElement | null;
+  manualDrafts.delete(submittedDraftKey);
+  if (input?.dataset.draftKey === submittedDraftKey) input.value = "";
   message = "";
   preview = false;
   render();
@@ -1570,7 +2197,11 @@ async function accept(
       ? "finish"
       : manualOpen
         ? "manual-value"
-        : `field-${session.active}`,
+        : focusedWorkflow &&
+            session.scanner &&
+            session.fields[session.active]?.status === "verified"
+          ? "scanner-copy"
+          : `field-${session.active}`,
   );
 }
 function dispatch(action: Action) {
@@ -1580,15 +2211,32 @@ async function perform(action: Action, global = false) {
   const s = session;
   if (!s || s.mode === "complete") return;
   // Global navigation is frozen while an editor/settings screen or confirmation is open.
-  if (view !== "session") return;
+  if (view !== "session" || paused || (global && templateFormActive())) return;
   if (s.mode === "review") return;
   if (s.mode === "delivery" && action !== "cancel") {
+    const part = renderEmail(s)[s.deliveryIndex ?? 0];
+    if (action === "next" && !s.deliveryDone) {
+      if (!s.deliveryDone && !emailSteps.has(part.key))
+        emailSteps.set(part.key, "stepManual");
+      lastStep = { key: "stepManual", name: t(part.key) };
+    }
     if (!global && (action === "previous" || action === "next")) {
       moveEmailSection(s, action === "previous" ? -1 : 1);
     } else if (global && action === "next") {
       moveEmailSection(s, 1);
     } else if (global && (action === "previous" || action === "finish")) {
-      await deliverEmailSection(s, action === "previous", platform.deliver);
+      if (action === "finish" && s.deliveryDone) return;
+      await deliverEmailSection(s, action === "previous", async (text, tab) => {
+        if (text === null) {
+          await platform.deliver(null, tab);
+          return;
+        }
+        emailSteps.set(part.key, "stepPasteUncertain");
+        await pasteTask(text, t(part.key), (value) =>
+          platform.deliver(value, tab),
+        );
+        emailSteps.set(part.key, "stepPaste");
+      });
     } else return;
     message = "";
     render();
@@ -1621,14 +2269,12 @@ async function perform(action: Action, global = false) {
         await accept(await platform.capture(preserveClipboard), true);
       return;
     case "previous":
-      reverification = null;
       move(s, -1);
-      if (s.scanner) s.mode = "capture";
+      selectSessionField(s.active);
       break;
     case "next":
-      reverification = null;
       move(s, 1);
-      if (s.scanner) s.mode = "capture";
+      selectSessionField(s.active);
       break;
     case "clear":
       clear(s);
@@ -1645,11 +2291,30 @@ async function perform(action: Action, global = false) {
       if (await confirmAction("sessionConfirm")) await closeSession();
       return;
     case "finish": {
+      if (
+        templateFormActive() &&
+        root.querySelector('.template-form [aria-invalid="true"]')
+      )
+        throw Error("invalidControlValue");
+      if (templateFormActive() && verificationRequired(s)) {
+        beginVerification(s);
+        if (s.mode === "verify") {
+          typingCheck = true;
+          message = "";
+          render();
+          focus(controlFocus("typing-check"));
+          return;
+        }
+      }
       if (s.scanner) {
         const value = scannerValue(s);
-        if (scannerOutput === "copy") await platform.copy(value);
+        if (scannerOutput === "copy")
+          await copyTask(value, s.fields[s.active].name);
         else if (!global) throw Error("scannerFocusHelp");
-        else await platform.deliver(value, scannerOutput === "tab");
+        else
+          await pasteTask(value, s.fields[s.active].name, (text) =>
+            platform.deliver(text, scannerOutput === "tab"),
+          );
         if (library.preferences.autoAdvance && s.fields.length > 1) move(s, 1);
         s.mode = "capture";
         render();
@@ -1657,17 +2322,27 @@ async function perform(action: Action, global = false) {
       }
       if (s.template.email?.enabled) {
         renderEmail(s);
+        const shortcutError = templateFormActive()
+          ? await configureSessionShortcuts(true)
+          : undefined;
+        await platform.compact(true, library.preferences.alwaysOnTop);
         s.mode = "delivery";
         s.deliveryIndex = 0;
         s.deliveryDone = false;
+        emailSteps.clear();
+        message = "";
         render();
+        if (shortcutError) report(shortcutError);
         return;
       }
       const output = renderSession(s);
-      await platform.copy(output);
+      await copyTask(output, t("finish"));
       if (s.template.extraFields?.length) s.mode = "review";
-      else if (library.preferences.clearAfterCompletion) eraseSession(s);
-      else s.mode = "complete";
+      else if (library.preferences.clearAfterCompletion) {
+        eraseSession(s);
+        manualDrafts.clear();
+        taskGeneration++;
+      } else s.mode = "complete";
       preview = false;
       await bindShortcuts(null, dispatch);
       await platform.active(s.mode === "review");
@@ -1683,8 +2358,17 @@ async function perform(action: Action, global = false) {
 }
 async function closeSession() {
   const wasScanner = session?.scanner;
-  if (session) eraseSession(session);
-  session = null;
+  const keepResults =
+    session?.mode === "complete" && !wasScanner && !returnToScanner;
+  if (!keepResults) {
+    if (session) eraseSession(session);
+    session = null;
+  }
+  paused = false;
+  taskGeneration++;
+  manualDrafts.clear();
+  lastStep = null;
+  emailSteps.clear();
   await bindShortcuts(null, dispatch);
   await platform.active(false);
   if (returnToScanner) {
@@ -1778,6 +2462,7 @@ window.addEventListener("keydown", (event) => {
     document.querySelector("dialog[open]")
   )
     return;
+  if (view === "session" && templateFormActive()) return;
   if (view === "session" && session?.scanner) {
     const target = event.target as HTMLElement;
     const fieldButton = target.closest<HTMLButtonElement>("[data-field]");
@@ -1791,11 +2476,10 @@ window.addEventListener("keydown", (event) => {
     ) {
       event.preventDefault();
       void run(async () => {
-        await platform.copy(
-          scannerValue({
-            ...session!,
-            active: Number(fieldButton.dataset.field),
-          }),
+        const index = Number(fieldButton.dataset.field);
+        await copyTask(
+          scannerValue({ ...session!, active: index }),
+          session!.fields[index].name,
         );
         notify("copied");
       });
@@ -1812,9 +2496,7 @@ window.addEventListener("keydown", (event) => {
         Number(fieldButton.dataset.field) + (event.shiftKey ? -1 : 1);
       if (next >= 0 && next < session.fields.length) {
         event.preventDefault();
-        reverification = null;
-        session.active = next;
-        session.mode = "capture";
+        selectSessionField(next);
         render();
         focus(`field-${next}`);
       }
@@ -1884,6 +2566,10 @@ async function init() {
     locked = true;
     report(error);
   }
+  focusedWorkflow =
+    layoutOverride === null
+      ? library.preferences.focusedWorkflow === true
+      : layoutOverride === "focused";
   if (library.templates[0]) selectTemplate(library.templates[0].id);
   render();
   if (desktop && !testBuild)
@@ -1900,6 +2586,8 @@ async function init() {
           )
             return;
           if (session) eraseSession(session);
+          manualDrafts.clear();
+          taskGeneration++;
           eraseRetainedScanner();
           await bindShortcuts(null, dispatch);
           await platform.active(false);

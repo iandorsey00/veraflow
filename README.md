@@ -10,16 +10,13 @@ Get the [v0.8.1 preview binaries](https://github.com/iandorsey00/veraflow/releas
 
 On macOS 12+, extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized; macOS may block opening it. Use the per-app Open Anyway option in Privacy & Security only if you trust the download. Grant Accessibility permission there for source-text capture. On Windows, run the installer; it may show an unrecognized-publisher warning and install WebView2 if missing. Do not disable system-wide security protections.
 
-Back up `library.json` before upgrading. See [release and rollback instructions](docs/release.md) and [preview limitations](docs/binary-release-notes.md).
+Back up `library.json` before upgrading. The public download above is 0.8.1. To try the current source on Windows, use the [main branch Check runs](https://github.com/iandorsey00/veraflow/actions/workflows/check.yml?query=branch%3Amain) and follow the [Windows Test instructions](docs/windows-testing.md). See [release and rollback instructions](docs/release.md) and [preview limitations](docs/binary-release-notes.md).
 
-## Experimental branches
+## Templates on main
 
-| Branch                   | What you can try                                                          | Install                                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `codex/focused-workflow` | Compact task view, progress checklist, and Pause/Resume                   | [Focused Workflow instructions](https://github.com/iandorsey00/veraflow/tree/codex/focused-workflow#install) |
-| `codex/template-forms`   | Focused Workflow plus Form and Scanner views of the same template session | [Template Forms instructions](https://github.com/iandorsey00/veraflow/tree/codex/template-forms#install)     |
+The source branch includes **Scanner workflow** and **Typing workflow** for each template. Pick a template to preview it, then choose how to enter its values. Typing adds a full-window form with live output. Enable **Focused view** in Settings to use the optional compact Scanner layout.
 
-Both branches offer a Windows x64 **VeraFlow Test** installer through GitHub Actions. Each branch README links to its own builds and has instructions for running from source on macOS.
+See the [template and workflow guide](docs/focused-workflow.md) for form syntax, independent verification settings, and reopening or restarting sessions.
 
 ![VeraFlow workspace with a synthetic travel booking row](docs/portfolio/screenshots/07-workspace.png)
 

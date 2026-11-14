@@ -1,7 +1,7 @@
 import { legacyTemplate } from "./fixtures";
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.getByRole("button", { name: "Templates", exact: true }).click();
   await legacyTemplate(page);
 });
@@ -113,7 +113,7 @@ test("Chinese, dark appearance, no verification, narrow UI and keyboard form ent
   await page.getByRole("button", { name: "模板", exact: true }).click();
   await page.getByLabel("模板内容", { exact: true }).fill("您好 <姓名>");
   await page.getByText("模板选项", { exact: true }).click();
-  await page.getByLabel("复制前核验", { exact: true }).uncheck();
+  await page.locator("#template-verify").uncheck();
   await page.getByRole("button", { name: "开始会话", exact: true }).click();
   await page.getByText("手动输入值", { exact: true }).click();
   await page.getByLabel("粘贴或输入值").fill("小明");

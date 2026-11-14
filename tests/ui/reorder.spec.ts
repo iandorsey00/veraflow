@@ -8,7 +8,7 @@ async function drag(page: Page, list: string, from: number, to: number) {
 test("capture and email order support drag with arrows and persist after toggling", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-templates").click();
   await page.locator("#email-subject").fill("{{subject}}");
   await page.locator("#email-to").fill("{{recipient}}");
@@ -67,7 +67,7 @@ test("capture and email order support drag with arrows and persist after togglin
 test("Scanner drag and arrow moves preserve active field, values and verification", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-scanner").click();
   await defineScanner(page);
   await page.locator("#manual-value").fill("PRIVATE-104");
@@ -115,7 +115,7 @@ test("update action belongs to navigation and Settings header, with busy guard",
         '\nplatform.checkUpdate=async()=>({version:"9.0.0",notes:"test"});',
     });
   });
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.evaluate(() => (window as any).__checkUpdate());
   await expect(page.locator("nav #update-now")).toBeVisible();
   await page.locator("#nav-settings").click();

@@ -10,7 +10,7 @@ async function updates(page: Page, result: string, install = "") {
         `\nplatform.checkUpdate = async () => { ${result} };\nplatform.installUpdate = async (progress) => { window.__updateInstalls = (window.__updateInstalls || 0) + 1; ${install} };\n`,
     });
   });
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.getByRole("button", { name: "Templates", exact: true }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
 }

@@ -1,5 +1,6 @@
+import { validControlValue } from "./form";
 import type { Preferences, Session, Template } from "./model";
-import { startSession, capture } from "./session";
+import { startSession, capture, prepareWorkflow } from "./session";
 
 export function startScanner(
   preferences: Preferences,
@@ -59,6 +60,12 @@ export function completedFieldsToScanner(
     session.fields.filter((f) => f.value !== null && f.status !== "skipped"),
   );
   if (!fields.length) return startScanner(preferences, name, firstField);
+  for (const field of fields) {
+    if (field.checkedByTyping) {
+      field.status = "captured";
+      delete field.checkedByTyping;
+    }
+  }
   return {
     scanner: true,
     fields,
@@ -111,17 +118,12 @@ export function applyScanner(scanner: Session, template: Template): Session {
       source?.value !== undefined &&
       source.status !== "mismatch"
     ) {
+      const control = result.controls?.get(field.name);
+      if (control && !validControlValue(control, source.value)) continue;
       field.value = source.value;
       field.status = "captured";
     }
   }
-  const empty = result.fields.findIndex((f) => f.value === null);
-  result.active = empty < 0 ? 0 : empty;
-  result.mode =
-    empty >= 0
-      ? "capture"
-      : template.verificationEnabled && result.fields.length
-        ? "verify"
-        : "ready";
+  prepareWorkflow(result, false);
   return result;
 }

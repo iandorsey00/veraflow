@@ -1,13 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 async function finishEmail(page: Page) {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-templates").click();
   await expect(page.locator(".appbar nav button").nth(0)).toHaveText(
-    "Workspace",
+    "Templates",
   );
   await expect(page.locator(".appbar nav button").nth(1)).toHaveText(
-    "Templates",
+    "Workspace",
   );
   await expect(
     page.getByRole("heading", { name: "Templates", exact: true }),
