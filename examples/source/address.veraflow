@@ -1,0 +1,17 @@
+--- veraflow 2
+{
+  "workflow": "scanner",
+  "fields": {
+    "name": {"type":"text","label":"Recipient"},
+    "street": {"type":"text","label":"Street address","multiline":true,"allowBlankLines":false},
+    "attention": {"type":"text","label":"Attention","optional":true},
+    "city": {"type":"text","label":"City, state and postal code"}
+  }
+}
+---
+{{name}}
+{{street}}
+{{#when attention is not blank}}
+Attn: {{attention}}
+{{/when}}
+{{city}}

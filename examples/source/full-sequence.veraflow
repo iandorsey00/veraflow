@@ -1,0 +1,23 @@
+--- veraflow 2
+{
+  "workflow": "form",
+  "delivery": {
+    "mode": "sequence",
+    "after": {"recipient": ["Tab", "Tab"], "subject": ["Tab"]}
+  },
+  "fields": {
+    "name": {"type":"text","label":"Recipient name","default":"Alex Example"},
+    "reference": {"type":"text","label":"Booking reference","default":"VF-104"}
+  }
+}
+---
+{{#section recipient "Recipient"}}
+alex@example.test
+{{/section}}
+{{#section subject "Subject"}}
+Booking {{reference}}
+{{/section}}
+{{#section body "Body"}}
+Hello {{name}},
+Your booking is ready for review.
+{{/section}}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="VeraFlowCsvOpenWith" Guid="*">
+        <RegistryValue Root="HKLM" Key="Software\Classes\VeraFlow.Csv"
+          Type="string" Value="CSV document" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\VeraFlow.Csv\shell\open\command"
+          Type="string" Value="&quot;[#Path]&quot; &quot;%1&quot;" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.csv\OpenWithProgids"
+          Name="VeraFlow.Csv" Type="string" Value="" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

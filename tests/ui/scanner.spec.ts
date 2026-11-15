@@ -168,7 +168,7 @@ test("Scanner is usable in Chinese dark mode and removing an empty field preserv
     await page.getByText("More tools", { exact: true }).click();
   await page.locator("#scanner-remove").click();
   await expect(page.locator(".field-value")).toHaveText("Alex");
-  await page.getByRole("button", { name: "Workspace", exact: true }).click();
+  await page.locator("#session-back").click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByLabel("Language", { exact: true }).selectOption("zh-CN");
   await page

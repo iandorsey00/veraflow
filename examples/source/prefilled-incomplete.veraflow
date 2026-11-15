@@ -1,0 +1,18 @@
+--- veraflow 2
+{
+  "workflow": "form",
+  "fields": {
+    "route": {
+      "type":"dropdown",
+      "label":"Delivery route",
+      "options":[{"id":"air","label":"Air freight"},{"id":"road","label":"Road freight"}]
+    },
+    "reference": {"type":"text","label":"Booking reference"},
+    "notes": {"type":"text","label":"Notes","multiline":true,"optional":true}
+  },
+  "responses": {"route":"road","reference":null,"notes":"Example response.\n\nSecond paragraph."}
+}
+---
+Reference: {{reference}}
+Route: {{route}}
+{{notes}}

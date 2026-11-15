@@ -1,0 +1,133 @@
+name: Source preview binaries
+on:
+  push:
+    tags: ["preview-source.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/check.yml
+
+  desktop:
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x64
+            bundle: nsis
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: macos-arm64
+            bundle: app
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            platform: macos-x64
+            bundle: app
+    runs-on: ${{ matrix.os }}
+    env:
+      VITE_TEST_BUILD: "1"
+      VITE_BUILD_COMMIT: ${{ github.sha }}
+      TARGET: ${{ matrix.target }}
+      PLATFORM: ${{ matrix.platform }}
+      BUNDLE: ${{ matrix.bundle }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: npm ci
+      - name: Build isolated test app
+        shell: bash
+        run: |
+          config=(--config src-tauri/tauri.test.conf.json)
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            config+=(--config src-tauri/tauri.macos.test.conf.json)
+          fi
+          npm run desktop:build -- --target "$TARGET" --bundles "$BUNDLE" --features test-build "${config[@]}"
+      - name: Archive macOS test app
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir preview-assets
+          app="src-tauri/target/$TARGET/release/bundle/macos/VeraFlow Test.app"
+          codesign --force --sign - "$app"
+          codesign --verify --deep --strict "$app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "preview-assets/VeraFlow-Test-$PLATFORM.zip"
+          unzip -t "preview-assets/VeraFlow-Test-$PLATFORM.zip"
+      - name: Collect Windows test installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory preview-assets
+          $installers = @(Get-ChildItem "src-tauri/target/$env:TARGET/release/bundle/nsis/*-setup.exe")
+          if ($installers.Count -ne 1) { throw 'Expected one isolated test installer' }
+          Copy-Item $installers[0].FullName "preview-assets/VeraFlow-Test-$env:PLATFORM-setup.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-${{ matrix.platform }}
+          path: preview-assets/*
+          if-no-files-found: error
+
+  extras:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: mkdir preview-assets
+      - name: Package the VS Code extension
+        working-directory: editors/vscode
+        run: npx --yes @vscode/vsce@3.6.0 package --out ../../preview-assets/VeraFlow-VSCode.vsix
+      - run: python -m zipfile -c preview-assets/VeraFlow-examples.zip examples/source
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-extras
+          path: preview-assets/*
+          if-no-files-found: error
+
+  publish:
+    needs: [desktop, extras]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: preview-*
+          path: preview-assets
+          merge-multiple: true
+      - name: Publish the isolated prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd preview-assets
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 5
+          sha256sum VeraFlow-* > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" = true
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --prerelease --latest=false --title "VeraFlow Test — $GITHUB_REF_NAME" --notes-file ../docs/source-preview.md
+          fi
+          gh release upload "$GITHUB_REF_NAME" VeraFlow-* SHA256SUMS.txt --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false

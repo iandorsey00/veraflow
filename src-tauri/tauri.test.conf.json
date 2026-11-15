@@ -6,7 +6,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "VeraFlow Test — Scanner",
+        "title": "VeraFlow Test",
         "width": 1040,
         "height": 740,
         "minWidth": 300,
@@ -17,6 +17,17 @@
     ]
   },
   "bundle": {
-    "createUpdaterArtifacts": false
-  }
+    "createUpdaterArtifacts": false,
+    "fileAssociations": [],
+    "windows": {
+      "nsis": {
+        "installerHooks": "installer/test-documents.nsh"
+      },
+      "wix": {
+        "fragmentPaths": [],
+        "componentRefs": []
+      }
+    }
+  },
+  "mainBinaryName": "veraflow-test"
 }

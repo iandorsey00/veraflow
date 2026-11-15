@@ -1,3 +1,4 @@
+import type { SectionKey } from "./core/source";
 import { invoke, isTauri, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
@@ -36,7 +37,51 @@ export class ShortcutBindingError extends Error {
     super("shortcutFailed");
   }
 }
+export type OpenDocument = {
+  name: string;
+  format: "source" | "csv";
+  content: string | null;
+};
 export const platform = {
+  async documentEvents(ready: () => void) {
+    if (!desktop) return;
+    await listen("document-open", ready);
+    ready();
+  },
+  async takeDocument(): Promise<OpenDocument | null> {
+    return invoke("take_document");
+  },
+  async pickDocument(templateOnly = false): Promise<OpenDocument | null> {
+    if (desktop) return invoke("pick_document", { templateOnly });
+    return new Promise((resolve, reject) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = templateOnly ? ".veraflow,.vf" : ".veraflow,.vf,.csv";
+      input.oncancel = () => resolve(null);
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return resolve(null);
+        try {
+          const csv = /\.csv$/i.test(file.name);
+          if (!(csv && !templateOnly) && !/\.(veraflow|vf)$/i.test(file.name))
+            throw Error("invalidImport");
+          resolve({
+            name: file.name,
+            format: csv ? "csv" : "source",
+            content:
+              file.size > 16 * 1024 * 1024
+                ? null
+                : new TextDecoder("utf-8", { fatal: true }).decode(
+                    await file.arrayBuffer(),
+                  ),
+          });
+        } catch {
+          reject(Error("invalidImport"));
+        }
+      };
+      input.click();
+    });
+  },
   async mouseSource(enabled: boolean): Promise<boolean> {
     return desktop ? invoke("mouse_source", { enabled }) : false;
   },
@@ -60,28 +105,42 @@ export const platform = {
     progress.onmessage = onProgress;
     await invoke("install_update", { progress });
   },
-  async exportTemplates(json: string, filename = "veraflow-templates.json") {
+  async exportTemplates(
+    json: string,
+    filename = "veraflow-templates.json",
+  ): Promise<boolean> {
     if (desktop) return invoke("export_templates", { json, filename });
     const url = URL.createObjectURL(
-      new Blob([json], { type: "application/json" }),
+      new Blob([json], {
+        type: filename.endsWith(".json")
+          ? "application/json"
+          : "text/plain;charset=utf-8",
+      }),
     );
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
   },
   async importTemplates(
-    format: "json" | "csv" = "json",
+    format: "json" | "csv" | "source" = "json",
   ): Promise<string | null> {
-    if (desktop) return invoke("import_templates", { csv: format === "csv" });
+    if (desktop)
+      return invoke("import_templates", {
+        csv: format === "csv",
+        source: format === "source",
+      });
     return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept =
         format === "csv"
           ? ".csv,text/csv,text/tab-separated-values"
-          : ".json,application/json";
+          : format === "source"
+            ? ".veraflow,.vf,.txt"
+            : ".json,application/json";
       input.oncancel = () => resolve(null);
       input.onchange = async () => {
         const file = input.files?.[0];
@@ -96,9 +155,22 @@ export const platform = {
     if (!desktop) throw new Error("desktopRequired");
     await invoke("deliver_email", { text, tab: false, restoreSource: true });
   },
-  async deliver(text: string | null, tab: boolean) {
+  async deliveryTarget(): Promise<string> {
     if (!desktop) throw new Error("desktopRequired");
-    await invoke("deliver_email", { text, tab });
+    return invoke("delivery_target");
+  },
+  async deliver(
+    text: string | null,
+    navigation: boolean | SectionKey[],
+    target?: string,
+  ) {
+    if (!desktop) throw new Error("desktopRequired");
+    await invoke("deliver_email", {
+      text,
+      tab: navigation === true,
+      navigation: Array.isArray(navigation) ? navigation : undefined,
+      target,
+    });
   },
   async openRepository() {
     await invoke("open_repository");

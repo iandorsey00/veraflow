@@ -1,4 +1,43 @@
 export const en = {
+  booleanYes: "Yes",
+  booleanNo: "No",
+  openSource: "Import template file",
+  openDocument: "Open file…",
+  openWorkflow: "Open as",
+  chooseWorkflow: "Choose a workflow",
+  chooseWorkflowRequired: "Choose Fill form or Scanner.",
+  csvUseTemplate: "Open a template file…",
+  csvFreeScanner: "Free Scanner · CSV columns",
+  showWorkspace: "Show Workspace tab",
+  exportSource: "Export .veraflow",
+  sourceTemplate: "Imported template",
+  sourceText: "Template source",
+  invalidSource:
+    "Check the VeraFlow source header, field definitions, and matching section or condition tags.",
+  hideLivePreview: "Hide live output preview",
+  prepareSections: "Prepare output sections",
+  allSections: "All sections",
+  groupSections: "Paste sections together",
+  deliveryMode: "Paste mode",
+  deliveryStep: "One section per shortcut",
+  deliverySequence: "All remaining sections per shortcut",
+  afterSection: "After this section",
+  noNavigation: "No keystrokes",
+  sectionTab: "Press Tab where the template has no keys",
+  copySection: "Copy current section",
+  saveSections: "Save output as text",
+  closeSourceTitle: "Save before closing?",
+  closeSourceHelp:
+    "Save a prefilled template to reopen and edit your responses, or save the rendered output as a text file.",
+  closeSourceIncomplete:
+    "Save a prefilled template to continue later. Finish the required fields and checks to save the rendered text.",
+  savePrefilled: "Save prefilled template",
+  closeWithoutSaving: "Close without saving",
+  sectionDeliveryHelp:
+    "Focus the destination, then press the shortcut to paste. If paste fails, inspect the destination before retrying or use Copy current section.",
+  sourceCSV: "Fill from CSV…",
+  csvRow: "CSV row",
+
   scannerWorkflow: "Scanner workflow",
   outputPreview: "Output preview",
   typingVerification: "Require a second entry in Typing workflow",
@@ -6,6 +45,9 @@ export const en = {
     "Check the template’s form syntax, option IDs, and field conditions.",
   invalidControlValue:
     "Enter a value that matches the field type and allowed choices.",
+  singleLineRequired:
+    "This field takes a single line. Remove line breaks and try again.",
+  blankLinesProhibited: "Remove blank lines from this field and try again.",
   chooseValue: "Choose a value",
   enableField: "On",
   reenterValue: "Enter the value again to verify it.",
@@ -17,7 +59,7 @@ export const en = {
   reuseSession: "Restart with previous responses",
 
   editTemplate: "Edit template",
-  fillForm: "Typing workflow",
+  fillForm: "Fill form",
   openInScanner: "Open in Scanner",
   formCheckHint:
     "After filling the form, enter each response again to verify it.",

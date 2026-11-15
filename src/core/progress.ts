@@ -1,9 +1,16 @@
-import { fieldVisible, verificationRequired } from "./session";
+import {
+  activeSourceFields,
+  fieldVisible,
+  verificationRequired,
+} from "./session";
 import type { Session } from "./model";
 
 /** Presentation only: never grants verification or delivery success. */
 export function sessionProgress(session: Session) {
-  const fields = session.fields.filter((f) => fieldVisible(session, f.name));
+  const active = activeSourceFields(session);
+  const fields = session.fields.filter((f) =>
+    fieldVisible(session, f.name, active),
+  );
   const filled = fields.filter((f) => f.value !== null).length;
   const matched = fields.filter((f) => f.status === "verified").length;
   const skipped = fields.filter((f) => f.status === "skipped").length;

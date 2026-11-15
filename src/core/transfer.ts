@@ -1,3 +1,4 @@
+import { sourceDefinitionText } from "./source";
 import { templateControls, validateExtraFields } from "./template";
 import { defaultEmailOrder, type Comparison, type Template } from "./model";
 const object = (v: unknown): v is Record<string, unknown> =>
@@ -84,7 +85,11 @@ export function parseTemplateArchive(json: string): Template[] {
       t.extraFields = [...v.extraFields];
     }
     if (v.placeholderStyle !== undefined) {
-      if (v.placeholderStyle !== "angle" && v.placeholderStyle !== "braces")
+      if (
+        v.placeholderStyle !== "angle" &&
+        v.placeholderStyle !== "braces" &&
+        v.placeholderStyle !== "source"
+      )
         throw Error("invalidImport");
       t.placeholderStyle = v.placeholderStyle;
     }
@@ -133,7 +138,10 @@ export function parseTemplateArchive(json: string): Template[] {
       };
     }
     try {
-      templateControls(t);
+      if (t.placeholderStyle === "source") {
+        if (t.email?.enabled) throw Error("invalidImport");
+        t.content = sourceDefinitionText(t.content);
+      } else templateControls(t);
     } catch {
       throw Error("invalidImport");
     }
@@ -143,7 +151,15 @@ export function parseTemplateArchive(json: string): Template[] {
 export function exportTemplateArchive(templates: Template[]): string {
   return (
     JSON.stringify(
-      { format: "veraflow-templates", version: 1, templates },
+      {
+        format: "veraflow-templates",
+        version: 1,
+        templates: templates.map((t) =>
+          t.placeholderStyle === "source"
+            ? { ...t, content: sourceDefinitionText(t.content) }
+            : t,
+        ),
+      },
       null,
       2,
     ) + "\n"

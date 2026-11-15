@@ -1,0 +1,5 @@
+Hello {{full name}},
+
+Your booking reference is {{reference}}.
+
+Literal placeholder example: \{{reference}}

@@ -1184,3 +1184,7 @@ input.toggle-switch:checked::before {
   justify-self: end;
   background: var(--surface);
 }
+
+.template-form-grid.without-preview {
+  grid-template-columns: minmax(0, 1fr);
+}

@@ -108,37 +108,45 @@ char *vf_capture(int restore, int *error) {
 }
 
 // Deliberate output only: Paste and Tab/Shift+Tab, never Return or Send.
-int vf_deliver(const char *text, int tab) {
+uintptr_t vf_delivery_target(void) {
+    pid_t pid = NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
+    return pid > 0 && pid != getpid() ? (uintptr_t)pid : 0;
+}
+static int sendKey(CGKeyCode code, CGEventFlags flags) {
+    CGEventRef down = CGEventCreateKeyboardEvent(NULL, code, true);
+    CGEventRef up = CGEventCreateKeyboardEvent(NULL, code, false);
+    if (!down || !up) {
+        if (down) CFRelease(down);
+        if (up) CFRelease(up);
+        return 8;
+    }
+    CGEventSetFlags(down, flags); CGEventSetFlags(up, flags);
+    CGEventPost(kCGHIDEventTap, down); CGEventPost(kCGHIDEventTap, up);
+    CFRelease(down); CFRelease(up);
+    return 0;
+}
+int vf_deliver(const char *text, const unsigned char *keys, size_t count, uintptr_t expected) {
     @autoreleasepool {
-        if (!externalApp()) return 2;
+        uintptr_t target = vf_delivery_target();
+        if (!target || (expected && target != expected)) return 2;
         if (!AXIsProcessTrusted()) return 3;
-        pid_t target = NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
         for (int i = 0; i < 300; i++) {
             CGEventFlags flags = CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState);
             if (!(flags & (kCGEventFlagMaskCommand | kCGEventFlagMaskControl | kCGEventFlagMaskAlternate | kCGEventFlagMaskShift))) break;
             usleep(10000); if (i == 299) return 10;
         }
-        if (NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != target) return 6;
-        CGEventRef down = CGEventCreateKeyboardEvent(NULL, text ? 9 : 48, true);
-        CGEventRef up = CGEventCreateKeyboardEvent(NULL, text ? 9 : 48, false);
-        CGEventRef td = CGEventCreateKeyboardEvent(NULL, 48, true);
-        CGEventRef tu = CGEventCreateKeyboardEvent(NULL, 48, false);
-        if (!down || !up || !td || !tu) {
-            if (down) CFRelease(down); if (up) CFRelease(up); if (td) CFRelease(td); if (tu) CFRelease(tu); return 8;
+        if (vf_delivery_target() != target) return 6;
+        if (text && vf_write(text)) return 8;
+        if (vf_delivery_target() != target) return 6;
+        int result = sendKey(text ? 9 : 48, text ? kCGEventFlagMaskCommand : kCGEventFlagMaskShift);
+        if (result || !text) return result;
+        if (count || expected) usleep(200000);
+        for (size_t i = 0; i < count; i++) {
+            if (vf_delivery_target() != target) return 6;
+            result = sendKey(48, keys[i] ? kCGEventFlagMaskShift : 0);
+            if (result) return result;
+            usleep(90000);
         }
-        if (text && vf_write(text)) { CFRelease(down); CFRelease(up); CFRelease(td); CFRelease(tu); return 8; }
-        if (NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != target) { CFRelease(down); CFRelease(up); CFRelease(td); CFRelease(tu); return 6; }
-        CGEventSetFlags(td, 0); CGEventSetFlags(tu, 0);
-        CGEventFlags flags = text ? kCGEventFlagMaskCommand : kCGEventFlagMaskShift;
-        CGEventSetFlags(down, flags); CGEventSetFlags(up, flags);
-        CGEventPost(kCGHIDEventTap, down); CGEventPost(kCGHIDEventTap, up);
-        int result = 0;
-        if (text && tab) {
-            usleep(200000);
-            if (NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != target) result = 6;
-            else { CGEventPost(kCGHIDEventTap, td); CGEventPost(kCGHIDEventTap, tu); }
-        }
-        CFRelease(down); CFRelease(up); CFRelease(td); CFRelease(tu);
-        return result;
+        return vf_delivery_target() == target ? 0 : 6;
     }
 }

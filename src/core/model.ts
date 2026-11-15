@@ -36,7 +36,7 @@ export const defaultEmail: EmailTemplate = {
 };
 export type Template = {
   extraFields?: string[];
-  placeholderStyle?: "angle" | "braces";
+  placeholderStyle?: "angle" | "braces" | "source";
   email?: EmailTemplate;
   id: string;
   name: string;
@@ -68,6 +68,8 @@ export type Preferences = {
   autoAdvance: boolean;
   verifiedBackground: boolean;
   focusedWorkflow?: boolean;
+  hideLivePreview?: boolean;
+  showWorkspace?: boolean;
   verificationDefault: boolean;
   clearAfterCompletion: boolean;
   restoreClipboard: boolean;
@@ -129,6 +131,7 @@ export type Session = {
   mode: "capture" | "verify" | "ready" | "delivery" | "review" | "complete";
   deliveryIndex?: number;
   deliveryDone?: boolean;
+  prepared?: { id: string; label: string; text: string }[];
 };
 
 // One-time migration: existing installations must receive the new opt-in default too.

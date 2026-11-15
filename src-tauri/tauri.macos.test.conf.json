@@ -1,0 +1,24 @@
+{
+  "bundle": {
+    "fileAssociations": [
+      {
+        "ext": ["veraflow", "vf"],
+        "name": "VeraFlow template",
+        "description": "VeraFlow template",
+        "role": "Editor",
+        "rank": "Alternate",
+        "exportedType": {
+          "identifier": "com.veraflow.desktop.template",
+          "conformsTo": ["public.plain-text"]
+        }
+      },
+      {
+        "ext": ["csv"],
+        "contentTypes": ["public.comma-separated-values-text"],
+        "name": "CSV document",
+        "role": "Viewer",
+        "rank": "Alternate"
+      }
+    ]
+  }
+}

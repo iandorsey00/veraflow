@@ -1,3 +1,4 @@
+import { enableWorkspace } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
@@ -35,6 +36,7 @@ test("titled table snippets copy literal text, move to Unfiled, edit and return 
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await table(page);
   const id = await page.locator(".workspace-content > .vera-id").innerText();
   const text =
@@ -77,6 +79,7 @@ test("snippet title/text validation stays editable and deletion/table removal pr
   page,
 }) => {
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await table(page);
   await page.getByRole("button", { name: "New snippet", exact: true }).click();
   await page.locator("#dialog-content").fill("Saved text");
@@ -118,6 +121,7 @@ test("snippet-only/table/database JSON export and import include proper scope an
   page,
 }) => {
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await table(page);
   await snippet(page, "Table note", "Literal {{reference}}");
   const download = async (button: string) => {
@@ -186,6 +190,7 @@ test("malformed snippets do not import and snippet paste sends literal text only
     });
   });
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await page
     .getByRole("button", { name: "Unfiled snippets", exact: true })
     .click();
@@ -232,6 +237,7 @@ for (const chinese of [false, true])
     page,
   }) => {
     await page.goto("/?workflow=classic");
+    await enableWorkspace(page);
     if (chinese) {
       await page.locator("#nav-settings").click();
       await page.locator("#language").selectOption("zh-CN");
@@ -281,6 +287,7 @@ test("selecting a snippet supports Ctrl/Cmd+C transfer and leaves Ctrl/Cmd+V unc
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await page
     .getByRole("button", { name: "Unfiled snippets", exact: true })
     .click();

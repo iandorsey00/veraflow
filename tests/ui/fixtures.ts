@@ -43,3 +43,10 @@ export async function defineScanner(page: Page) {
     .click();
   await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
 }
+
+export async function enableWorkspace(page: Page) {
+  await page.locator("#nav-settings").click();
+  await page.locator("#showWorkspace").check();
+  await page.locator("#save-settings").click();
+  await page.locator("#nav-workspace").click();
+}

@@ -259,10 +259,13 @@ test("shortcut registration failure still opens a usable session", async ({
 }) => {
   await page.route("**/src/platform.ts*", async (route) => {
     const response = await route.fetch();
-    const body = (await response.text()).replace(
-      /if \(!desktop\) return;?/,
-      'if (!desktop && shortcuts) throw new ShortcutBindingError("capture", shortcuts.capture); if (!desktop) return;',
-    );
+    const body =
+      (await response.text()) +
+      `
+      bindShortcuts = async (shortcuts) => {
+        if (shortcuts) throw new ShortcutBindingError("capture", shortcuts.capture);
+      };
+    `;
     await route.fulfill({ response, body });
   });
   await page.reload();

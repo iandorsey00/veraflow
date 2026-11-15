@@ -66,6 +66,10 @@ pub struct Preferences {
     pub verified_background: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub focused_workflow: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hide_live_preview: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_workspace: Option<bool>,
     pub verification_default: bool,
     pub clear_after_completion: bool,
     pub restore_clipboard: bool,
@@ -125,7 +129,7 @@ impl Library {
             }) || t
                 .placeholder_style
                 .as_ref()
-                .is_some_and(|style| !["angle", "braces"].contains(&style.as_str()))
+                .is_some_and(|style| !["angle", "braces", "source"].contains(&style.as_str()))
                 || t.id.is_empty()
                 || !ids.insert(&t.id)
                 || t.name.trim().is_empty()

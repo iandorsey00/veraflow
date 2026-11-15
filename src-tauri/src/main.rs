@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod documents;
 mod storage;
 mod updater;
 mod workspace;
@@ -21,7 +22,8 @@ unsafe extern "C" {
     fn vf_capture(restore: c_int, error: *mut c_int) -> *mut c_char;
     fn vf_read(error: *mut c_int) -> *mut c_char;
     fn vf_write(text: *const c_char) -> c_int;
-    fn vf_deliver(text: *const c_char, tab: c_int) -> c_int;
+    fn vf_delivery_target() -> usize;
+    fn vf_deliver(text: *const c_char, keys: *const u8, count: usize, target: usize) -> c_int;
     fn vf_mouse_source(enabled: c_int) -> c_int;
     fn vf_focus_source() -> c_int;
     fn vf_free(text: *mut c_char);
@@ -175,15 +177,58 @@ fn write_clipboard(text: String) -> Result<(), String> {
     }
     Ok(())
 }
+#[derive(serde::Deserialize)]
+enum NavigationKey {
+    Tab,
+    #[serde(rename = "Shift+Tab")]
+    ShiftTab,
+}
+
+#[tauri::command]
+fn delivery_target() -> Result<String, String> {
+    let target = unsafe { vf_delivery_target() };
+    if target == 0 {
+        return Err("sourceFocus".into());
+    }
+    Ok(target.to_string())
+}
+
 #[tauri::command]
 async fn deliver_email(
     text: Option<String>,
     tab: bool,
+    navigation: Option<Vec<NavigationKey>>,
+    target: Option<String>,
     restore_source: Option<bool>,
 ) -> Result<(), String> {
     if text.as_ref().is_some_and(|v| v.len() > 4 * 1024 * 1024) {
         return Err("invalidText".into());
     }
+    let navigation = navigation.unwrap_or_else(|| {
+        if tab {
+            vec![NavigationKey::Tab]
+        } else {
+            Vec::new()
+        }
+    });
+    if navigation.len() > 16 || (text.is_none() && !navigation.is_empty()) {
+        return Err("invalidSource".into());
+    }
+    let keys: Vec<u8> = navigation
+        .into_iter()
+        .map(|key| match key {
+            NavigationKey::Tab => 0,
+            NavigationKey::ShiftTab => 1,
+        })
+        .collect();
+    let target = match target {
+        Some(value) => value
+            .parse::<usize>()
+            .ok()
+            .filter(|id| *id != 0)
+            .ok_or("sourceFocus")?,
+        None => 0,
+    };
     tauri::async_runtime::spawn_blocking(move || {
         let _lock = CLIPBOARD_LOCK
             .try_lock()
@@ -201,7 +246,9 @@ async fn deliver_email(
         let result = unsafe {
             vf_deliver(
                 text.as_ref().map_or(std::ptr::null(), |s| s.as_ptr()),
-                tab as i32,
+                keys.as_ptr(),
+                keys.len(),
+                target,
             )
         };
         if result == 0 {
@@ -312,7 +359,11 @@ fn main() {
     #[cfg(target_os = "macos")]
     let autostart = autostart.macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent);
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            documents::enqueue(
+                app,
+                documents::arguments(args, std::path::PathBuf::from(cwd)),
+            );
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
                 let _ = w.set_focus();
@@ -323,7 +374,12 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
+        .manage(Mutex::new(
+            std::collections::VecDeque::<std::path::PathBuf>::new(),
+        ))
         .invoke_handler(tauri::generate_handler![
+            documents::take_document,
+            documents::pick_document,
             session_window,
             open_repository,
             updater::check_update,
@@ -337,6 +393,7 @@ fn main() {
             read_clipboard,
             write_clipboard,
             deliver_email,
+            delivery_target,
             load_library,
             save_library,
             set_session_active,
@@ -372,6 +429,9 @@ fn main() {
                 })
                 .build(app)?;
             build_menu(app.handle(), false).map_err(std::io::Error::other)?;
+            if let Ok(cwd) = std::env::current_dir() {
+                documents::enqueue(app.handle(), documents::arguments(std::env::args_os(), cwd));
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -387,6 +447,10 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("Unable to initialize VeraFlow")
         .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { ref urls } = event {
+                documents::enqueue(app, urls.iter().filter_map(|url| url.to_file_path().ok()));
+            }
             if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
                 if updater::INSTALLING.load(Ordering::SeqCst) {
                     api.prevent_exit();
@@ -436,15 +500,23 @@ async fn export_templates(
                 "veraflow-snippets.json",
                 "veraflow-table.json",
                 "veraflow-database.json",
+                "template.veraflow",
+                "prefilled-template.veraflow",
+                "veraflow-output.txt",
             ]
             .contains(&name.as_str())
         })
         .unwrap_or_else(|| "veraflow-templates.json".into());
+    let (label, ext) = match filename.rsplit('.').next() {
+        Some("veraflow") => ("VeraFlow template", "veraflow"),
+        Some("txt") => ("Text", "txt"),
+        _ => ("JSON", "json"),
+    };
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
             .file()
-            .add_filter("JSON", &["json"])
+            .add_filter(label, &[ext])
             .set_file_name(filename)
             .blocking_save_file()
         else {
@@ -466,20 +538,21 @@ async fn export_templates(
 async fn import_templates(
     app: tauri::AppHandle,
     csv: Option<bool>,
+    source: Option<bool>,
 ) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
+    let (label, extensions): (&str, &[&str]) = if source.unwrap_or(false) {
+        ("VeraFlow template", &["veraflow", "vf", "txt"])
+    } else if csv.unwrap_or(false) {
+        ("CSV", &["csv"])
+    } else {
+        ("JSON", &["json"])
+    };
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
             .file()
-            .add_filter(
-                if csv.unwrap_or(false) { "CSV" } else { "JSON" },
-                if csv.unwrap_or(false) {
-                    &["csv"][..]
-                } else {
-                    &["json"][..]
-                },
-            )
+            .add_filter(label, extensions)
             .blocking_pick_file()
         else {
             return Ok(None);

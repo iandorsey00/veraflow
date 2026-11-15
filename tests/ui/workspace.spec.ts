@@ -1,7 +1,9 @@
+import { enableWorkspace } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 async function createTable(page: Page, fields = "reference\naddress") {
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await expect(
     page.getByRole("heading", { name: "Your tables", exact: true }),
   ).toBeVisible();
@@ -89,6 +91,7 @@ test("Scanner wraps long values and matches template names, offers missing field
 }) => {
   await page.setViewportSize({ width: 440, height: 740 });
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await page.locator("#nav-scanner").click();
   await page.locator("#start-scanner").click();
   await page.locator("#dialog-fields").fill("reference\nreference");
@@ -220,6 +223,7 @@ test("Scanner JSON import restores values as captured and field-only export omit
   page,
 }) => {
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await page.locator("#nav-scanner").click();
   const chooser = page.waitForEvent("filechooser");
   await page.locator("#import-scanner-home").click();
@@ -252,6 +256,7 @@ test("CSV header suggestion can be corrected before importing literal values", a
   page,
 }) => {
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Import CSV", exact: true }).click();
   await (
@@ -284,6 +289,7 @@ test("template-only setup infers spaced fields and Scanner fits a 300px window",
 }) => {
   await page.setViewportSize({ width: 300, height: 740 });
   await page.goto("/?workflow=classic");
+  await enableWorkspace(page);
   await page.locator("#nav-scanner").click();
   await page.locator("#start-scanner").click();
   await page

@@ -4,6 +4,10 @@ A local desktop utility for capturing, verifying, and reusing text. Organize rep
 
 Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, analytics, or AI service. The app contacts GitHub for update checks and downloads; template and session values stay local. Preview binaries use verified updater signatures but do not yet have Apple notarization or Windows publisher signing. Native runtime acceptance remains incomplete.
 
+## Test the source preview
+
+Download the isolated **VeraFlow Test** installers, example files, and VS Code extension from the [source prerelease](https://github.com/iandorsey00/veraflow/releases/tag/preview-source.1). Follow the [installation and testing guide](docs/source-preview.md) for Windows and macOS.
+
 ## Install the public preview
 
 Get the [v0.9.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.9.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Verify downloads against the release’s `SHA256SUMS.txt`. No Node.js or Rust installation is needed to use these binaries.
@@ -16,6 +20,8 @@ Back up `library.json` before upgrading. To try the current source on Windows, u
 
 The [portable specification](docs/portable-templates.md) explains how to fill a template by hand, reproduce its output in another app, and exchange saved tables. It includes a synthetic email example, test fixtures, and an independent Python reader.
 
+Source builds also support [opening .veraflow files, filling from CSV, and preparing output sections](docs/veraflow-language-draft.md). The [VS Code extension](editors/vscode/README.md) adds highlighting, folding, and snippets.
+
 ## Templates on main
 
 The source branch includes **Scanner workflow** and **Typing workflow** for each template. Pick a template to preview it, then choose how to enter its values. Typing adds a full-window form with live output. Enable **Focused view** in Settings to use the optional compact Scanner layout.
@@ -26,7 +32,7 @@ See the [template and workflow guide](docs/focused-workflow.md) for form syntax,
 
 ## Workspace preview (0.7.0)
 
-The app opens to **Workspace**. Organize work into folders and tables; column headers are field names, and each row opens in Scanner. Tables and rows have stable VeraFlow IDs. Add labeled external IDs in Table settings or Row details, for example `Booking=AB-104`. External IDs are references, not unique keys. Tables can show optional row titles or hide them. Open each table’s collapsible Snippets section for titled literal text, or use Unfiled snippets in the sidebar. Existing templates remain available under Templates; there is no duplicate Scanner tab.
+Enable **Settings → Show Workspace tab** to access folders and tables. In Workspace, column headers are field names, and each row opens in Scanner. Tables and rows have stable VeraFlow IDs. Add labeled external IDs in Table settings or Row details, for example `Booking=AB-104`. External IDs are references, not unique keys. Tables can show optional row titles or hide them. Open each table’s collapsible Snippets section for titled literal text, or use Unfiled snippets in the sidebar. Existing templates remain available under Templates; there is no duplicate Scanner tab.
 
 **Free Scanner** is at the bottom of the main pages. Define field names, one per line, or import Scanner JSON. Values stay temporary until **Save as new table row**: enter an existing table name/ID to append a row, or a new name to create a table. Existing table names must be unambiguous. **Save row** explicitly persists edits to a linked row. Ending Scanner clears unsaved session values, not saved rows. Reopening a saved row resets values to captured and requires fresh verification before output when enabled.
 

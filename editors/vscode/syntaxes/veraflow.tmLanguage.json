@@ -1,0 +1,91 @@
+{
+  "scopeName": "text.veraflow",
+  "patterns": [
+    {
+      "include": "#header"
+    },
+    {
+      "include": "#escape"
+    },
+    {
+      "include": "#tag"
+    },
+    {
+      "include": "#field"
+    }
+  ],
+  "repository": {
+    "header": {
+      "begin": "\\A\\x{FEFF}?--- veraflow 2$",
+      "end": "^---$",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.metadata.veraflow"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.metadata.veraflow"
+        }
+      },
+      "contentName": "meta.embedded.block.json",
+      "patterns": [
+        {
+          "include": "source.json"
+        }
+      ]
+    },
+    "escape": {
+      "match": "\\\\(?:\\\\|\\{\\{)",
+      "name": "constant.character.escape.veraflow"
+    },
+    "tag": {
+      "begin": "(\\{\\{)(#section|#when|/when|/section|when(?= )|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
+      "end": "(\\}\\})|$",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.template.begin.veraflow"
+        },
+        "2": {
+          "name": "keyword.control.veraflow"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.template.end.veraflow"
+        }
+      },
+      "patterns": [
+        {
+          "include": "source.json#string"
+        },
+        {
+          "match": "\\b(?:is not blank|is blank|else)(?=\\b)",
+          "name": "keyword.control.veraflow"
+        },
+        {
+          "match": "[=:]",
+          "name": "keyword.operator.veraflow"
+        },
+        {
+          "match": "[A-Za-z0-9_-]+",
+          "name": "variable.other.veraflow"
+        }
+      ]
+    },
+    "field": {
+      "match": "(\\{\\{)([^<>{}\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]+)(\\}\\})",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.template.begin.veraflow"
+        },
+        "2": {
+          "name": "variable.other.veraflow"
+        },
+        "3": {
+          "name": "punctuation.definition.template.end.veraflow"
+        }
+      }
+    }
+  }
+}

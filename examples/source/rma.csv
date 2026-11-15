@@ -1,0 +1,3 @@
+doa,ticket_id,subject,address-line-1,attn,city,state,zip
+false,123456,Replacement,25 Example Road,,Portland,OR,97201
+true,123457,Return,50 Sample Avenue,Receiving,Seattle,WA,98101

@@ -1,5 +1,6 @@
 export type Control = {
   kind:
+    | "boolean"
     | "text"
     | "textarea"
     | "email"
@@ -9,7 +10,11 @@ export type Control = {
     | "dropdown"
     | "checkbox"
     | "switch";
-  options?: ReadonlyMap<string, string>;
+  options?: Map<string, string>;
+  optionLabels?: Map<string, string>;
+  label?: string;
+  multiline?: boolean;
+  allowBlankLines?: boolean;
   defaultValue?: string;
   when?: { name: string; value: string };
   optional?: boolean;
@@ -113,7 +118,20 @@ export function formDirective(name: string): Directive {
   return { name };
 }
 
+const lineBreak = /\r\n|[\r\n\u0085\u2028\u2029]/u;
+export function textLayoutError(control: Control | undefined, value: string) {
+  if (control?.multiline === false && lineBreak.test(value))
+    return "singleLineRequired";
+  if (
+    control?.multiline &&
+    control.allowBlankLines === false &&
+    value !== "" &&
+    value.split(lineBreak).some((line) => !line.trim())
+  )
+    return "blankLinesProhibited";
+}
 export function validControlValue(control: Control, value: string) {
+  if (textLayoutError(control, value)) return false;
   if (control.options) return control.options.has(value);
   if (control.kind === "number")
     return (

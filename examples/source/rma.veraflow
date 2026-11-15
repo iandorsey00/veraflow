@@ -1,0 +1,24 @@
+--- veraflow 2
+{
+  "workflow": "form",
+  "fields": {
+    "doa": {"type": "boolean", "label": "Dead on arrival?", "default": false},
+    "attn": {"type": "text", "label": "Attention", "optional": true}
+  }
+}
+---
+{{#section to "To"}}
+{{when doa: "review@example.test" else: "dispatch@example.test"}}
+{{/section}}
+
+{{#section subject "Subject"}}
+[RMA] {{when doa: "[DOA] "}}[TKT-{{ticket_id}}] {{subject}}
+{{/section}}
+
+{{#section address "Address"}}
+{{address-line-1}}
+{{#when attn is not blank}}
+Attn: {{attn}}
+{{/when}}
+{{city}}, {{state}} {{zip}}
+{{/section}}

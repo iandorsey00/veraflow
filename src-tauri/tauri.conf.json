@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "VeraFlow 核流",
+        "title": "VeraFlow \u6838\u6d41",
         "width": 1040,
         "height": 740,
         "minWidth": 300,
@@ -41,6 +41,28 @@
     ],
     "macOS": {
       "minimumSystemVersion": "12.0"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["veraflow", "vf"],
+        "name": "VeraFlow.Template",
+        "description": "VeraFlow template",
+        "role": "Editor",
+        "rank": "Owner",
+        "exportedType": {
+          "identifier": "com.veraflow.desktop.template",
+          "conformsTo": ["public.plain-text"]
+        }
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "installer/csv.nsh"
+      },
+      "wix": {
+        "fragmentPaths": ["installer/csv.wxs"],
+        "componentRefs": ["VeraFlowCsvOpenWith"]
+      }
     }
   },
   "plugins": {

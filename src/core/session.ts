@@ -1,3 +1,4 @@
+import { forgetSource, parseSource, sourceParts } from "./source";
 import { compare } from "./compare";
 import {
   captureFieldNames,
@@ -5,40 +6,66 @@ import {
   templateControls,
   emailSections,
 } from "./template";
-import { validControlValue } from "./form";
+import { textLayoutError, validControlValue } from "./form";
 import type { Session, Template, EmailHeader } from "./model";
 export function verificationRequired(s: Session) {
   return s.typing
     ? s.template.typingVerification === true
     : s.template.verificationEnabled;
 }
-export function fieldVisible(s: Session, name: string) {
+export function activeSourceFields(s: Session): Set<string> | undefined {
+  if (s.template.placeholderStyle !== "source") return;
+  const active = new Set<string>();
+  sourceParts(parseSource(s.template.content), sessionValues(s), active);
+  return active;
+}
+export function fieldVisible(
+  s: Session,
+  name: string,
+  active = activeSourceFields(s),
+) {
+  if (active) return active.has(name);
   const when = s.controls?.get(name)?.when;
   return (
     !when ||
     s.fields.find((field) => field.name === when.name)?.value === when.value
   );
 }
-function needsCapture(s: Session, field: Session["fields"][number]) {
+function needsCapture(
+  s: Session,
+  field: Session["fields"][number],
+  active?: Set<string>,
+) {
   return (
-    fieldVisible(s, field.name) &&
+    (active?.has(field.name) ?? fieldVisible(s, field.name)) &&
     (field.status === "empty" ||
       (field.status === "skipped" &&
         (s.typing === true || s.controls?.has(field.name) === true))) &&
     !s.controls?.get(field.name)?.optional
   );
 }
-function needsCheck(s: Session, field: Session["fields"][number]) {
+function needsCheck(
+  s: Session,
+  field: Session["fields"][number],
+  active?: Set<string>,
+) {
   return (
-    fieldVisible(s, field.name) &&
+    (active?.has(field.name) ?? fieldVisible(s, field.name)) &&
     field.value !== null &&
+    (s.template.placeholderStyle !== "source" || field.value !== "") &&
     field.status !== "verified"
   );
 }
 export function startSession(template: Template): Session {
   const controls = templateControls(template);
+  const saved =
+    template.placeholderStyle === "source"
+      ? parseSource(template.content).responses
+      : undefined;
   const fields: Session["fields"] = captureFieldNames(template).map((name) => {
-    const value = controls.get(name)?.defaultValue ?? null;
+    const value = saved?.has(name)
+      ? saved.get(name)!
+      : (controls.get(name)?.defaultValue ?? null);
     return { name, value, status: value === null ? "empty" : "captured" };
   });
   const s: Session = {
@@ -49,8 +76,9 @@ export function startSession(template: Template): Session {
     mode: "capture",
   };
   if (!fields.length) s.mode = "ready";
-  else if (controls.size) {
-    const first = fields.findIndex((field) => needsCapture(s, field));
+  else if (controls.size || template.placeholderStyle === "source") {
+    const active = activeSourceFields(s);
+    const first = fields.findIndex((field) => needsCapture(s, field, active));
     if (first >= 0) s.active = first;
     else if (verificationRequired(s)) beginVerification(s);
     else s.mode = "ready";
@@ -71,7 +99,8 @@ export function prepareWorkflow(s: Session, typing: boolean) {
       delete field.candidate;
     }
   }
-  const first = s.fields.findIndex((field) => needsCapture(s, field));
+  const active = activeSourceFields(s);
+  const first = s.fields.findIndex((field) => needsCapture(s, field, active));
   if (first >= 0) {
     s.mode = "capture";
     if (!typing) s.active = first;
@@ -83,8 +112,9 @@ function editable(s: Session) {
 }
 export function move(s: Session, offset: number): void {
   editable(s);
+  const active = activeSourceFields(s);
   const visible = s.fields.flatMap((field, index) =>
-    fieldVisible(s, field.name) ? [index] : [],
+    fieldVisible(s, field.name, active) ? [index] : [],
   );
   if (!visible.length) return;
   const current = visible.indexOf(s.active);
@@ -95,13 +125,16 @@ export function move(s: Session, offset: number): void {
 }
 export function capture(s: Session, value: string, advance = true): void {
   editable(s);
-  if (!value.trim()) throw new Error("emptySelection");
   const field = s.fields[s.active];
   if (!field) throw new Error("noField");
   const control = s.controls?.get(field.name);
-  if (control && !validControlValue(control, value))
+  const text = field.removeBlankLines ? stripBlankLines(value) : value;
+  const layoutError = textLayoutError(control, text);
+  if (layoutError) throw Error(layoutError);
+  if (!text.trim()) throw Error("emptySelection");
+  if (control && !validControlValue(control, text))
     throw Error("invalidControlValue");
-  field.value = field.removeBlankLines ? stripBlankLines(value) : value;
+  field.value = text;
   field.status = "captured";
   delete field.checkedByTyping;
   delete field.candidate;
@@ -129,7 +162,8 @@ export function skip(s: Session, advance = true): void {
   if (advance) advanceCapture(s);
 }
 function advanceCapture(s: Session): void {
-  const next = findNext(s, (field) => needsCapture(s, field));
+  const active = activeSourceFields(s);
+  const next = findNext(s, (field) => needsCapture(s, field, active));
   if (next !== -1) {
     s.active = next;
     return;
@@ -149,9 +183,10 @@ function findNext(
 }
 export function beginVerification(s: Session): void {
   editable(s);
-  if (s.fields.some((field) => needsCapture(s, field)))
+  const active = activeSourceFields(s);
+  if (s.fields.some((field) => needsCapture(s, field, active)))
     throw new Error("incomplete");
-  const index = s.fields.findIndex((field) => needsCheck(s, field));
+  const index = s.fields.findIndex((field) => needsCheck(s, field, active));
   s.mode = index === -1 ? "ready" : "verify";
   if (index !== -1) s.active = index;
 }
@@ -159,9 +194,12 @@ export function beginVerification(s: Session): void {
 export function beginReverification(s: Session, all = false): void {
   if (!["capture", "verify", "ready"].includes(s.mode))
     throw Error("sessionComplete");
+  const active = activeSourceFields(s);
   const indices = all
     ? s.fields.flatMap((field, index) =>
-        fieldVisible(s, field.name) && field.value !== null ? [index] : [],
+        fieldVisible(s, field.name, active) && field.value !== null
+          ? [index]
+          : [],
       )
     : s.fields[s.active]?.value != null
       ? [s.active]
@@ -179,8 +217,10 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   if (s.mode !== "verify") throw new Error("notVerifying");
   const field = s.fields[s.active];
   if (!field || field.value === null) throw new Error("noValue");
-  if (!candidate.trim()) throw new Error("emptySelection");
   if (field.removeBlankLines) candidate = stripBlankLines(candidate);
+  const layoutError = textLayoutError(s.controls?.get(field.name), candidate);
+  if (layoutError) throw Error(layoutError);
+  if (!candidate.trim()) throw new Error("emptySelection");
   const matches = s.controls?.get(field.name)?.options
     ? field.value === candidate
     : compare(field.value, candidate, s.template.comparison);
@@ -192,18 +232,28 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   delete field.checkedByTyping;
   delete field.candidate;
   if (s.typing) field.checkedByTyping = true;
-  if (!s.fields.some((f) => needsCheck(s, f) || needsCapture(s, f)))
+  const active = activeSourceFields(s);
+  if (
+    !s.fields.some(
+      (f) => needsCheck(s, f, active) || needsCapture(s, f, active),
+    )
+  )
     s.mode = "ready";
   else if (advance) {
-    const next = findNext(s, (f) => needsCheck(s, f));
+    const next = findNext(s, (f) => needsCheck(s, f, active));
     if (next !== -1) s.active = next;
     else s.mode = "capture";
   }
   return true;
 }
 function validateOutput(s: Session) {
-  if (s.fields.some((f) => needsCapture(s, f))) throw Error("incomplete");
-  if (verificationRequired(s) && s.fields.some((f) => needsCheck(s, f)))
+  if (
+    s.template.placeholderStyle !== "source" &&
+    s.fields.some((f) => needsCapture(s, f))
+  )
+    throw Error("incomplete");
+  const active = activeSourceFields(s);
+  if (verificationRequired(s) && s.fields.some((f) => needsCheck(s, f, active)))
     throw Error("unverified");
 }
 
@@ -212,6 +262,10 @@ function renderParts(
   values: ReadonlyMap<string, string>,
   controls: NonNullable<Session["controls"]>,
 ) {
+  if (template.placeholderStyle === "source")
+    return sourceParts(parseSource(template.content), values).map(
+      ({ id, label, parts }) => ({ key: id, label, parts }),
+    );
   return emailSections(template).map((part) => ({
     key: part.key,
     parts: outputParts(
@@ -230,13 +284,22 @@ export function renderTemplateValues(
 ) {
   const controls = templateControls(template);
   const values = new Map(input);
+  const saved =
+    template.placeholderStyle === "source"
+      ? parseSource(template.content).responses
+      : undefined;
+  for (const [name, value] of saved ?? []) {
+    if (!values.has(name) && value !== null) values.set(name, value);
+  }
   for (const [name, control] of controls) {
     if (!values.has(name)) {
-      if (control.defaultValue !== undefined)
+      if (control.defaultValue !== undefined && !saved?.has(name))
         values.set(name, control.defaultValue);
       else if (control.optional) values.set(name, "");
     }
   }
+  if (template.placeholderStyle === "source")
+    return checkedSource(template, values);
   const rendered = checkedParts(template, values, controls);
   return template.email?.enabled ? checkedEmail(template, rendered) : rendered;
 }
@@ -257,7 +320,14 @@ function checkedParts(
     )
       throw Error("invalidControlValue");
   }
-  return renderParts(template, values, controls).map(({ key, parts }) => {
+  return emailSections(template).map(({ key, text: source }) => {
+    const parts = outputParts(
+      source,
+      template,
+      values,
+      controls,
+      key !== "body",
+    );
     if (parts.some((part) => part.missing)) throw Error("missingValue");
     const text = parts.map((part) => part.text).join("");
     return { key, text: key === "body" ? text : text.trim() };
@@ -278,6 +348,7 @@ function sessionValues(s: Session) {
 
 export function previewSections(template: Template, s?: Session) {
   const controls = s?.controls ?? templateControls(template);
+  if (!s && template.placeholderStyle === "source") s = startSession(template);
   const values = s ? sessionValues(s) : new Map<string, string>();
   if (!s) {
     for (const [name, control] of controls) {
@@ -289,7 +360,50 @@ export function previewSections(template: Template, s?: Session) {
   return renderParts(template, values, controls);
 }
 
+function checkedSource(
+  template: Template,
+  values: ReadonlyMap<string, string>,
+) {
+  const parsed = parseSource(template.content);
+  const used = new Set<string>();
+  sourceParts(parsed, values, used);
+  const parts = sourceParts(parsed, values);
+  for (const name of used) {
+    const control = parsed.controls.get(name),
+      value = values.get(name);
+    const layoutError =
+      value === undefined ? undefined : textLayoutError(control, value);
+    if (layoutError) throw Error(layoutError);
+    if (
+      control &&
+      value !== undefined &&
+      !(
+        control.optional &&
+        (value === "" ||
+          (["text", "textarea"].includes(control.kind) && !value.trim()))
+      ) &&
+      !validControlValue(control, value)
+    )
+      throw Error("invalidControlValue");
+  }
+  return parts.map((part) => {
+    if (part.parts.some((token) => token.missing)) throw Error("missingValue");
+    return {
+      id: part.id,
+      label: part.label,
+      text: part.parts.map((token) => token.text).join(""),
+    };
+  });
+}
+export function prepareSections(s: Session) {
+  validateOutput(s);
+  return checkedSource(s.template, sessionValues(s));
+}
 export function renderSession(s: Session): string {
+  if (s.template.placeholderStyle === "source")
+    return prepareSections(s)
+      .map((part) => part.text)
+      .join("\n");
   validateOutput(s);
   return checkedParts(
     s.template,
@@ -298,6 +412,7 @@ export function renderSession(s: Session): string {
   ).find((part) => part.key === "body")!.text;
 }
 export function eraseSession(s: Session): void {
+  if (s.template.placeholderStyle === "source") forgetSource();
   for (const field of s.fields) {
     field.value = null;
     delete field.checkedByTyping;
@@ -305,6 +420,7 @@ export function eraseSession(s: Session): void {
     field.status = "empty";
     delete field.removeBlankLines;
   }
+  delete s.prepared;
   delete s.scannerOutputTemplate;
   delete s.rowLink;
   delete s.scannerId;
@@ -381,8 +497,7 @@ export function moveEmailSection(s: Session, direction: -1 | 1): void {
 
 export function stripBlankLines(value: string): string {
   return value
-    .replace(/\r\n?/g, "\n")
-    .split("\n")
+    .split(/\r\n|[\r\n\u0085\u2028\u2029]/u)
     .filter((line) => line.trim().length > 0)
     .join("\n");
 }

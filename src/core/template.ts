@@ -1,3 +1,4 @@
+import { parseSource } from "./source";
 import {
   formDirective,
   validControlValue,
@@ -48,6 +49,8 @@ export function templateTokens(content: string, style: Style) {
 }
 
 export function templateControls(template: Template) {
+  if (template.placeholderStyle === "source")
+    return parseSource(template.content).controls;
   const parts = emailSections(template).flatMap((part) =>
     templateTokens(part.text, template.placeholderStyle),
   );
@@ -192,6 +195,13 @@ export function captureFieldNames(
   template: Template,
   allHeaders = false,
 ): string[] {
+  if (template.placeholderStyle === "source") {
+    try {
+      return parseSource(template.content).fields;
+    } catch {
+      return [];
+    }
+  }
   validateExtraFields(template.extraFields);
   const source = allHeaders
     ? [

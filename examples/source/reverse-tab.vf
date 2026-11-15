@@ -1,0 +1,10 @@
+--- veraflow 2
+{"workflow":"form","delivery":{"after":{"middle":["Shift+Tab"]}}}
+---
+{{#section middle "Subject"}}
+Booking VF-104
+{{/section}}
+
+{{#section previous "Optional field"}}
+Example only
+{{/section}}

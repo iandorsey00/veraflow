@@ -1,0 +1,57 @@
+{
+  "name": "veraflow-language",
+  "displayName": "VeraFlow",
+  "description": "Language support for VeraFlow templates",
+  "publisher": "iandorsey00",
+  "version": "0.2.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iandorsey00/veraflow.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "veraflow",
+        "aliases": [
+          "VeraFlow",
+          "veraflow"
+        ],
+        "extensions": [
+          ".veraflow",
+          ".vf"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "veraflow",
+        "scopeName": "text.veraflow",
+        "path": "./syntaxes/veraflow.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.json": "json"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "veraflow",
+        "path": "./snippets/veraflow.json"
+      }
+    ]
+  },
+  "files": [
+    "LICENSE",
+    "language-configuration.json",
+    "snippets/**",
+    "syntaxes/**"
+  ]
+}

@@ -6,9 +6,7 @@ async function finishEmail(page: Page) {
   await expect(page.locator(".appbar nav button").nth(0)).toHaveText(
     "Templates",
   );
-  await expect(page.locator(".appbar nav button").nth(1)).toHaveText(
-    "Workspace",
-  );
+  await expect(page.locator("#nav-workspace")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Templates", exact: true }),
   ).toBeVisible();

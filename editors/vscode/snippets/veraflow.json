@@ -1,0 +1,47 @@
+{
+  "VeraFlow header": {
+    "prefix": "vf-header",
+    "body": [
+      "--- veraflow 2",
+      "{",
+      "  \"workflow\": \"${1|form,scanner|}\",",
+      "  \"fields\": {",
+      "    \"${2:name}\": { \"type\": \"${3|text,textarea,email,date,number,boolean|}\" }",
+      "  }",
+      "}",
+      "---",
+      "$0"
+    ],
+    "description": "Declare a startup workflow and a field at the top of the file"
+  },
+  "Field reference": {
+    "prefix": "vf-field",
+    "body": "{{${1:name}}}$0",
+    "description": "Insert a field reference"
+  },
+  "Output section": {
+    "prefix": "vf-section",
+    "body": ["{{#section ${1:body} \"${2:Body}\"}}", "$0", "{{/section}}"],
+    "description": "Define a named output section"
+  },
+  "Conditional block": {
+    "prefix": "vf-when",
+    "body": ["{{#when ${1:attn is not blank}}}", "$0", "{{/when}}"],
+    "description": "Render this block only when the condition holds"
+  },
+  "Inline conditional": {
+    "prefix": "vf-if",
+    "body": "{{when ${1:doa}: \"${2:Review}\" else: \"${3:Dispatch}\"}}$0",
+    "description": "Choose between two literal strings"
+  },
+  "Section navigation": {
+    "prefix": "vf-delivery",
+    "body": [
+      "\"delivery\": {",
+      "  \"mode\": \"${1|step,sequence|}\",",
+      "  \"after\": {\"${2:recipient}\": [\"Tab\", \"Tab\"]}",
+      "}$0"
+    ],
+    "description": "Configure paste mode and navigation inside the JSON header"
+  }
+}

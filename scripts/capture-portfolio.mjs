@@ -5,6 +5,13 @@ if (!["localhost", "127.0.0.1"].includes(new URL(url).hostname))
   throw new Error("Portfolio captures require a local preview.");
 const classicUrl = new URL(url);
 classicUrl.searchParams.set("workflow", "classic");
+async function openWorkspace(page) {
+  await page.goto(classicUrl.href);
+  await page.locator("#nav-settings").click();
+  await page.locator("#showWorkspace").check();
+  await page.locator("#save-settings").click();
+  await page.locator("#nav-workspace").click();
+}
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({
@@ -192,7 +199,7 @@ try {
     fullPage: true,
   });
   const workspacePage = await context.newPage();
-  await workspacePage.goto(classicUrl.href);
+  await openWorkspace(workspacePage);
   await workspacePage
     .getByRole("button", { name: "Create table", exact: true })
     .click();
@@ -231,7 +238,7 @@ try {
   });
   const snippetPage = await context.newPage();
   await snippetPage.setViewportSize({ width: 1440, height: 1100 });
-  await snippetPage.goto(classicUrl.href);
+  await openWorkspace(snippetPage);
   await snippetPage
     .getByRole("button", { name: "Create table", exact: true })
     .click();
