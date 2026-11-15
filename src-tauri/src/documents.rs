@@ -138,6 +138,7 @@ pub fn recent_documents(app: tauri::AppHandle) -> Result<Vec<RecentLabel>, Strin
 
 #[tauri::command]
 pub fn remember_document(app: tauri::AppHandle, token: u32, title: String) -> Result<(), String> {
+    // Consume a token issued by native file open. The frontend never supplies a path here.
     let path = {
         let issued = app.state::<IssuedDocuments>();
         let mut issued = issued.0.lock().map_err(|_| "storageFailed")?;
@@ -438,6 +439,7 @@ pub async fn open_folder_template(app: tauri::AppHandle, index: usize) -> Result
                 selected.files.get(index).ok_or("recentMissing")?.clone(),
             )
         };
+        // Recheck containment in case the file moved or became a link after scanning.
         let path = root
             .join(relative)
             .canonicalize()

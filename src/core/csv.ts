@@ -7,6 +7,7 @@ export function parseCSV(source: string, delimiter?: string): string[][] {
   )
     throw Error("invalidCSV");
   source = source.replace(/^\uFEFF/, "");
+  // Guess from the first logical record, ignoring separators inside quoted cells.
   if (!delimiter) {
     const counts = new Map([
       [",", 0],
@@ -32,6 +33,7 @@ export function parseCSV(source: string, delimiter?: string): string[][] {
   }
   if (![",", ";", "\t"].includes(delimiter)) throw Error("invalidCSV");
   const rows: string[][] = [];
+  // A closed quoted cell must end at a separator, record break, or end of input.
   let row: string[] = [],
     value = "",
     quoted = false,
@@ -83,6 +85,7 @@ export function parseCSV(source: string, delimiter?: string): string[][] {
   if (quoted) throw Error("invalidCSV");
   if (value || row.length || closed) line();
   if (!rows.length) throw Error("invalidCSV");
+  // A short row is malformed. A present empty cell is a legitimate empty string.
   const width = rows[0].length;
   if (rows.some((r) => r.length !== width)) throw Error("csvColumns");
   return rows;

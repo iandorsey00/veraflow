@@ -58,6 +58,7 @@ fn write(path: &Path, entries: &[Entry]) -> Result<(), String> {
     }
     let dir = path.parent().ok_or("storageFailed")?;
     std::fs::create_dir_all(dir).map_err(|_| "storageFailed")?;
+    // Write beside the destination so a failed write leaves the previous history intact.
     let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| "storageFailed")?;
     {
         let mut writer = BufWriter::new(&mut temp);

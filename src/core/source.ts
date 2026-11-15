@@ -359,6 +359,7 @@ function textNodes(
   if (end < text.length) addLiteral(text.slice(end));
   return nodes;
 }
+// Block tags consume their entire line. Ordinary text keeps its original line ending.
 function blocks(
   text: string,
   controls: Map<string, Control>,
@@ -431,6 +432,7 @@ function conditionFields(sections: Section[]) {
   return [...drivers];
 }
 
+// Preview and validation repeatedly parse the same open template. Cache only the last source.
 let cached: { text: string; parsed: Source } | undefined;
 export function forgetSource() {
   cached = undefined;
@@ -464,6 +466,7 @@ export function parseSource(text: string): Source {
         delivery: defaultDelivery,
         responses: new Map<string, string | null>(),
       };
+  // Prefilled plain files have a metadata header but still use the plain grammar.
   const advanced = !!header && syntax !== "plain";
   const fields = new Set(controls.keys());
   const body = header ? source.slice(header[0].length) : source;
@@ -564,6 +567,7 @@ export function sourceDefinitionText(text: string, title?: string) {
     (!title || title === metadata.title)
   )
     return text;
+  // Exports of reusable definitions must leave out responses from the current case.
   delete metadata.responses;
   if (title) metadata.title = title;
   const definition = sourceWithHeader(
@@ -582,6 +586,7 @@ export function prefillSource(
   const source = text.replace(/^\uFEFF/, "");
   const header = sourceHeader.exec(source);
   const original = header ? object(parseJSON(header[1])) : { syntax: "plain" };
+  // A saved null suppresses the field default. Missing keys still inherit defaults.
   const saved = sourceWithHeader(
     {
       ...original,
@@ -607,6 +612,7 @@ export function sourceParts(
     if (!used && length > 16 * 1024 * 1024) throw Error("invalidText");
     return { text, missing };
   };
+  // The same traversal drives field visibility and output so both select the same branches.
   const parts = (nodes: Node[]): { text: string; missing: boolean }[] =>
     nodes.flatMap((node) => {
       if (typeof node === "string") return used ? [] : [part(node)];
@@ -615,6 +621,7 @@ export function sourceParts(
           used.add(node.field);
           return [];
         }
+        // Emit the value or choice text directly. Template markers in a value remain literal.
         const value = values.get(node.field);
         const options = source.controls.get(node.field)?.options;
         return value === undefined

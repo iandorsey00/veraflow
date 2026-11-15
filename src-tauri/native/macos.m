@@ -48,6 +48,7 @@ char *vf_capture(int restore, int *error) {
     @autoreleasepool {
         if (!externalApp()) { *error = 2; return NULL; }
         if (!AXIsProcessTrusted()) { *error = 3; return NULL; }
+        // Prefer Accessibility selection to avoid changing the clipboard when the app exposes it.
         pid_t directSource = NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier;
         AXUIElementRef system = AXUIElementCreateSystemWide();
         CFTypeRef focused = NULL, selected = NULL;
@@ -140,6 +141,7 @@ int vf_deliver(const char *text, const unsigned char *keys, size_t count, uintpt
         if (vf_delivery_target() != target) return 6;
         int result = sendKey(text ? 9 : 48, text ? kCGEventFlagMaskCommand : kCGEventFlagMaskShift);
         if (result || !text) return result;
+        // Give the destination time to handle Paste before sending navigation or the next section.
         if (count || expected) usleep(200000);
         for (size_t i = 0; i < count; i++) {
             if (vf_delivery_target() != target) return 6;

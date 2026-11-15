@@ -69,6 +69,7 @@ export function startSession(template: Template): Session {
       : undefined;
   const saved = source?.responses;
   const names = captureFieldNames(template);
+  // Capture the fields that control visibility before fields inside their branches.
   const ordered = source
     ? [
         ...source.conditionDrivers,
@@ -99,6 +100,7 @@ export function startSession(template: Template): Session {
   return s;
 }
 
+// A check in one workflow does not satisfy the other workflow's verification rule.
 export function prepareWorkflow(s: Session, typing: boolean) {
   s.typing = typing;
   for (const field of s.fields) {
@@ -291,6 +293,7 @@ function renderParts(
   }));
 }
 
+// Render from a value map without applying the app's session verification gate.
 export function renderTemplateValues(
   template: Template,
   input: ReadonlyMap<string, string>,
@@ -301,6 +304,7 @@ export function renderTemplateValues(
     template.placeholderStyle === "source"
       ? parseSource(template.content).responses
       : undefined;
+  // Explicit inputs win over prefilled responses. A saved null still blocks the default below.
   for (const [name, value] of saved ?? []) {
     if (!values.has(name) && value !== null) values.set(name, value);
   }
@@ -378,6 +382,7 @@ function checkedSource(
   values: ReadonlyMap<string, string>,
 ) {
   const parsed = parseSource(template.content);
+  // Validate fields visited by the selected branches. Hidden values can remain in the session.
   const used = new Set<string>();
   sourceParts(parsed, values, used);
   const parts = sourceParts(parsed, values);

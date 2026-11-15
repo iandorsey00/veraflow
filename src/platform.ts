@@ -79,6 +79,7 @@ export type OpenDocument = {
 export const platform = {
   async documentEvents(ready: () => void) {
     if (!desktop) return;
+    // Subscribe before draining the queue so startup and later file opens use the same path.
     await listen("document-open", ready);
     ready();
   },
@@ -129,6 +130,7 @@ export const platform = {
       input.click();
     });
   },
+  // The browser can list only files supplied by its picker. The desktop can refresh from disk.
   async pickTemplateFolder(): Promise<FolderListing | null> {
     if (desktop) return invoke("pick_template_folder");
     return new Promise((resolve) => {

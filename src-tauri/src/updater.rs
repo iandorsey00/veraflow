@@ -30,6 +30,7 @@ impl Drop for InstallGuard {
     }
 }
 
+// Check the release location separately from the updater signature check on downloaded bytes.
 fn trusted_download(url: &tauri::Url, version: &str) -> bool {
     url.scheme() == "https"
         && url.host_str() == Some("github.com")
@@ -97,6 +98,7 @@ pub async fn install_update(
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .map_err(|_| "updateBusy")?;
     let _guard = InstallGuard;
+    // Consume the checked update once. A retry starts by checking again.
     let update = pending
         .0
         .lock()

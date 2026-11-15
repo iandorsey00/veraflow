@@ -1052,6 +1052,7 @@ async function openDocument(file: OpenDocument) {
     await launchScanner(scanner);
   }
 }
+// OS open events can arrive during a dialog. Leave the queue pending until the UI is idle.
 async function drainDocuments() {
   if (!documentsPending || busy || quitting) return;
   documentsPending = false;
@@ -2849,6 +2850,7 @@ async function perform(action: Action, global = false) {
       s.deliveryDone = false;
     } else if (action === "finish" && global && !s.deliveryDone) {
       const sequence = deliveryMode === "sequence" && index < parts.length - 1;
+      // Keep the whole sequence bound to its initial external destination.
       const target = sequence ? await platform.deliveryTarget() : undefined;
       const end = sequence ? parts.length : index + 1;
       let transferred = false;
@@ -2861,6 +2863,7 @@ async function perform(action: Action, global = false) {
               target,
             ),
           );
+          // Advance only after the native step returns. A failed step stays selected.
           transferred = true;
           s.deliveryIndex = Math.min(current + 1, parts.length - 1);
           s.deliveryDone = current === parts.length - 1;
@@ -3081,6 +3084,7 @@ async function requestSessionClose(s: Session, confirmDiscard: boolean) {
   }
   await closeSession();
 }
+// Text export requires valid, complete output. A prefilled file can preserve unfinished inputs.
 async function saveBeforeClose(s: Session) {
   let parts: Session["prepared"];
   try {

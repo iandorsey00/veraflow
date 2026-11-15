@@ -86,6 +86,7 @@ extern "C" char *vf_capture(int restore,int *error) {
     if(SendInput(4,keys,sizeof(INPUT))!=4){ // release potentially injected keys if UIPI interrupted the sequence
         SendInput(2,keys+2,sizeof(INPUT)); *error=5;return nullptr;
     }
+    // Copy can complete after SendInput returns. Wait for a clipboard sequence change.
     bool changed=false;for(int i=0;i<100;i++){Sleep(10);if(GetClipboardSequenceNumber()!=sequence){changed=true;break;}}
     if(!changed){*error=5;return nullptr;}
     DWORD captured=GetClipboardSequenceNumber();
@@ -139,6 +140,7 @@ extern "C" int vf_deliver(const char *text, const unsigned char *keys,
     if (vf_delivery_target() != target) return 6;
     if (!sendKey(text ? 'V' : VK_TAB, text ? VK_CONTROL : VK_SHIFT)) return 5;
     if (!text) return 0;
+    // Give the destination time to handle Paste before sending navigation or the next section.
     if (count || expected) Sleep(200);
     for (size_t i = 0; i < count; i++) {
         if (vf_delivery_target() != target) return 6;

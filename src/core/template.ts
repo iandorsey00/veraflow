@@ -103,6 +103,7 @@ export function orderFields(
     ...new Set([...order.filter((name) => parsed.includes(name)), ...parsed]),
   ];
 }
+// Tokenize before substitution so inserted braces or angle brackets cannot introduce fields.
 export function renderTemplate(
   content: string,
   values: ReadonlyMap<string, string>,

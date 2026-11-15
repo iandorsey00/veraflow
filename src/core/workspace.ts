@@ -209,6 +209,7 @@ export function importWorkspace(json: string, current: Workspace): Workspace {
   ]) {
     remap.set(old, all.has(old) ? veraId() : old);
   }
+  // Use the same map for IDs and parent links to keep imported records together.
   for (const f of incoming.folders) f.id = remap.get(f.id)!;
   for (const t of incoming.tables) {
     t.id = remap.get(t.id)!;
