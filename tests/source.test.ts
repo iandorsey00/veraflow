@@ -246,3 +246,24 @@ test("navigation is validated separately from rendered section text", () => {
     assert.throws(() => parseSource(source({ after })), /invalidSource/);
   }
 });
+
+test("source syntax errors identify malformed metadata and the opening line of an unclosed condition", () => {
+  assert.throws(
+    () =>
+      parseSource(
+        '--- veraflow 2\n{"fields":{"ready":{"type":"bool"}}}\n---\n{{ready}}',
+      ),
+    { detail: /Field "ready" needs a supported type/ },
+  );
+  assert.throws(
+    () =>
+      parseSource(
+        '--- veraflow 2\n{"title":"Example","fields":{"flag":{"type":"boolean"}}}\n---\n{{#section body "Body"}}\n{{#when flag}}\n{{name}}\n{{/section}}',
+      ),
+    { line: 5, detail: /missing its closing/ },
+  );
+  assert.throws(
+    () => parseSource('--- veraflow 2\n{ "title": "Example", }\n---\n{{name}}'),
+    { line: 2, detail: /invalid JSON/ },
+  );
+});

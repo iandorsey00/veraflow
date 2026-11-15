@@ -7,7 +7,7 @@ async function updates(page: Page, result: string, install = "") {
       response,
       body:
         body +
-        `\nplatform.checkUpdate = async () => { ${result} };\nplatform.installUpdate = async (progress) => { window.__updateInstalls = (window.__updateInstalls || 0) + 1; ${install} };\n`,
+        `\nplatform.checkUpdate = async () => { ${result} };\nplatform.installUpdate = async (progress) => { window.__updateInstalls = (window.__updateInstalls || 0) + 1; ${install} };\nplatform.trayMenu = async (_, found) => { window.__trayHasUpdate = found; };\nplatform.tray = async (handler) => { window.__trayAction = handler; };\n`,
     });
   });
   await page.goto("/?workflow=classic");
@@ -23,6 +23,9 @@ test("checking an up-to-date app does not install or prompt", async ({
     page.getByText("You’re using the latest available version."),
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__trayHasUpdate)).toBe(
+    false,
+  );
   expect(await page.evaluate(() => (window as any).__updateInstalls || 0)).toBe(
     0,
   );
@@ -106,7 +109,7 @@ test("network failure is recoverable and successful installation shows restart s
   ).toBeVisible();
 });
 
-test("declining an available update keeps a main-page Update now action", async ({
+test("declining an available update keeps the tray action available", async ({
   page,
 }) => {
   await updates(page, 'return {version:"0.6.0",notes:"Test"};');
@@ -116,7 +119,10 @@ test("declining an available update keeps a main-page Update now action", async 
     .getByRole("button", { name: "Keep working", exact: true })
     .click();
   await page.getByRole("button", { name: "Templates", exact: true }).click();
-  await page.getByRole("button", { name: "Update now", exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__trayHasUpdate))
+    .toBe(true);
+  await page.evaluate(() => (window as any).__trayAction("update"));
   await expect(page.getByRole("dialog")).toContainText("VeraFlow 0.6.0");
   expect(await page.evaluate(() => (window as any).__updateInstalls || 0)).toBe(
     0,
@@ -142,11 +148,11 @@ test("a background update check preserves edits and does not open a dialog", asy
   await expect(page.getByLabel("Body", { exact: true })).toHaveValue(
     "Unsaved {{reference}}",
   );
-  await expect(
-    page.getByRole("button", { name: "Update now", exact: true }),
-  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__trayHasUpdate))
+    .toBe(true);
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("button", { name: "Update now", exact: true }).click();
+  await page.evaluate(() => (window as any).__trayAction("update"));
   await expect(page.getByRole("alert")).toContainText(
     "save or discard changes",
   );

@@ -37,10 +37,42 @@ export class ShortcutBindingError extends Error {
     super("shortcutFailed");
   }
 }
+export type OutputLabel = { title: string; time: number };
+const browserOutputs: (OutputLabel & { text: string })[] = [];
+export type RecentDocument = { title: string; file: string };
+const browserRecent: { file: File; title: string }[] = [];
+const browserTokens = new Map<number, File>();
+let nextDocumentToken = 1;
+async function browserDocument(
+  file: File,
+  templateOnly: boolean,
+): Promise<OpenDocument> {
+  const csv = /\.csv$/i.test(file.name);
+  if (!(csv && !templateOnly) && !/\.(veraflow|vf)$/i.test(file.name))
+    throw Error("invalidImport");
+  const recentToken = csv ? null : nextDocumentToken++;
+  if (recentToken !== null) {
+    if (browserTokens.size >= 12)
+      browserTokens.delete(browserTokens.keys().next().value!);
+    browserTokens.set(recentToken, file);
+  }
+  return {
+    name: file.name,
+    format: csv ? "csv" : "source",
+    content:
+      file.size > 16 * 1024 * 1024
+        ? null
+        : new TextDecoder("utf-8", { fatal: true }).decode(
+            await file.arrayBuffer(),
+          ),
+    recentToken,
+  };
+}
 export type OpenDocument = {
   name: string;
   format: "source" | "csv";
   content: string | null;
+  recentToken?: number | null;
 };
 export const platform = {
   async documentEvents(ready: () => void) {
@@ -50,6 +82,31 @@ export const platform = {
   },
   async takeDocument(): Promise<OpenDocument | null> {
     return invoke("take_document");
+  },
+  async recentDocuments(): Promise<RecentDocument[]> {
+    return desktop
+      ? invoke("recent_documents")
+      : browserRecent.map(({ file, title }) => ({ title, file: file.name }));
+  },
+  async rememberDocument(token: number, title: string) {
+    if (desktop) return invoke("remember_document", { token, title });
+    const file = browserTokens.get(token);
+    if (!file) return;
+    browserTokens.delete(token);
+    const existing = browserRecent.findIndex((recent) => recent.file === file);
+    if (existing >= 0) browserRecent.splice(existing, 1);
+    browserRecent.unshift({ file, title });
+    browserRecent.splice(12);
+  },
+  async openRecentDocument(index: number): Promise<OpenDocument> {
+    if (desktop) return invoke("open_recent_document", { index });
+    const entry = browserRecent[index];
+    if (!entry) throw Error("recentMissing");
+    return browserDocument(entry.file, true);
+  },
+  async clearRecentDocuments() {
+    if (desktop) return invoke("clear_recent_documents");
+    browserRecent.length = 0;
   },
   async pickDocument(templateOnly = false): Promise<OpenDocument | null> {
     if (desktop) return invoke("pick_document", { templateOnly });
@@ -62,25 +119,37 @@ export const platform = {
         const file = input.files?.[0];
         if (!file) return resolve(null);
         try {
-          const csv = /\.csv$/i.test(file.name);
-          if (!(csv && !templateOnly) && !/\.(veraflow|vf)$/i.test(file.name))
-            throw Error("invalidImport");
-          resolve({
-            name: file.name,
-            format: csv ? "csv" : "source",
-            content:
-              file.size > 16 * 1024 * 1024
-                ? null
-                : new TextDecoder("utf-8", { fatal: true }).decode(
-                    await file.arrayBuffer(),
-                  ),
-          });
+          resolve(await browserDocument(file, templateOnly));
         } catch {
           reject(Error("invalidImport"));
         }
       };
       input.click();
     });
+  },
+  async listOutputs(): Promise<OutputLabel[]> {
+    return desktop
+      ? invoke("list_outputs")
+      : browserOutputs.map(({ title, time }) => ({ title, time }));
+  },
+  async readOutput(index: number): Promise<string> {
+    if (desktop) return invoke("read_output", { index });
+    const entry = browserOutputs[index];
+    if (!entry) throw Error("storageFailed");
+    return entry.text;
+  },
+  async recordOutput(title: string, text: string, limit: number) {
+    if (desktop) return invoke("record_output", { title, text, limit });
+    browserOutputs.unshift({
+      title,
+      time: Math.floor(Date.now() / 1000),
+      text,
+    });
+    browserOutputs.splice(limit);
+  },
+  async trimOutputs(limit: number) {
+    if (desktop) return invoke("trim_outputs", { limit });
+    browserOutputs.splice(limit);
   },
   async mouseSource(enabled: boolean): Promise<boolean> {
     return desktop ? invoke("mouse_source", { enabled }) : false;
@@ -236,8 +305,8 @@ export const platform = {
   async quit() {
     if (desktop) await invoke("quit_app");
   },
-  async trayLanguage(language: string) {
-    if (desktop) await invoke("set_tray_language", { language });
+  async trayMenu(language: string, updateAvailable: boolean) {
+    if (desktop) await invoke("set_tray_menu", { language, updateAvailable });
   },
   async autostart(on: boolean) {
     if (desktop && (await isEnabled()) !== on)

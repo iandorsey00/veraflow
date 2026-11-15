@@ -4,6 +4,7 @@
     "body": [
       "--- veraflow 2",
       "{",
+      "  \"title\": \"Template name\",",
       "  \"workflow\": \"${1|form,scanner|}\",",
       "  \"fields\": {",
       "    \"${2:name}\": { \"type\": \"${3|text,textarea,email,date,number,boolean|}\" }",

@@ -94,37 +94,13 @@ test("Scanner drag and arrow moves preserve active field, values and verificatio
   await expect(page.locator("#field-0 .field-value")).toHaveText("PRIVATE-104");
   await expect(page.locator("#field-0")).toHaveClass(/verified/);
 });
-test("update action belongs to navigation and Settings header, with busy guard", async ({
+test("Settings keeps its manual update check alongside the tray action", async ({
   page,
 }) => {
-  await page.route("**/src/main.ts*", async (route) => {
-    const response = await route.fetch();
-    await route.fulfill({
-      response,
-      body:
-        (await response.text()) +
-        "\nwindow.__checkUpdate=checkAvailableUpdate;",
-    });
-  });
-  await page.route("**/src/platform.ts*", async (route) => {
-    const response = await route.fetch();
-    await route.fulfill({
-      response,
-      body:
-        (await response.text()) +
-        '\nplatform.checkUpdate=async()=>({version:"9.0.0",notes:"test"});',
-    });
-  });
   await page.goto("/?workflow=classic");
-  await page.evaluate(() => (window as any).__checkUpdate());
-  await expect(page.locator("nav #update-now")).toBeVisible();
   await page.locator("#nav-settings").click();
   await expect(page.locator(".settings header #update-app")).toHaveText(
-    "Update now",
+    "Update app…",
   );
-  await expect(page.locator(".about #update-app")).toHaveCount(0);
-  await page.locator("#nav-templates").click();
-  await page.locator("#template-name").fill("Unsaved");
-  await page.locator("#update-now").click();
-  await expect(page.getByRole("alert").first()).toContainText("Finish");
+  await expect(page.locator("nav #update-now")).toHaveCount(0);
 });

@@ -942,9 +942,6 @@ dialog textarea {
   }
 }
 
-#update-banner:empty {
-  display: none;
-}
 .drag-handle {
   cursor: grab;
   flex: none;
@@ -1187,4 +1184,38 @@ input.toggle-switch:checked::before {
 
 .template-form-grid.without-preview {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.recent-list {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+
+.recent-list button {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.csv-row-preview {
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.csv-row-preview div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) 2fr;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.csv-row-preview dd {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.history-output {
+  max-height: 55vh;
+  overflow: auto;
 }

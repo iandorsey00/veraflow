@@ -1,6 +1,7 @@
 import { textLayoutError } from "./core/form";
 import {
   parseSource,
+  SourceSyntaxError,
   prefillSource,
   sourceDefinitionText,
   type DeliveryMode,
@@ -8,7 +9,7 @@ import {
 import { parseCSV, csvTable } from "./core/csv";
 import { sessionProgress } from "./core/progress";
 import { bindReorder } from "./reorder";
-import { workspaceUI, formDialog } from "./workspace-ui";
+import { workspaceUI, formDialog, type Input } from "./workspace-ui";
 import {
   emptyWorkspace,
   fieldNames,
@@ -37,6 +38,8 @@ import { zh } from "./locales/zh-CN";
 import {
   actions,
   defaultPreferences,
+  defaultOutputHistoryLimit,
+  maxOutputHistoryLimit,
   migrateClipboardPreference,
   migrateShortcutDefaults,
   defaultEmail,
@@ -90,6 +93,8 @@ import {
   bindShortcuts,
   ShortcutBindingError,
   type OpenDocument,
+  type RecentDocument,
+  type OutputLabel,
 } from "./platform";
 
 type Key = keyof typeof en;
@@ -99,8 +104,20 @@ let library: Library = {
   templates: [],
   preferences: structuredClone(defaultPreferences),
 };
-let view: "workspace" | "scanner" | "templates" | "settings" | "session" =
-  "templates";
+let view:
+  | "recent"
+  | "outputs"
+  | "workspace"
+  | "scanner"
+  | "templates"
+  | "settings"
+  | "session" = "recent";
+let recentDocuments: RecentDocument[] = [];
+let outputLabels: OutputLabel[] = [];
+let selectedOutput: { index: number; text: string } | null = null;
+let recordedOutputs = new WeakSet<Session>();
+const historyLimit = (p = library.preferences) =>
+  p.outputHistoryLimit ?? defaultOutputHistoryLimit;
 let selected = "",
   draft: Template | null = null,
   settingsDraft: Preferences | null = null,
@@ -230,14 +247,20 @@ function notify(key: Key, error = false) {
   failure = error;
   render();
 }
+function errorText(error: unknown) {
+  if (error instanceof SourceSyntaxError)
+    return error.line
+      ? `${t("sourceLine")} ${error.line} · ${error.detail}`
+      : error.detail;
+  return tr(error instanceof Error ? error.message : String(error));
+}
 function report(error: unknown) {
-  const key = error instanceof Error ? error.message : String(error);
   message =
     error instanceof ShortcutBindingError
       ? `${t("shortcutFailed")} ${t(error.action === "cancel" ? "cancelSession" : error.action)}: ${error.shortcut}`
       : error instanceof EmailHeaderError
         ? `${t(error.section)}: ${t("emailHeaderInvalid")}`
-        : tr(key);
+        : errorText(error);
   failure = true;
   render();
 }
@@ -287,14 +310,13 @@ function render() {
     manualDrafts.set(input.dataset.draftKey!, input.value);
   applyAppearance();
   root.className = view === "session" && !templateFormActive() ? "compact" : "";
-  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${library.preferences.showWorkspace ? button("nav-workspace", "workspace", view === "workspace" ? "selected" : "") : ""}${session ? button("nav-session", session.mode === "complete" ? "sessionResults" : paused && focusedWorkflow ? "resumeTask" : "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}<span id="update-banner">${availableUpdate && view !== "settings" ? button("update-now", "updateNow", "primary") : ""}</span></nav></header>` : ""}
+  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${button("nav-recent", "recentTemplates", view === "recent" ? "selected" : "")}${library.preferences.showWorkspace ? button("nav-workspace", "workspace", view === "workspace" ? "selected" : "") : ""}${session ? button("nav-session", session.mode === "complete" ? "sessionResults" : paused && focusedWorkflow ? "resumeTask" : "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
     ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
     ${paused && session && view !== "session" ? pausedTaskView() : ""}
-    ${view === "workspace" ? workspace.view() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
+    ${view === "recent" ? recentView() : view === "outputs" ? outputsView() : view === "workspace" ? workspace.view() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
     ${view !== "session" ? `<footer>${button("nav-scanner", "freeScanner")}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
-  click("update-now", updateApp);
   click("nav-workspace", () => navigate("workspace"));
   click("nav-scanner", () =>
     navigate(session?.scanner ? "session" : "scanner"),
@@ -302,6 +324,8 @@ function render() {
   click("start-scanner", () => setupScanner());
   click("import-scanner-home", () => loadScannerJSON());
   click("nav-templates", () => navigate("templates"));
+  click("nav-recent", () => navigate("recent"));
+  click("open-document", pickDocument);
   click("nav-settings", () => navigate("settings"));
   click("nav-session", () => navigate("session"));
   click("resume-task", () => navigate("session"));
@@ -309,7 +333,9 @@ function render() {
     root
       .querySelector(".capture-field.active")
       ?.scrollIntoView({ block: "nearest" });
-  if (view === "workspace") workspace.bind(root);
+  if (view === "recent") bindRecent();
+  else if (view === "outputs") bindOutputs();
+  else if (view === "workspace") workspace.bind(root);
   else if (view === "templates") bindLibrary();
   else if (view === "settings") bindSettings();
   else if (view === "session") bindSession();
@@ -626,6 +652,87 @@ function scannerControls(secondaryOnly = false): string {
   </section>`;
 }
 
+function recentView() {
+  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentTemplates"))}</h1><div class="toolbar">${button("open-outputs", "recentOutputs")}${button("open-document", "openDocument", "primary")}</div></div>
+    ${recentDocuments.length ? `<ul class="recent-list">${recentDocuments.map((item, index) => `<li><button class="template-item" data-recent="${index}"><strong>${esc(item.title)}</strong><span>${esc(item.file)}</span></button></li>`).join("")}</ul>${button("clear-recent", "clearRecent", "quiet")}` : `<p>${esc(t("recentEmpty"))}</p>`}
+    ${!session && lastTemplate ? sessionRecovery() : ""}</main>`;
+}
+function bindRecent() {
+  click("open-outputs", () => navigate("outputs"));
+  root.querySelectorAll<HTMLButtonElement>("[data-recent]").forEach((item) => {
+    item.onclick = () =>
+      void run(async () =>
+        openDocument(
+          await platform.openRecentDocument(Number(item.dataset.recent)),
+        ),
+      );
+  });
+  click("clear-recent", async () => {
+    await platform.clearRecentDocuments();
+    recentDocuments = [];
+    await refreshTrayMenu().catch(() => {});
+    render();
+    focus("open-document");
+  });
+  click("restart-session", async () => {
+    if (lastTemplate)
+      await launch(
+        lastTemplate.definition,
+        undefined,
+        false,
+        lastTemplate.typing,
+      );
+  });
+}
+function outputsView() {
+  return `<main class="settings"><div class="section-head"><h1>${esc(t("recentOutputs"))}</h1>${outputLabels.length ? button("clear-outputs", "clearOutputHistory", "quiet") : ""}</div>
+  ${outputLabels.length ? `<ul class="recent-list">${outputLabels.map((entry, index) => `<li><button class="template-item ${index === selectedOutput?.index ? "selected" : ""}" data-output="${index}" aria-pressed="${index === selectedOutput?.index}"><strong>${esc(entry.title)}</strong><span>${esc(new Date(entry.time * 1000).toLocaleString(library.preferences.language))}</span></button></li>`).join("")}</ul>` : `<p>${esc(t(historyLimit() ? "outputHistoryEmpty" : "outputHistoryOff"))}</p>`}
+  ${selectedOutput ? `<pre class="output history-output" tabindex="0">${esc(selectedOutput.text)}</pre><div class="toolbar">${button("copy-history", "copyOutput", "primary")}${button("save-history", "saveSections")}</div>` : ""}</main>`;
+}
+function bindOutputs() {
+  root.querySelectorAll<HTMLButtonElement>("[data-output]").forEach((item) => {
+    item.id = `output-${item.dataset.output}`;
+    item.onclick = () =>
+      void run(async () => {
+        const index = Number(item.dataset.output);
+        selectedOutput = { index, text: await platform.readOutput(index) };
+        render();
+        focus(item.id);
+      });
+  });
+  click("copy-history", async () => {
+    if (!selectedOutput) return;
+    await platform.copy(selectedOutput.text);
+    notify("copied");
+  });
+  click("save-history", async () => {
+    if (selectedOutput)
+      await platform.exportTemplates(
+        selectedOutput.text,
+        "veraflow-output.txt",
+      );
+  });
+  click("clear-outputs", async () => {
+    if (
+      !(await confirmAction(
+        "clearOutputHistoryConfirm",
+        "",
+        t("clearOutputHistory"),
+      ))
+    )
+      return;
+    await platform.trimOutputs(0);
+    recordedOutputs = new WeakSet();
+    outputLabels = [];
+    selectedOutput = null;
+    render();
+    focus("nav-recent");
+  });
+}
+async function pickDocument() {
+  const file = await platform.pickDocument();
+  if (file) await openDocument(file);
+}
 function libraryView(): string {
   const items = library.templates
     .filter(
@@ -809,10 +916,10 @@ function refreshTemplatePreview(event: Event) {
 }
 function sourceDefinition(content: string, name: string): Template {
   if (!content.trim()) throw Error("invalidSource");
-  parseSource(content);
+  const source = parseSource(content);
   return {
     id: crypto.randomUUID(),
-    name,
+    name: source.title ?? name,
     folder: "",
     content,
     placeholderStyle: "source",
@@ -824,7 +931,11 @@ function sourceDefinition(content: string, name: string): Template {
 function documentTemplate(file: OpenDocument) {
   if (file.content === null || file.format !== "source")
     throw Error("invalidImport");
-  const name = file.name.replace(/\.(veraflow|vf)$/i, "");
+  const name = file.name
+    .replace(/\.(veraflow|vf)$/i, "")
+    .replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ")
+    .slice(0, 250)
+    .trim();
   return sourceDefinition(file.content, name || t("sourceTemplate"));
 }
 function csvRows(content: string) {
@@ -832,14 +943,32 @@ function csvRows(content: string) {
   if (!data.rows.length) throw Error("invalidCSV");
   return data;
 }
-function csvRowOptions(data: DataTable) {
-  return data.rows.map((row, i) => ({
-    value: String(i),
-    label: `${i + 1} · ${Object.values(row.values)
-      .slice(0, 3)
-      .map((value) => value.slice(0, 40))
-      .join(" · ")}`,
-  }));
+function csvRowPicker(data: DataTable): Input {
+  return {
+    key: "row",
+    label: t("csvRow"),
+    options: data.rows.map((row, i) => ({
+      value: String(i),
+      label: `${i + 1} · ${data.fields
+        .slice(0, 3)
+        .map((key) => row.values[key].slice(0, 40))
+        .join(" · ")}`,
+    })),
+    searchOptions: {
+      label: t("searchCSVRows"),
+      previous: t("previous"),
+      next: t("next"),
+      match: (id, query) => {
+        if (String(Number(id) + 1) === query) return true;
+        const values = Object.values(data.rows[Number(id)].values);
+        return values.some((value) =>
+          value.toLocaleLowerCase().includes(query),
+        );
+      },
+      details: (id) =>
+        data.fields.map((key) => [key, data.rows[Number(id)].values[key]]),
+    },
+  };
 }
 function csvSeed(template: Template, row: DataRow) {
   const seed = startSession(template);
@@ -850,7 +979,11 @@ function csvSeed(template: Template, row: DataRow) {
   }));
   return seed;
 }
-async function openDocumentTemplate(template: Template, row?: DataRow) {
+async function openDocumentTemplate(
+  template: Template,
+  row?: DataRow,
+  file?: OpenDocument,
+) {
   let workflow = parseSource(template.content).workflow;
   if (!workflow) {
     const choice = await formDialog(
@@ -874,7 +1007,7 @@ async function openDocumentTemplate(template: Template, row?: DataRow) {
     workflow = choice.workflow === "form" ? "form" : "scanner";
   }
   if (!(await abandonDraft())) return;
-  await launch(
+  const opened = await launch(
     template,
     undefined,
     false,
@@ -882,11 +1015,16 @@ async function openDocumentTemplate(template: Template, row?: DataRow) {
     undefined,
     row ? csvSeed(template, row) : undefined,
   );
+  if (opened && file?.recentToken != null) {
+    await platform.rememberDocument(file.recentToken, template.name);
+    recentDocuments = await platform.recentDocuments();
+    await refreshTrayMenu().catch(() => {});
+  }
 }
 async function openDocument(file: OpenDocument) {
   if (file.content === null) throw Error("invalidImport");
   if (file.format === "source") {
-    await openDocumentTemplate(documentTemplate(file));
+    await openDocumentTemplate(documentTemplate(file), undefined, file);
     return;
   }
   const data = csvRows(file.content);
@@ -896,7 +1034,7 @@ async function openDocument(file: OpenDocument) {
   const choice = await formDialog(
     file.name,
     [
-      { key: "row", label: t("csvRow"), options: csvRowOptions(data) },
+      csvRowPicker(data),
       {
         key: "template",
         label: t("templates"),
@@ -914,7 +1052,8 @@ async function openDocument(file: OpenDocument) {
   const row = data.rows[Number(choice.row)];
   if (choice.template === "file") {
     const source = await platform.pickDocument(true);
-    if (source) await openDocumentTemplate(documentTemplate(source), row);
+    if (source)
+      await openDocumentTemplate(documentTemplate(source), row, source);
   } else if (choice.template) {
     const definition = templates.find((item) => item.id === choice.template);
     if (definition) await openDocumentTemplate(definition, row);
@@ -939,10 +1078,6 @@ async function drainDocuments() {
   });
 }
 function bindLibrary() {
-  click("open-document", async () => {
-    const file = await platform.pickDocument();
-    if (file) await openDocument(file);
-  });
   click("open-source", async () => {
     if (!(await abandonDraft())) return;
     if (selected) selectTemplate(selected);
@@ -964,7 +1099,7 @@ function bindLibrary() {
   });
   click("export-source", async () => {
     await platform.exportTemplates(
-      sourceDefinitionText(draft!.content),
+      sourceDefinitionText(draft!.content, draft!.name.trim()),
       "template.veraflow",
     );
   });
@@ -974,7 +1109,7 @@ function bindLibrary() {
     const data = csvRows(csv);
     const result = await formDialog(
       t("sourceCSV"),
-      [{ key: "row", label: t("csvRow"), options: csvRowOptions(data) }],
+      [csvRowPicker(data)],
       t("fillForm"),
     );
     if (!result) return;
@@ -1282,6 +1417,12 @@ async function navigate(next: typeof view) {
     next = "templates";
   if (!(await abandonDraft())) return;
   if (next === "session" && !session) return;
+  const labels =
+    next === "outputs" && historyLimit()
+      ? (await platform.listOutputs()).slice(0, historyLimit())
+      : [];
+  outputLabels = labels;
+  selectedOutput = null;
   if (
     view === "session" &&
     next !== "session" &&
@@ -1334,27 +1475,19 @@ async function navigate(next: typeof view) {
 }
 function settingsView(): string {
   const p = (settingsDraft ??= structuredClone(library.preferences));
-  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", availableUpdate ? "updateNow" : "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("showWorkspace", "showWorkspace", p.showWorkspace ?? false)}</section>
+  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("showWorkspace", "showWorkspace", p.showWorkspace ?? false)}${check("tabBetweenSections", "sectionTab", p.tabBetweenSections ?? false)}<label for="outputHistoryLimit">${esc(t("outputHistoryLimit"))}</label><input id="outputHistoryLimit" type="number" min="0" max="${maxOutputHistoryLimit}" step="1" value="${historyLimit(p)}" aria-describedby="output-history-help"><p id="output-history-help" class="hint">${esc(t("outputHistoryHelp"))}</p></section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("clipboardDefaultHelp"))}</p><p class="hint">${esc(t("quitPrivacy"))}</p></section>
   <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
+}
+function refreshTrayMenu() {
+  return platform.trayMenu(library.preferences.language, !!availableUpdate);
 }
 async function checkAvailableUpdate() {
   if (updateCheck) return updateCheck;
   updateCheck = (async () => {
     availableUpdate = await platform.checkUpdate();
-    const banner = document.getElementById("update-banner");
-    if (banner && view !== "session" && view !== "settings") {
-      banner.innerHTML = availableUpdate
-        ? button("update-now", "updateNow", "primary")
-        : "";
-      click("update-now", updateApp);
-    }
-    const settingsUpdate = document.getElementById("update-app");
-    if (settingsUpdate)
-      settingsUpdate.textContent = t(
-        availableUpdate ? "updateNow" : "updateApp",
-      );
+    await refreshTrayMenu().catch(() => {});
     return availableUpdate;
   })();
   try {
@@ -1434,13 +1567,15 @@ function bindSettings() {
     "focusedWorkflow",
     "hideLivePreview",
     "showWorkspace",
+    "tabBetweenSections",
   ] as const)
     on(key, "change", (e) => {
       p[key] = (e.target as HTMLInputElement).checked;
       if (
         (key === "focusedWorkflow" ||
           key === "hideLivePreview" ||
-          key === "showWorkspace") &&
+          key === "showWorkspace" ||
+          key === "tabBetweenSections") &&
         !p[key]
       )
         delete p[key];
@@ -1452,7 +1587,14 @@ function bindSettings() {
       p.shortcuts[action] = (e.target as HTMLInputElement).value.trim();
       dirty = true;
     });
+  on("outputHistoryLimit", "input", (event) => {
+    p.outputHistoryLimit = (event.target as HTMLInputElement).valueAsNumber;
+    dirty = true;
+  });
   click("save-settings", async () => {
+    const limit = historyLimit(p);
+    if (!Number.isInteger(limit) || limit < 0 || limit > maxOutputHistoryLimit)
+      throw Error("invalidHistoryLimit");
     const old = structuredClone(library.preferences);
     const enabled = Object.values(p.shortcuts).filter((s) => s.trim());
     if (
@@ -1484,7 +1626,11 @@ function bindSettings() {
     focusedWorkflow = p.focusedWorkflow === true;
     if (p.clearAfterCompletion && session?.mode === "complete")
       eraseSession(session);
-    await platform.trayLanguage(p.language);
+    await refreshTrayMenu();
+    if (limit !== historyLimit(old)) {
+      await platform.trimOutputs(limit);
+      if (!limit) recordedOutputs = new WeakSet();
+    }
     notify("saved");
   });
 }
@@ -1557,7 +1703,7 @@ async function launch(
   session = nextSession;
   templateForm = form;
   groupSections = false;
-  sectionTab = false;
+  sectionTab = library.preferences.tabBetweenSections === true;
   deliveryMode =
     template.placeholderStyle === "source"
       ? parseSource(template.content).delivery.mode
@@ -1591,6 +1737,21 @@ async function launch(
   if (!session.fields.length) focus("finish");
   if (shortcutError) report(shortcutError);
   return true;
+}
+async function rememberOutput(s: Session, text: string) {
+  const limit = historyLimit();
+  if (!limit || recordedOutputs.has(s)) return;
+  try {
+    await platform.recordOutput(s.template.name, text, limit);
+    recordedOutputs.add(s);
+  } catch (error) {
+    notify(
+      (error instanceof Error ? error.message : String(error)) === "historyFull"
+        ? "historyFull"
+        : "outputHistorySaveFailed",
+      true,
+    );
+  }
 }
 async function copyTask(text: string, name: string) {
   await platform.copy(text);
@@ -1722,10 +1883,15 @@ function outputPreview(template: Template, s?: Session): string {
         .join("")}
     </section>`;
   } catch (error) {
-    return `<p class="hint">${esc(tr(error instanceof Error ? error.message : "invalidSource"))}</p>`;
+    return `<p class="hint">${esc(errorText(error))}</p>`;
   }
 }
 
+function sourceConditionDrivers(s: Session) {
+  return s.template.placeholderStyle === "source"
+    ? parseSource(s.template.content).conditionDrivers
+    : [];
+}
 function fieldControl(
   s: Session,
   index: number,
@@ -1745,9 +1911,18 @@ function fieldControl(
         ? t(key === "true" ? "booleanYes" : "booleanNo")
         : text,
     ]);
-    if (definition.kind === "radio") {
+    const conditionalChoice =
+      options.length <= 5 && sourceConditionDrivers(s).includes(field.name);
+    if (definition.kind === "radio" || conditionalChoice) {
+      if (
+        conditionalChoice &&
+        definition.optional &&
+        !comparing &&
+        id.startsWith("form-field-")
+      )
+        options.push(["", t("leaveUnanswered")]);
       return `<fieldset id="${id}"><legend>${esc(name)}</legend>
-        ${options.map(([key, text], i) => `<label class="check"><input type="radio" id="${id}-${i}" name="${id}" data-control="${index}" value="${esc(key)}" ${key === value ? "checked" : ""}>${esc(definition.optionLabels?.get(key) ?? (text || key))}</label>`).join("")}
+        ${options.map(([key, text], i) => `<label class="check"><input type="radio" id="${id}-${i}" name="${id}" data-control="${index}" ${id.startsWith("form-field-") ? `aria-describedby="form-state-${index}"` : ""} value="${esc(key)}" ${key === value ? "checked" : ""}>${esc(definition.optionLabels?.get(key) ?? (text || key))}</label>`).join("")}
       </fieldset>`;
     }
     if (
@@ -1790,11 +1965,12 @@ function templateFormView(s: Session): string {
     .map((field, index) => ({ field, index }))
     .filter(({ field }) => active || fieldVisible(s, field.name));
   // Dependencies precede their fields. Other selections follow the text fields.
-  const dependencies = new Set(
-    [...(s.controls?.values() ?? [])].flatMap((control) =>
+  const dependencies = new Set([
+    ...sourceConditionDrivers(s),
+    ...[...(s.controls?.values() ?? [])].flatMap((control) =>
       control.when ? [control.when.name] : [],
     ),
-  );
+  ]);
   const rank = (name: string) =>
     dependencies.has(name) ? 0 : s.controls?.get(name)?.options ? 2 : 1;
   fields.sort((a, b) => rank(a.field.name) - rank(b.field.name));
@@ -1913,7 +2089,7 @@ function sectionDeliveryView(s: Session) {
     ${lastStepView()}
     <div class="toolbar">${button("copy-section", "copySection", "primary")}${button("save-sections", "saveSections")}</div>
     <div class="toolbar">${button("section-prev", "emailManualBack", "", index === 0 && !s.deliveryDone)}${button("section-next", "emailManualNext", "", index === parts.length - 1)}</div>
-    <div class="actions">${button("section-edit", "editResponses")}${button("cancel-session", "closeSession", "quiet")}</div>
+    <div class="actions">${button("section-edit", "editResponses")}${button("cancel-session", "closeSession")}</div>
   </main>`;
 }
 function sessionView(): string {
@@ -1926,7 +2102,7 @@ function sessionView(): string {
   if (focusedWorkflow && !["review", "complete"].includes(s.mode))
     return focusedSessionView(s);
   if (s.mode === "review")
-    return `<main class="capture-panel"><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailReviewHelp" : "extraFieldsReviewHelp"))}</p><div class="actions">${button("email-to-scanner", "emailToScanner", "primary")}${button("email-clear-close", "clearClose", "danger")}</div>${!p.clearAfterCompletion ? outputPreview(s.template, s) + button("retain-email-results", "closeSession") : ""}${sessionRecovery(s)}</main>`;
+    return `<main class="capture-panel"><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailReviewHelp" : "extraFieldsReviewHelp"))}</p><div class="actions">${button("email-to-scanner", "emailToScanner", "primary")}${button("email-clear-close", "clearClose", "danger") + button("close-session", "closeSession")}</div>${!p.clearAfterCompletion ? outputPreview(s.template, s) + button("retain-email-results", "closeSession") : ""}${sessionRecovery(s)}</main>`;
   if (s.mode === "complete")
     return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion || !s.fields.some((f) => f.value !== null) ? "erased" : "retained"))}</p>${button("close-session", returnToScanner ? "returnScanner" : "closeSession", "primary")}${!p.clearAfterCompletion && !s.scanner && s.fields.some((f) => f.value !== null) ? outputPreview(s.template, s) + button("erase-results", "eraseSession", "quiet danger") : ""}${sessionRecovery(s)}</main>`;
   if (s.mode === "delivery") {
@@ -2074,16 +2250,19 @@ function bindSession() {
     const part = deliveredSections(session!)[session!.deliveryIndex ?? 0];
     await copyTask(part.text, part.label);
     notify("copied");
+    await rememberOutput(session!, sectionText(session!.prepared!));
   });
   click("save-sections", async () => {
-    const parts = deliveredSections(session!);
-    await saveSectionText(parts);
+    const s = session!;
+    if (await saveSectionText(deliveredSections(s)))
+      await rememberOutput(s, sectionText(s.prepared!));
   });
   click("section-prev", () => perform("previous"));
   click("section-next", () => perform("next"));
   click("section-edit", async () => {
     await switchTemplateView(templateForm);
     delete session!.prepared;
+    recordedOutputs.delete(session!);
   });
   on("group-sections", "change", (event) => {
     groupSections = (event.target as HTMLInputElement).checked;
@@ -2117,6 +2296,15 @@ function bindSession() {
   };
   click("restart-session", () => restart(false));
   click("reuse-session", () => restart(true));
+  on("scanner-control", "keydown", (event) => {
+    if (
+      (event as KeyboardEvent).key !== "Enter" ||
+      !(event.currentTarget instanceof HTMLFieldSetElement)
+    )
+      return;
+    event.preventDefault();
+    document.getElementById("use-scanner-control")?.click();
+  });
   click("use-scanner-control", async () => {
     const value = selectedControl("scanner-control");
     await accept(value, true);
@@ -2222,7 +2410,11 @@ function bindSession() {
     render();
     focus("toggle-workflow");
   });
-  click("pause-task", () => navigate("workspace"));
+  click("pause-task", () =>
+    navigate(
+      session?.template.placeholderStyle === "source" ? "recent" : "workspace",
+    ),
+  );
   on("task-tools", "toggle", (event) => {
     if ((event.target as HTMLElement).isConnected)
       taskToolsOpen = (event.target as HTMLDetailsElement).open;
@@ -2373,15 +2565,18 @@ function bindSession() {
     await copyTask(part.text, t(part.key));
     emailSteps.set(part.key, "stepCopied");
     render();
+    await rememberOutput(session!, emailOutputText(session!));
   });
   click("email-done", async () => {
     if (!session?.deliveryDone) return;
-    session.mode = "review";
+    const s = session;
+    s.mode = "review";
     await bindShortcuts(null, dispatch);
     await platform.active(true);
     await platform.compact(false, false);
     render();
     focus("email-to-scanner");
+    await rememberOutput(s, emailOutputText(s));
   });
   click("email-to-scanner", async () => {
     if (session?.mode !== "review") return;
@@ -2410,7 +2605,7 @@ function bindSession() {
     session!.mode = "complete";
     await closeSession();
   });
-  click("close-session", closeSession);
+  click("close-session", () => requestSessionClose(session!, false));
   root.querySelectorAll<HTMLButtonElement>("[data-field]").forEach(
     (el) =>
       (el.onclick = () =>
@@ -2575,12 +2770,22 @@ async function perform(action: Action, global = false) {
       const sequence = deliveryMode === "sequence" && index < parts.length - 1;
       const target = sequence ? await platform.deliveryTarget() : undefined;
       const end = sequence ? parts.length : index + 1;
-      for (let current = index; current < end; current++) {
-        await pasteTask(parts[current].text, parts[current].label, (text) =>
-          platform.deliver(text, sectionNavigation(s, parts, current), target),
-        );
-        s.deliveryIndex = Math.min(current + 1, parts.length - 1);
-        s.deliveryDone = current === parts.length - 1;
+      let transferred = false;
+      try {
+        for (let current = index; current < end; current++) {
+          await pasteTask(parts[current].text, parts[current].label, (text) =>
+            platform.deliver(
+              text,
+              sectionNavigation(s, parts, current),
+              target,
+            ),
+          );
+          transferred = true;
+          s.deliveryIndex = Math.min(current + 1, parts.length - 1);
+          s.deliveryDone = current === parts.length - 1;
+        }
+      } finally {
+        if (transferred) await rememberOutput(s, sectionText(s.prepared));
       }
     } else return;
     message = "";
@@ -2610,6 +2815,7 @@ async function perform(action: Action, global = false) {
           platform.deliver(value, tab),
         );
         emailSteps.set(part.key, "stepPaste");
+        await rememberOutput(s, emailOutputText(s));
       });
     } else return;
     message = "";
@@ -2662,12 +2868,7 @@ async function perform(action: Action, global = false) {
       skip(s, s.scanner ? false : library.preferences.autoAdvance);
       break;
     case "cancel":
-      if (
-        s.template.placeholderStyle === "source"
-          ? await saveBeforeClose(s)
-          : await confirmAction("sessionConfirm")
-      )
-        await closeSession();
+      await requestSessionClose(s, true);
       return;
     case "finish": {
       if (
@@ -2743,6 +2944,7 @@ async function perform(action: Action, global = false) {
       await platform.active(s.mode === "review");
       await platform.compact(false, false);
       notify("copied");
+      await rememberOutput(s, output);
       return;
     }
   }
@@ -2751,12 +2953,53 @@ async function perform(action: Action, global = false) {
   render();
   focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
 }
+function sectionText(parts: NonNullable<Session["prepared"]>) {
+  return parts.length === 1
+    ? parts[0].text
+    : parts.map((part) => `${part.label}\n${part.text}`).join("\n\n");
+}
+function emailOutputText(s: Session) {
+  return renderEmail(s)
+    .map((part) => `${t(part.key)}\n${part.text}`)
+    .join("\n\n");
+}
 function saveSectionText(parts: NonNullable<Session["prepared"]>) {
-  const text =
-    parts.length === 1
-      ? parts[0].text
-      : parts.map((part) => `${part.label}\n${part.text}`).join("\n\n");
-  return platform.exportTemplates(text, "veraflow-output.txt");
+  return platform.exportTemplates(sectionText(parts), "veraflow-output.txt");
+}
+async function requestSessionClose(s: Session, confirmDiscard: boolean) {
+  if (s.template.placeholderStyle === "source") {
+    if (!(await saveBeforeClose(s))) return;
+  } else {
+    let text: string | undefined;
+    if (
+      !s.scanner &&
+      (s.fields.length === 0 || s.fields.some((field) => field.value !== null))
+    ) {
+      try {
+        text = s.template.email?.enabled
+          ? emailOutputText(s)
+          : renderSession(s);
+      } catch {
+        // The existing discard prompt handles unfinished legacy sessions.
+      }
+    }
+    if (text !== undefined) {
+      const choice = await actionDialog(
+        "closeSourceTitle",
+        "",
+        `<button value="no" autofocus>${esc(t("keep"))}</button>
+        <button value="discard" class="danger">${esc(t("closeWithoutSaving"))}</button>
+        <button value="text" class="primary">${esc(t("saveSections"))}</button>`,
+      );
+      if (choice === "text") {
+        if (!(await platform.exportTemplates(text, "veraflow-output.txt")))
+          return;
+        await rememberOutput(s, text);
+      } else if (choice !== "discard") return;
+    } else if (confirmDiscard && !(await confirmAction("sessionConfirm")))
+      return;
+  }
+  await closeSession();
 }
 async function saveBeforeClose(s: Session) {
   let parts: Session["prepared"];
@@ -2779,7 +3022,11 @@ async function saveBeforeClose(s: Session) {
      <button value="prefilled" class="primary">${esc(t("savePrefilled"))}</button>`,
   );
   if (choice === "discard") return true;
-  if (choice === "text" && parts) return saveSectionText(parts);
+  if (choice === "text" && parts) {
+    const saved = await saveSectionText(parts);
+    if (saved) await rememberOutput(s, sectionText(s.prepared ?? parts));
+    return saved;
+  }
   if (choice === "prefilled") {
     const content = prefillSource(
       s.template.content,
@@ -2790,6 +3037,7 @@ async function saveBeforeClose(s: Session) {
         ]),
       ),
       s.typing ? "form" : "scanner",
+      s.template.name.slice(0, 250).trim(),
     );
     return platform.exportTemplates(content, "prefilled-template.veraflow");
   }
@@ -2797,6 +3045,7 @@ async function saveBeforeClose(s: Session) {
 }
 async function closeSession() {
   const wasScanner = session?.scanner;
+  const wasSource = session?.template.placeholderStyle === "source";
   const keepResults =
     session?.mode === "complete" && !wasScanner && !returnToScanner;
   if (
@@ -2827,7 +3076,10 @@ async function closeSession() {
       returnToScanner = true;
       throw error;
     }
-  } else await navigate(wasScanner ? "workspace" : "templates");
+  } else
+    await navigate(
+      wasScanner ? "workspace" : wasSource ? "recent" : "templates",
+    );
 }
 async function confirmAction(
   key: Key,
@@ -3045,12 +3297,19 @@ async function init() {
       ? library.preferences.focusedWorkflow === true
       : layoutOverride === "focused";
   if (library.preferences.showWorkspace) view = "workspace";
+  recentDocuments = await platform.recentDocuments().catch(() => []);
   if (library.templates[0]) selectTemplate(library.templates[0].id);
   render();
-  if (desktop && !testBuild)
-    void checkAvailableUpdate().catch(() => {
-      /* Settings offers a retry. */
-    });
+  if (desktop && !testBuild) {
+    const checkInBackground = () => {
+      if (!busy && !quitting)
+        void checkAvailableUpdate().catch(() => {
+          // Settings offers a manual retry.
+        });
+    };
+    checkInBackground();
+    window.setInterval(checkInBackground, 60 * 60 * 1000);
+  }
   await platform.tray(
     (action) =>
       void run(async () => {
@@ -3074,13 +3333,20 @@ async function init() {
           await platform.active(false);
           quitting = true;
           await platform.quit();
-        } else if (action === "settings") await navigate("settings");
+        } else if (action === "update") await updateApp();
+        else if (action === "open") await pickDocument();
+        else if (action === "outputs") await navigate("outputs");
+        else if (action.startsWith("recent-"))
+          await openDocument(
+            await platform.openRecentDocument(Number(action.slice(7))),
+          );
+        else if (action === "settings") await navigate("settings");
         else if (action === "session" && session) await navigate("session");
-        else await navigate("templates");
+        else await navigate(action === "templates" ? "templates" : "recent");
       }),
   );
   try {
-    await platform.trayLanguage(library.preferences.language);
+    await refreshTrayMenu();
     await platform.documentEvents(() => {
       documentsPending = true;
       void drainDocuments();

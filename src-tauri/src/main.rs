@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod documents;
+mod output_history;
 mod storage;
 mod updater;
 mod workspace;
@@ -321,33 +322,100 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 #[tauri::command]
-fn set_tray_language(app: tauri::AppHandle, language: String) -> Result<(), String> {
-    build_menu(&app, language == "zh-CN")
+fn set_tray_menu(
+    app: tauri::AppHandle,
+    language: String,
+    update_available: bool,
+) -> Result<(), String> {
+    build_menu(&app, language == "zh-CN", update_available)
 }
-fn build_menu(app: &tauri::AppHandle, zh: bool) -> Result<(), String> {
-    use tauri::menu::{Menu, MenuItem};
-    let labels = if zh {
-        ["新建会话", "模板", "当前会话", "设置", "退出"]
+fn build_menu(app: &tauri::AppHandle, zh: bool, update_available: bool) -> Result<(), String> {
+    use tauri::menu::{IsMenuItem, Menu, MenuItem, Submenu};
+    let mut entries = if zh {
+        vec![
+            ("open", "打开文件…"),
+            ("templates", "模板"),
+            ("session", "当前会话"),
+            ("settings", "设置"),
+        ]
     } else {
-        [
-            "New session",
-            "Templates",
-            "Current session",
-            "Settings",
-            "Quit",
+        vec![
+            ("open", "Open file…"),
+            ("templates", "Templates"),
+            ("session", "Current session"),
+            ("settings", "Settings"),
         ]
     };
-    let ids = ["new", "templates", "session", "settings", "quit"];
-    let items: Vec<_> = ids
-        .iter()
-        .zip(labels)
-        .map(|(id, label)| MenuItem::with_id(app, *id, label, true, None::<&str>))
+    if update_available && !cfg!(feature = "test-build") {
+        entries.push((
+            "update",
+            if zh {
+                "更新应用…"
+            } else {
+                "Update app…"
+            },
+        ));
+    }
+    entries.insert(
+        1,
+        (
+            "outputs",
+            if zh {
+                "最近的输出"
+            } else {
+                "Recent outputs"
+            },
+        ),
+    );
+    entries.push(("quit", if zh { "退出" } else { "Quit" }));
+    let items: Vec<_> = entries
+        .into_iter()
+        .map(|(id, label)| MenuItem::with_id(app, id, label, true, None::<&str>))
         .collect::<Result<_, _>>()
         .map_err(|_| "trayFailed")?;
-    let refs: Vec<&dyn tauri::menu::IsMenuItem<_>> = items
+    let recent = documents::recent_documents(app.clone()).unwrap_or_default();
+    let mut recent_items = vec![MenuItem::with_id(
+        app,
+        "recent",
+        if zh {
+            "显示最近打开的模板…"
+        } else {
+            "Show recent templates…"
+        },
+        true,
+        None::<&str>,
+    )
+    .map_err(|_| "trayFailed")?];
+    for (index, entry) in recent.into_iter().enumerate() {
+        #[cfg(target_os = "windows")]
+        let title = entry.title.replace('&', "&&");
+        #[cfg(not(target_os = "windows"))]
+        let title = entry.title;
+        recent_items.push(
+            MenuItem::with_id(app, format!("recent-{index}"), title, true, None::<&str>)
+                .map_err(|_| "trayFailed")?,
+        );
+    }
+    let recent_refs: Vec<&dyn IsMenuItem<_>> = recent_items
         .iter()
-        .map(|x| x as &dyn tauri::menu::IsMenuItem<_>)
+        .map(|item| item as &dyn IsMenuItem<_>)
         .collect();
+    let recent_menu = Submenu::with_items(
+        app,
+        if zh {
+            "最近打开的模板"
+        } else {
+            "Recently opened templates"
+        },
+        true,
+        &recent_refs,
+    )
+    .map_err(|_| "trayFailed")?;
+    let mut refs: Vec<&dyn IsMenuItem<_>> = items
+        .iter()
+        .map(|item| item as &dyn IsMenuItem<_>)
+        .collect();
+    refs.insert(1, &recent_menu);
     let menu = Menu::with_items(app, &refs).map_err(|_| "trayFailed")?;
     if let Some(tray) = app.tray_by_id("main") {
         tray.set_menu(Some(menu)).map_err(|_| "trayFailed")?;
@@ -374,12 +442,21 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
+        .manage(documents::IssuedDocuments::default())
         .manage(Mutex::new(
             std::collections::VecDeque::<std::path::PathBuf>::new(),
         ))
         .invoke_handler(tauri::generate_handler![
             documents::take_document,
             documents::pick_document,
+            documents::recent_documents,
+            documents::remember_document,
+            documents::open_recent_document,
+            documents::clear_recent_documents,
+            output_history::list_outputs,
+            output_history::read_output,
+            output_history::record_output,
+            output_history::trim_outputs,
             session_window,
             open_repository,
             updater::check_update,
@@ -398,7 +475,7 @@ fn main() {
             save_library,
             set_session_active,
             quit_app,
-            set_tray_language
+            set_tray_menu
         ])
         .setup(|app| {
             let mut pixels = vec![0u8; 32 * 32 * 4];
@@ -428,7 +505,7 @@ fn main() {
                     let _ = app.emit("tray-action", id);
                 })
                 .build(app)?;
-            build_menu(app.handle(), false).map_err(std::io::Error::other)?;
+            build_menu(app.handle(), false, false).map_err(std::io::Error::other)?;
             if let Ok(cwd) = std::env::current_dir() {
                 documents::enqueue(app.handle(), documents::arguments(std::env::args_os(), cwd));
             }

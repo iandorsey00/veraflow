@@ -1,5 +1,6 @@
 --- veraflow 2
 {
+  "title": "Return merchandise authorization",
   "workflow": "form",
   "fields": {
     "doa": {"type": "boolean", "label": "Dead on arrival?", "default": false},

@@ -1,22 +1,32 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
     fs::File,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Mutex,
+    },
 };
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 const MAX_BYTES: u64 = 16 * 1024 * 1024;
+const RECENT_LIMIT: usize = 12;
+static NEXT_TOKEN: AtomicU32 = AtomicU32::new(1);
+#[derive(Default)]
+pub struct IssuedDocuments(Mutex<VecDeque<(u32, PathBuf)>>);
+static RECENTS_LOCK: Mutex<()> = Mutex::new(());
 type Pending = Mutex<VecDeque<PathBuf>>;
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Document {
     name: String,
     format: &'static str,
     content: Option<String>,
+    recent_token: Option<u32>,
 }
 
 fn format(path: &Path) -> Option<&'static str> {
@@ -47,7 +57,134 @@ fn read(path: PathBuf) -> Option<Document> {
         name: file_name.into_owned(),
         format,
         content,
+        recent_token: None,
     })
+}
+
+fn open(app: &tauri::AppHandle, path: PathBuf) -> Option<Document> {
+    let mut document = read(path.clone())?;
+    if document.format == "source" && document.content.is_some() {
+        let issued = app.state::<IssuedDocuments>();
+        let mut issued = issued.0.lock().ok()?;
+        let token = NEXT_TOKEN.fetch_add(1, Ordering::Relaxed);
+        issued.truncate(RECENT_LIMIT - 1);
+        issued.push_front((token, path));
+        document.recent_token = Some(token);
+    }
+    Some(document)
+}
+
+#[derive(Serialize, Deserialize)]
+struct RecentDocument {
+    path: PathBuf,
+    title: String,
+}
+#[derive(Serialize)]
+pub struct RecentLabel {
+    pub title: String,
+    file: String,
+}
+fn recent_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join("recent-documents.json"))
+        .map_err(|_| "storageFailed".into())
+}
+fn read_recent(path: &Path) -> Result<Vec<RecentDocument>, String> {
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(_) => return Err("storageFailed".into()),
+    };
+    let mut data = Vec::new();
+    file.take(256 * 1024 + 1)
+        .read_to_end(&mut data)
+        .map_err(|_| "storageFailed")?;
+    if data.len() > 256 * 1024 {
+        return Err("storageFailed".into());
+    }
+    let mut recent: Vec<RecentDocument> =
+        serde_json::from_slice(&data).map_err(|_| "storageFailed")?;
+    recent.retain(|entry| entry.path.is_absolute() && format(&entry.path) == Some("source"));
+    recent.truncate(RECENT_LIMIT);
+    Ok(recent)
+}
+fn write_recent(path: &Path, recent: &[RecentDocument]) -> Result<(), String> {
+    let dir = path.parent().ok_or("storageFailed")?;
+    std::fs::create_dir_all(dir).map_err(|_| "storageFailed")?;
+    let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| "storageFailed")?;
+    temp.write_all(&serde_json::to_vec(recent).map_err(|_| "storageFailed")?)
+        .map_err(|_| "storageFailed")?;
+    temp.persist(path).map_err(|_| "storageFailed")?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn recent_documents(app: tauri::AppHandle) -> Result<Vec<RecentLabel>, String> {
+    let _lock = RECENTS_LOCK.lock().map_err(|_| "storageFailed")?;
+    Ok(read_recent(&recent_path(&app)?)?
+        .into_iter()
+        .map(|entry| RecentLabel {
+            title: entry.title,
+            file: entry
+                .path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn remember_document(app: tauri::AppHandle, token: u32, title: String) -> Result<(), String> {
+    let path = {
+        let issued = app.state::<IssuedDocuments>();
+        let mut issued = issued.0.lock().map_err(|_| "storageFailed")?;
+        let index = issued
+            .iter()
+            .position(|(id, _)| *id == token)
+            .ok_or("recentMissing")?;
+        issued.remove(index).ok_or("recentMissing")?.1
+    };
+    let store = recent_path(&app)?;
+    let _lock = RECENTS_LOCK.lock().map_err(|_| "storageFailed")?;
+    let mut recent = read_recent(&store)?;
+    recent.retain(|entry| entry.path != path);
+    recent.insert(
+        0,
+        RecentDocument {
+            path,
+            title: title.chars().take(250).collect(),
+        },
+    );
+    recent.truncate(RECENT_LIMIT);
+    write_recent(&store, &recent)
+}
+
+#[tauri::command]
+pub fn clear_recent_documents(app: tauri::AppHandle) -> Result<(), String> {
+    let _lock = RECENTS_LOCK.lock().map_err(|_| "storageFailed")?;
+    write_recent(&recent_path(&app)?, &[])
+}
+
+#[tauri::command]
+pub async fn open_recent_document(app: tauri::AppHandle, index: usize) -> Result<Document, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = {
+            let _lock = RECENTS_LOCK.lock().map_err(|_| "storageFailed")?;
+            read_recent(&recent_path(&app)?)?
+                .into_iter()
+                .nth(index)
+                .ok_or("recentMissing")?
+                .path
+        };
+        open(&app, path)
+            .filter(|document| document.content.is_some())
+            .ok_or_else(|| "recentMissing".into())
+    })
+    .await
+    .map_err(|_| "recentMissing".to_string())?
 }
 
 pub fn enqueue(app: &tauri::AppHandle, paths: impl IntoIterator<Item = PathBuf>) {
@@ -90,7 +227,7 @@ pub async fn take_document(app: tauri::AppHandle) -> Result<Option<Document>, St
         .lock()
         .map_err(|_| "invalidImport")?
         .pop_front();
-    tauri::async_runtime::spawn_blocking(move || path.and_then(read))
+    tauri::async_runtime::spawn_blocking(move || path.and_then(|path| open(&app, path)))
         .await
         .map_err(|_| "invalidImport".to_string())
 }
@@ -116,7 +253,7 @@ pub async fn pick_document(
             Some(file) => file
                 .into_path()
                 .ok()
-                .and_then(read)
+                .and_then(|path| open(&app, path))
                 .map(Some)
                 .ok_or_else(|| "invalidImport".to_string()),
         }

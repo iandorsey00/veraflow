@@ -70,6 +70,10 @@ pub struct Preferences {
     pub hide_live_preview: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_workspace: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab_between_sections: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_history_limit: Option<u8>,
     pub verification_default: bool,
     pub clear_after_completion: bool,
     pub restore_clipboard: bool,
@@ -100,6 +104,7 @@ impl Library {
         ];
         let p = &self.preferences;
         if self.workspace.as_ref().is_some_and(|w| !w.validate())
+            || p.output_history_limit.is_some_and(|limit| limit > 20)
             || self.version != 1
             || self.templates.len() > 1000
             || !["en", "zh-CN"].contains(&p.language.as_str())

@@ -58,11 +58,19 @@ function needsCheck(
 }
 export function startSession(template: Template): Session {
   const controls = templateControls(template);
-  const saved =
+  const source =
     template.placeholderStyle === "source"
-      ? parseSource(template.content).responses
+      ? parseSource(template.content)
       : undefined;
-  const fields: Session["fields"] = captureFieldNames(template).map((name) => {
+  const saved = source?.responses;
+  const names = captureFieldNames(template);
+  const ordered = source
+    ? [
+        ...source.conditionDrivers,
+        ...names.filter((name) => !source.conditionDrivers.includes(name)),
+      ]
+    : names;
+  const fields: Session["fields"] = ordered.map((name) => {
     const value = saved?.has(name)
       ? saved.get(name)!
       : (controls.get(name)?.defaultValue ?? null);

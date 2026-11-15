@@ -618,7 +618,7 @@ test("email headers accept trailing clipboard whitespace and report internal err
     .click();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Erase session", exact: true })
+    .getByRole("button", { name: "Close without saving", exact: true })
     .click();
   await page.getByLabel("Subject", { exact: true }).fill("Subject");
   await page

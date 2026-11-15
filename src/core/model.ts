@@ -47,6 +47,8 @@ export type Template = {
   typingVerification?: boolean;
   comparison: Comparison;
 };
+export const defaultOutputHistoryLimit = 5;
+export const maxOutputHistoryLimit = 20;
 export const actions = [
   "capture",
   "previous",
@@ -70,6 +72,8 @@ export type Preferences = {
   focusedWorkflow?: boolean;
   hideLivePreview?: boolean;
   showWorkspace?: boolean;
+  tabBetweenSections?: boolean;
+  outputHistoryLimit?: number;
   verificationDefault: boolean;
   clearAfterCompletion: boolean;
   restoreClipboard: boolean;

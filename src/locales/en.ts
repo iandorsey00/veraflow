@@ -2,6 +2,27 @@ export const en = {
   booleanYes: "Yes",
   booleanNo: "No",
   openSource: "Import template file",
+  sourceLine: "Line",
+  searchCSVRows: "Search all columns or enter a row number",
+  copyOutput: "Copy output",
+  recentOutputs: "Recent outputs",
+  clearOutputHistory: "Clear output history",
+  clearOutputHistoryConfirm: "Clear all saved outputs?",
+  outputHistoryLimit: "Number of recent outputs to keep",
+  outputHistoryHelp:
+    "VeraFlow stores rendered outputs in plain text on this device. Enter 0 to clear and turn off history.",
+  outputHistoryEmpty:
+    "Copied, pasted, or exported template outputs will appear here.",
+  outputHistoryOff: "Output history is off. You can turn it on in Settings.",
+  invalidHistoryLimit: "Enter a whole number from 0 to 20.",
+  historyFull:
+    "This output exceeds the history size limit. You can save it as text.",
+  outputHistorySaveFailed:
+    "The output was transferred or saved, but VeraFlow could not add it to Recent outputs.",
+  recentTemplates: "Recently opened templates",
+  recentEmpty: "Open a .veraflow or .vf file to start.",
+  clearRecent: "Clear recent templates",
+  recentMissing: "The file could not be reopened. Choose Open file to find it.",
   openDocument: "Open file…",
   openWorkflow: "Open as",
   chooseWorkflow: "Choose a workflow",
@@ -48,6 +69,7 @@ export const en = {
   singleLineRequired:
     "This field takes a single line. Remove line breaks and try again.",
   blankLinesProhibited: "Remove blank lines from this field and try again.",
+  leaveUnanswered: "Leave unanswered",
   chooseValue: "Choose a value",
   enableField: "On",
   reenterValue: "Enter the value again to verify it.",

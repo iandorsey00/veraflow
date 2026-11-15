@@ -386,3 +386,167 @@ test("explicit navigation works in step and sequence mode and failure retains th
     ],
   ]);
 });
+
+test("opens titled recent files and presents conditional choices before dependent fields", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Recently opened templates" }),
+  ).toBeVisible();
+  await pickDocument(
+    page,
+    "conditional-booking.vf",
+    `--- veraflow 2
+{"title":"Booking intake","workflow":"form","fields":{
+ "name":{"type":"text","label":"Full name"},
+ "route":{"type":"dropdown","label":"Route","options":[{"id":"normal","label":"Standard"},{"id":"express","label":"Express"}]}
+}}
+---
+{{#when route=express}}
+{{name}}
+{{/when}}`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Booking intake" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Full name")).toBeHidden();
+  await expect(page.getByRole("radio", { name: "Standard" })).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("radio", { name: "Express" })).toBeChecked();
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Full name")).toBeFocused();
+  await page.locator("#cancel-session").click();
+  await page.getByRole("button", { name: "Close without saving" }).click();
+  await page
+    .getByRole("button", { name: /Booking intake.*conditional-booking/ })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Booking intake" }),
+  ).toBeVisible();
+});
+
+test("CSV picker pages through rows and searches columns outside the row summary", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "large.csv",
+    [
+      "name,number,place,notes",
+      ...Array.from(
+        { length: 160 },
+        (_, i) =>
+          `Example,${i},Test City,${i === 143 ? "Unique search phrase" : "Ordinary"}`,
+      ),
+    ].join("\n"),
+  );
+  await expect(page.locator("#dialog-row-count")).toHaveText("1–75 / 160");
+  await page.locator("#dialog-row-next").click();
+  await expect(page.locator("#dialog-row-count")).toHaveText("76–150 / 160");
+  await page.locator("#dialog-row-search").fill("no matches");
+  const submit = page.getByRole("dialog").locator('button[type="submit"]');
+  await expect(submit).toBeDisabled();
+  await page.locator("#dialog-row-search").fill("unique search");
+  await expect(page.locator("#dialog-row-preview")).toContainText(
+    "Unique search phrase",
+  );
+  await expect(page.locator("#dialog-row")).toHaveValue("143");
+  await submit.click();
+  await expect(page.locator("#field-3")).toContainText("Unique search phrase");
+});
+
+test("default Tab applies between sections and respects an explicit empty key list", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator("#nav-settings").click();
+  await page.locator("#tabBetweenSections").check();
+  await page.locator("#save-settings").click();
+  await page.locator("#nav-recent").click();
+  await pickDocument(
+    page,
+    "tabs.vf",
+    `--- veraflow 2
+{"workflow":"form","delivery":{"after":{"first":[]}}}
+---
+{{#section first "First"}}
+first
+{{/section}}
+{{#section second "Second"}}
+second
+{{/section}}
+{{#section final "Final"}}
+final
+{{/section}}`,
+  );
+  await page.locator("#finish").click();
+  await expect(page.locator("#section-tab")).toBeChecked();
+  await expect(
+    page.getByText("After this section No keystrokes"),
+  ).toBeVisible();
+  await page.locator("#section-next").click();
+  await expect(page.getByText("After this section Tab")).toBeVisible();
+  await page.locator("#cancel-session").click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Save output as text" }),
+  ).toBeEnabled();
+});
+
+test("recent outputs keep five transferred results, support copy, and clear when disabled", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  for (let number = 1; number <= 6; number++) {
+    await pickDocument(
+      page,
+      `item-${number}.vf`,
+      `--- veraflow 2\n{"workflow":"form","title":"Item ${number}"}\n---\nRendered output ${number}`,
+    );
+    await page.locator("#finish").click();
+    await page.locator("#copy-section").click();
+    await page.locator("#cancel-session").click();
+    await page.getByRole("button", { name: "Close without saving" }).click();
+  }
+  await pickDocument(
+    page,
+    "draft.vf",
+    '--- veraflow 2\n{"workflow":"form"}\n---\nDraft {{name}}',
+  );
+  await page.locator("#cancel-session").click();
+  await page.getByRole("button", { name: "Close without saving" }).click();
+  await page.locator("#open-outputs").click();
+  await expect(page.locator("[data-output] strong")).toHaveText([
+    "Item 6",
+    "Item 5",
+    "Item 4",
+    "Item 3",
+    "Item 2",
+  ]);
+  await page.locator("#output-0").click();
+  await expect(page.locator(".history-output")).toHaveText("Rendered output 6");
+  await page.locator("#copy-history").click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("Rendered output 6");
+
+  await page.locator("#nav-settings").click();
+  await expect(page.locator("#outputHistoryLimit")).toHaveValue("5");
+  await page.locator("#outputHistoryLimit").fill("0");
+  await page.locator("#save-settings").click();
+  await page.locator("#nav-recent").click();
+  await page.locator("#open-outputs").click();
+  await expect(page.locator("main")).toContainText("Output history is off.");
+  await expect(page.locator("[data-output]")).toHaveCount(0);
+  await page.locator("#nav-settings").click();
+  await page.locator("#outputHistoryLimit").fill("5");
+  await page.locator("#save-settings").click();
+  await page.locator("#nav-recent").click();
+  await page.locator("#open-outputs").click();
+  await expect(page.locator("[data-output]")).toHaveCount(0);
+});

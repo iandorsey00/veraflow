@@ -1,10 +1,10 @@
 # VeraFlow source files and output sections
 
-Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a session. Install the desktop bundle first. If your system already uses another app for that extension, choose VeraFlow once in **Open With** and set it as the default if desired. You can also use **Templates → Open file…**.
+Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a session. Install the desktop bundle first. If your system already uses another app for that extension, choose VeraFlow once in **Open With** and set it as the default if desired. You can also use **Open file…** on the **Recently opened templates** page. Recent templates are also available from the tray menu on Windows and the menu-bar menu on macOS. The desktop app stores up to 12 recent paths and titles locally. Reopening an entry reads the file from disk. **Clear recent templates** clears that list.
 
 **Templates → Import template file** creates a library copy for editing. This picker also accepts `.txt`. **Export .veraflow** saves the definition. Responses stay separate.
 
-Open a CSV from Finder or File Explorer with **Open With → VeraFlow**, or use **Templates → Open file…**. Use the first row for column names. Pick a data row and open it in Free Scanner or supply its values to a source template. Select a template from your library or open one from disk. CSV columns match template fields by exact name. Values stay in the session unless you explicitly save them. To import an entire CSV into a table, enable **Show Workspace tab** in Settings and use Workspace’s **Import CSV**.
+Open a CSV from Finder or File Explorer with **Open With → VeraFlow**, or use **Templates → Open file…**. Use the first row for column names. Search all columns or enter a data row number. Use Previous and Next to browse groups of rows. The preview shows the selected row’s columns before you open it in Free Scanner or use it to fill a source template. Select a template from your library or open one from disk. CSV columns match template fields by exact name. Values stay in the session unless you explicitly save them. To import an entire CSV into a table, enable **Show Workspace tab** in Settings and use Workspace’s **Import CSV**.
 
 A header-free file uses the [plain brace rules](portable-templates.md#plain-text) and produces one Body section:
 
@@ -20,10 +20,12 @@ Set the optional top-level `"workflow"` property to `"form"` for **Fill form** o
 
 ```text
 --- veraflow 2
-{"workflow": "form"}
+{"title": "Customer greeting", "workflow": "form"}
 ---
 Hello {{name}},
 ```
+
+Set `title` to a readable name for the session and Recent list. It takes up to 250 characters on one line. Files without a title use the filename. When a template fails to open, the notice identifies the invalid setting or reports a source line for malformed JSON and block tags.
 
 Declare fields under `fields`. Declarations emit no text. A field ID in the header or a condition uses ASCII letters, digits, hyphens, and underscores. Plain references also accept the names described by the plain brace rules. Undeclared references are inferred as text fields.
 
@@ -75,6 +77,8 @@ Attn: {{attn}}
 {{/when}}
 ```
 
+When a condition reveals other fields, its controlling field appears before them in Fill form and Scanner. Short controlling choice lists show radio buttons you can change using the arrow keys. In Scanner, press Enter to apply the selection.
+
 An optional `{{else}}` line selects the other branch. Only the selected branch contributes text and requires its fields. Tag lines are consumed. Quoted inline output and substituted values are literal, with no second pass. Structural tags are reserved in advanced source. Existing inline form directives belong to the legacy template grammar.
 
 ### Sections and delivery
@@ -103,7 +107,7 @@ Use the optional top-level `delivery` object. `mode` defaults to `"step"`. In st
 }
 ```
 
-`after` maps section IDs to ordered lists of up to 16 `"Tab"` or `"Shift+Tab"` keys. An empty list explicitly skips navigation. Omitted entries send no keys unless the delivery screen’s Tab fallback is enabled. The last section sends no navigation, and grouping sections pastes one block. These options affect desktop delivery only. They leave rendered and saved text unchanged.
+`after` maps section IDs to ordered lists of up to 16 `"Tab"` or `"Shift+Tab"` keys. An empty list explicitly skips navigation. Omitted entries send no keys unless the Tab fallback is enabled. Set the fallback for new sessions in **Settings → Press Tab where the template has no keys**, or change it for the current session on the delivery screen. The last section sends no navigation, and grouping sections pastes one block. These options affect desktop delivery only. They leave rendered and saved text unchanged.
 
 Try both modes with the [example files and local test form](../examples/source/README.md). In sequence mode, VeraFlow checks that the foreground window on Windows or application on macOS remains the same. If a paste or navigation step fails, the pending section stays selected. Inspect the destination before retrying.
 
@@ -114,6 +118,12 @@ Choose **Close session** and select **Save prefilled template**, **Save output a
 A prefilled `.veraflow` copy opens in the workflow you used. It includes the template and the responses you entered, even if required fields remain unanswered. Responses are editable and any required verification starts fresh. The file contains your responses in plain text. Use **Open file…** or double-click it to resume. **Import template file** and standard template exports carry the reusable definition and omit the saved responses. **Save output as text** is available once the required fields and checks are complete and writes the rendered output.
 
 Prefilled files use a top-level `responses` object keyed by field ID. String values use the same representation as CSV cells, including stable option IDs and `"true"` or `"false"` for Booleans. A `null` entry stores an unanswered field and suppresses its template default. An empty string stores an explicit empty response. Missing keys fall back to field defaults. A plain template saved with responses uses `"syntax": "plain"` to preserve the original brace rules. The metadata carries no verification state.
+
+## Recent outputs
+
+Find **Recent outputs** on the launcher or in the tray menu. The desktop app keeps five rendered template results locally by default after you copy, paste, or export them. Select an entry to copy it again or save it as text. A rendered result with several sections is saved as one history entry. The history skips unfinished inputs and Free Scanner field transfers.
+
+Set **Settings → Number of recent outputs to keep** from 0 to 20. Setting it to 0 clears the history and turns it off. **Clear output history** removes saved entries while keeping the current setting. Outputs are stored in plain text. The history has a 32 MiB storage limit and removes older entries first.
 
 ## CSV and existing libraries
 

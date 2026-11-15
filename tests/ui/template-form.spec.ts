@@ -31,6 +31,10 @@ test("Typing workflow previews fields and can restart completed responses when r
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toBe("Booking AB-104 for Joe. Goodbye Joe");
   await page.locator("#close-session").click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Close without saving" })
+    .click();
   await page.locator("#nav-session").click();
   await page.locator("#reuse-session").click();
   await expect(page.getByLabel("reference", { exact: true })).toHaveValue(
