@@ -1,10 +1,11 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 test("one-template export includes current edits and imports a fresh copy", async ({
   page,
 }) => {
   await page.goto("/?workflow=classic");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   const originalIds = await page
     .locator("[data-template]")
     .evaluateAll((ns) => ns.map((n) => (n as HTMLElement).dataset.template));
@@ -25,7 +26,7 @@ test("one-template export includes current edits and imports a fresh copy", asyn
     .getByRole("dialog")
     .getByRole("button", { name: "Discard changes", exact: true })
     .click();
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await expect(page.locator("#template-name")).not.toHaveValue("Shared draft");
   const choose = page.waitForEvent("filechooser");
   await page.locator("#import-template").click();
@@ -46,7 +47,7 @@ test("one-template import rejects a library and invalid drafts cannot export", a
   page,
 }) => {
   await page.goto("/?workflow=classic");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   const pending = page.waitForEvent("download");
   await page.locator("#export-templates").click();
   const d = await pending;

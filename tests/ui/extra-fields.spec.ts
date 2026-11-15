@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect } from "@playwright/test";
 for (const email of [false, true])
   test(`extra Scanner fields capture, verify, output omission and completion transfer (email=${email})`, async ({
@@ -6,7 +7,7 @@ for (const email of [false, true])
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/?workflow=classic");
-    await page.locator("#nav-templates").click();
+    await openLegacyLibrary(page);
     if (!email) await page.locator("#email-enabled").uncheck();
     await page.locator("#template-content").fill("Hello {{full name}}");
     if (email) {
@@ -53,7 +54,7 @@ test("invalid extra field names stay editable without damaging the draft or pers
   page,
 }) => {
   await page.goto("/?workflow=classic");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await page.locator("#extra-scanner-fields").fill("{{bad}}");
   await page.locator("#save").click();
   await expect(page.getByRole("alert").first()).toContainText("unique names");
@@ -63,7 +64,7 @@ test("invalid extra field names stay editable without damaging the draft or pers
   await page.locator("#extra-scanner-fields").fill("booking reference");
   await page.locator("#save").click();
   await page.locator("#nav-settings").click();
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await expect(page.locator("#extra-scanner-fields")).toHaveValue(
     "booking reference",
   );
@@ -74,7 +75,7 @@ test("ordinary template extra fields require an explicit clear choice and never 
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/?workflow=classic");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await page.locator("#email-enabled").uncheck();
   await page.locator("#template-content").fill("Hello {{name}}");
   await page.locator("#extra-scanner-fields").fill("booking reference");

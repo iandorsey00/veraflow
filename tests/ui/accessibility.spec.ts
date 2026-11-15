@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { legacyTemplate } from "./fixtures";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -5,8 +6,7 @@ for (const colorScheme of ["light", "dark"] as const)
   test(`accessible editor and capture in ${colorScheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
     await page.goto("/?workflow=classic");
-    await page.locator("#nav-templates").click();
-    await page.getByRole("button", { name: "Templates", exact: true }).click();
+    await openLegacyLibrary(page);
     await legacyTemplate(page);
     expect(
       (
@@ -22,7 +22,7 @@ for (const colorScheme of ["light", "dark"] as const)
     await page
       .getByRole("button", { name: "Save settings", exact: true })
       .click();
-    await page.getByRole("button", { name: "Templates", exact: true }).click();
+    await openLegacyLibrary(page);
     await legacyTemplate(page);
     await page.getByLabel("Template text", { exact: true }).fill("<reference>");
     await page

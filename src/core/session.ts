@@ -44,6 +44,12 @@ function needsCapture(
     !s.controls?.get(field.name)?.optional
   );
 }
+function checkable(s: Session, value: string | null) {
+  return (
+    value !== null &&
+    (!(s.scanner || s.template.placeholderStyle === "source") || !!value.trim())
+  );
+}
 function needsCheck(
   s: Session,
   field: Session["fields"][number],
@@ -51,8 +57,7 @@ function needsCheck(
 ) {
   return (
     (active?.has(field.name) ?? fieldVisible(s, field.name)) &&
-    field.value !== null &&
-    (s.template.placeholderStyle !== "source" || field.value !== "") &&
+    checkable(s, field.value) &&
     field.status !== "verified"
   );
 }
@@ -205,11 +210,11 @@ export function beginReverification(s: Session, all = false): void {
   const active = activeSourceFields(s);
   const indices = all
     ? s.fields.flatMap((field, index) =>
-        fieldVisible(s, field.name, active) && field.value !== null
+        fieldVisible(s, field.name, active) && checkable(s, field.value)
           ? [index]
           : [],
       )
-    : s.fields[s.active]?.value != null
+    : checkable(s, s.fields[s.active]?.value ?? null)
       ? [s.active]
       : [];
   if (!indices.length) throw Error("noValue");

@@ -2,9 +2,9 @@
 
 Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a session. Install the desktop bundle first. If your system already uses another app for that extension, choose VeraFlow once in **Open With** and set it as the default if desired. You can also use **Open file…** on the **Recently opened templates** page. Recent templates are also available from the tray menu on Windows and the menu-bar menu on macOS. The desktop app stores up to 12 recent paths and titles locally. Reopening an entry reads the file from disk. **Clear recent templates** clears that list.
 
-**Templates → Import template file** creates a library copy for editing. This picker also accepts `.txt`. **Export .veraflow** saves the definition. Responses stay separate.
+**Settings → Legacy template library → Templates → Import template file** creates a library copy for editing. This picker also accepts `.txt`. **Export .veraflow** saves the definition. Responses stay separate.
 
-Open a CSV from Finder or File Explorer with **Open With → VeraFlow**, or use **Templates → Open file…**. Use the first row for column names. Search all columns or enter a data row number. Use Previous and Next to browse groups of rows. The preview shows the selected row’s columns before you open it in Free Scanner or use it to fill a source template. Select a template from your library or open one from disk. CSV columns match template fields by exact name. Values stay in the session unless you explicitly save them. To import an entire CSV into a table, enable **Show Workspace tab** in Settings and use Workspace’s **Import CSV**.
+Open a CSV from Finder or File Explorer with **Open With → VeraFlow**, or use **Open file…** on the launcher. Use the first row for column names. Search all columns or enter a data row number. Use Previous and Next to browse groups of rows. The preview shows the selected row’s columns before you open it in Free Scanner or use it to fill a source template. When verification is enabled, Free Scanner checks the imported row in order and advances after each match. Blank cells are skipped. Select a template from your library or open one from disk. CSV columns match template fields by exact name. Values stay in the session unless you explicitly save them. To import an entire CSV into a table, enable **Show Workspace tab** in Settings and use Workspace’s **Import CSV**.
 
 A header-free file uses the [plain brace rules](portable-templates.md#plain-text) and produces one Body section:
 
@@ -87,7 +87,7 @@ Use `{{#section address "Address"}}` and `{{/section}}` on separate lines. A sec
 
 Try the [RMA template](../examples/source/rma.veraflow). Its Boolean controls the To and Subject text. An empty Attention field omits the entire attention line. A whole address captured as one field stays literal, including any existing `ATTN:` spelling.
 
-1. Fill the form and choose **Prepare output sections**. **Settings → Hide live output preview** turns off live rendering in the form. Focused view adds progress to Fill form and retains the focused Scanner layout.
+1. Fill the form and choose **Prepare output sections**. Widen the window to keep the preview beside the fields while scrolling. Scanner also moves its preview to the right in a wide window. **Settings → Hide live output preview** turns off live rendering in the form. Focused view adds progress to Fill form and retains the focused Scanner layout.
 2. Focus the destination and press the output shortcut. The Windows default is **Ctrl+Alt+8**. VeraFlow pastes one section at a time. **Press Tab where the template has no keys** is opt-in. **Paste sections together** groups the sections with newline separators.
 3. A failed paste keeps the section selected. Check the destination before retrying, or use **Copy current section** and paste manually. Previous and next move within the prepared output. **Save output as text** saves plain text, with section labels when exporting several separate sections. **Edit responses** returns to the session. Prepared output stays in memory until you close, replace, or edit the session.
 

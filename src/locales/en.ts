@@ -19,6 +19,10 @@ export const en = {
     "This output exceeds the history size limit. You can save it as text.",
   outputHistorySaveFailed:
     "The output was transferred or saved, but VeraFlow could not add it to Recent outputs.",
+  scannerToolsLabel: "Tools",
+  legacyLibrary: "Legacy template library",
+  legacyLibraryHelp:
+    "Open saved library templates and export them for migration.",
   recentTemplates: "Recently opened templates",
   recentEmpty: "Open a .veraflow or .vf file to start.",
   clearRecent: "Clear recent templates",

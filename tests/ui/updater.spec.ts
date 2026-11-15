@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 async function updates(page: Page, result: string, install = "") {
   await page.route("**/src/platform.ts*", async (route) => {
@@ -11,7 +12,7 @@ async function updates(page: Page, result: string, install = "") {
     });
   });
   await page.goto("/?workflow=classic");
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
 }
 test("checking an up-to-date app does not install or prompt", async ({
@@ -75,14 +76,14 @@ test("unsaved changes and active sessions block the updater", async ({
     .uncheck();
   await page.getByRole("button", { name: "Update app…", exact: true }).click();
   await expect(page.getByText(/Finish or cancel your session/)).toBeVisible();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await page
     .getByRole("button", { name: "Discard changes", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Update app…", exact: true }).click();
   await expect(page.getByText(/Finish or cancel your session/)).toBeVisible();
@@ -118,7 +119,7 @@ test("declining an available update keeps the tray action available", async ({
     .getByRole("dialog")
     .getByRole("button", { name: "Keep working", exact: true })
     .click();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await expect
     .poll(() => page.evaluate(() => (window as any).__trayHasUpdate))
     .toBe(true);
@@ -142,7 +143,7 @@ test("a background update check preserves edits and does not open a dialog", asy
     });
   });
   await updates(page, 'return {version:"0.6.0",notes:"Test"};');
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await page.getByLabel("Body", { exact: true }).fill("Unsaved {{reference}}");
   await page.evaluate(() => (window as any).__checkAvailableUpdate());
   await expect(page.getByLabel("Body", { exact: true })).toHaveValue(

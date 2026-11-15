@@ -1,8 +1,9 @@
+import { openLegacyLibrary } from "./fixtures";
 import { legacyTemplate } from "./fixtures";
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/?workflow=classic");
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await legacyTemplate(page);
 });
 test("capture, mismatch without overwriting, correction, verify, copy and erase", async ({
@@ -110,7 +111,7 @@ test("Chinese, dark appearance, no verification, narrow UI and keyboard form ent
   await expect(page.getByText("你的更改已保存。")).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
   await page.setViewportSize({ width: 380, height: 740 });
-  await page.getByRole("button", { name: "模板", exact: true }).click();
+  await openLegacyLibrary(page);
   await page.getByLabel("模板内容", { exact: true }).fill("您好 <姓名>");
   await page.getByText("模板选项", { exact: true }).click();
   await page.locator("#template-verify").uncheck();
@@ -139,7 +140,7 @@ test("session remains intact across library navigation and requires cancellation
   await page
     .getByRole("button", { name: "Capture value", exact: true })
     .click();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await page
     .getByRole("button", { name: "Current session", exact: true })
     .click();
@@ -162,7 +163,7 @@ test("keyboard start, capture and navigation; optional verified background", asy
   await page
     .getByRole("button", { name: "Save settings", exact: true })
     .click();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await page
     .getByLabel("Template text", { exact: true })
     .fill("<name> <reference>");
@@ -231,7 +232,7 @@ test("email mode is opt-in, persists template sections, and prepares keyboard ou
     .getByRole("button", { name: "Save template", exact: true })
     .click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(
     "Update for <name>",
   );
@@ -269,7 +270,7 @@ test("shortcut registration failure still opens a usable session", async ({
     await route.fulfill({ response, body });
   });
   await page.reload();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await legacyTemplate(page);
   await page
     .getByRole("button", { name: "Start session", exact: true })
@@ -393,7 +394,7 @@ test("unsafe clipboard recovery changes only this session and retries mouse tran
     });
   });
   await page.reload();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await legacyTemplate(page);
   await page
     .getByRole("button", { name: "Start session", exact: true })
@@ -456,7 +457,7 @@ test("failed email paste can be recovered with manual keyboard navigation", asyn
     });
   });
   await page.reload();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await legacyTemplate(page);
   await page.getByLabel("Template text", { exact: true }).fill("Body");
   await page.getByLabel("Email mode", { exact: true }).check();
@@ -509,7 +510,7 @@ test("email paste order and omitted Subject persist and control delivery", async
     .getByRole("button", { name: "Save template", exact: true })
     .click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await expect(
     page.getByLabel("Include Subject", { exact: true }),
   ).not.toBeChecked();
@@ -564,7 +565,7 @@ test("legacy clipboard preservation migrates off and explicit opt-in survives re
     });
   });
   await page.reload();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await legacyTemplate(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const setting = page.getByLabel("Restore clipboard after temporary capture", {
@@ -583,7 +584,7 @@ test("legacy clipboard preservation migrates off and explicit opt-in survives re
     .getByRole("button", { name: "Save settings", exact: true })
     .click();
   await page.reload();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await legacyTemplate(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(setting).toBeChecked();

@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -95,7 +96,7 @@ test("template capture, check, preview and completion remain available in focuse
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/?workflow=focused");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await page.locator("#template-edit > summary").click();
   await page.locator("#email-enabled").uncheck();
   await page.locator("#template-content").fill("Hello {{name}}.");
@@ -129,7 +130,7 @@ test("email checklist distinguishes manual advancement, copying, requested paste
     });
   });
   await page.goto("/?workflow=focused");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await page.locator("#template-edit > summary").click();
   await page.locator("#email-subject").fill("Update");
   await page.locator("#email-to").fill("alex@example.test");

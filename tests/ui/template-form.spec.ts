@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { expect, test } from "@playwright/test";
 
 test("Typing workflow previews fields and can restart completed responses when retention is enabled", async ({
@@ -10,7 +11,7 @@ test("Typing workflow previews fields and can restart completed responses when r
   await expect(page.locator("#focusedWorkflow")).not.toBeChecked();
   await page.locator("#clearAfterCompletion").uncheck();
   await page.locator("#save-settings").click();
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await page.locator("#email-enabled").uncheck();
   await page
     .locator("#template-content")
@@ -51,7 +52,7 @@ test("Typing repeat verification is independent of Scanner and shares the fields
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await page.locator("#email-enabled").uncheck();
   await page
     .locator("#template-content")
@@ -86,7 +87,7 @@ test("a selection can hide a field, preserve its entry, and change email headers
   page,
 }) => {
   await page.goto("/");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await page.locator("#email-subject").fill("Update");
   await page
     .locator("#email-to")

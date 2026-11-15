@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
@@ -6,7 +7,7 @@ const fixture = (name: string) =>
 
 async function importDefinition(page: Page, archive: string) {
   await page.goto("/");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   const pending = page.waitForEvent("filechooser");
   await page.locator("#import-template").click();
   await (

@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import { defineScanner, addField } from "./fixtures";
 const pasteKey = process.platform === "darwin" ? "Meta+V" : "Control+V";
@@ -21,7 +22,7 @@ for (const kind of ["scanner", "template", "email"])
       await addField(page, "second");
       await page.locator("#field-0").click();
     } else {
-      await page.locator("#nav-templates").click();
+      await openLegacyLibrary(page);
       if (kind === "email") {
         await page.locator("#email-subject").fill("Update");
         await page.locator("#email-to").fill("alex@example.test");

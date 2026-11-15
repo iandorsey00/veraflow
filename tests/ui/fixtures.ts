@@ -50,3 +50,17 @@ export async function enableWorkspace(page: Page) {
   await page.locator("#save-settings").click();
   await page.locator("#nav-workspace").click();
 }
+
+export async function openLegacyLibrary(page: Page) {
+  await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
+  if (await page.locator("#pause-task").isVisible()) {
+    await page.locator("#pause-task").click();
+    await expect(page.locator("#app")).not.toHaveAttribute("aria-busy", "true");
+  }
+  if (await page.locator(".library-layout").isVisible()) return;
+  if (!(await page.locator(".settings-grid").isVisible())) {
+    await page.locator("#nav-settings").click();
+  }
+  await page.locator(".legacy-library summary").click();
+  await page.locator("#open-legacy-library").click();
+}

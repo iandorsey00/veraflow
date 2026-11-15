@@ -334,14 +334,12 @@ fn build_menu(app: &tauri::AppHandle, zh: bool, update_available: bool) -> Resul
     let mut entries = if zh {
         vec![
             ("open", "打开文件…"),
-            ("templates", "模板"),
             ("session", "当前会话"),
             ("settings", "设置"),
         ]
     } else {
         vec![
             ("open", "Open file…"),
-            ("templates", "Templates"),
             ("session", "Current session"),
             ("settings", "Settings"),
         ]
@@ -479,17 +477,23 @@ fn main() {
         ])
         .setup(|app| {
             let mut pixels = vec![0u8; 32 * 32 * 4];
-            for y in 4..28 {
-                for x in 4..28 {
-                    if x == 7
-                        || x == 8
-                        || y == 23
-                        || y == 24
-                        || (x > 10 && x < 25 && (y == 8 || y == 9 || y == 15 || y == 16))
-                    {
-                        let i = (y * 32 + x) * 4;
-                        pixels[i + 3] = 255;
+            for y in 0..32 {
+                for x in 0..32 {
+                    let mut coverage = 0;
+                    for sy in 0..4 {
+                        for sx in 0..4 {
+                            let px = x as f32 + (sx as f32 + 0.5) / 4.0;
+                            let py = y as f32 + (sy as f32 + 0.5) / 4.0;
+                            // A symmetric V with round stroke ends.
+                            let dx = (px - 16.0).abs();
+                            let t = ((dx * 8.0 + (24.0 - py) * 17.0) / 353.0).clamp(0.0, 1.0);
+                            if (dx - 8.0 * t).hypot(py - (24.0 - 17.0 * t)) <= 2.1 {
+                                coverage += 1;
+                            }
+                        }
                     }
+                    let i = (y * 32 + x) * 4;
+                    pixels[i + 3] = (coverage * 255 / 16) as u8;
                 }
             }
             tauri::tray::TrayIconBuilder::with_id("main")

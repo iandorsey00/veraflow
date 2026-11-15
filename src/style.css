@@ -1219,3 +1219,149 @@ input.toggle-switch:checked::before {
   max-height: 55vh;
   overflow: auto;
 }
+
+.scanner-header {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 1.25rem;
+}
+
+.scanner-header h1,
+.source-scanner h2 {
+  margin: 0;
+  line-height: 1.2;
+  overflow-wrap: break-word;
+}
+
+.scanner-header .task-progress {
+  margin: 0.35rem 0 0;
+}
+
+.scanner-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1.25rem, 4vw, 2.5rem);
+  align-items: start;
+}
+
+.capture-panel.source-scanner,
+.capture-panel.scanner-panel {
+  max-width: 1060px;
+}
+
+.scanner-work,
+.scanner-preview {
+  min-width: 0;
+}
+
+.source-scanner .scanner-current h2 {
+  font-size: 1.125rem;
+}
+
+.source-scanner .template-form-field {
+  margin: 0.6rem 0;
+}
+
+.source-scanner
+  .scanner-current:has(#scanner-control)
+  .template-form-field
+  > label {
+  /* The current heading names this input visually. Keep its accessible label. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.source-scanner #use-scanner-control {
+  margin-top: 0.5rem;
+}
+
+.source-scanner .scanner-navigation,
+.source-scanner .scanner-session-actions {
+  margin-block: 0.75rem;
+}
+
+.source-scanner .scanner-fields h2 {
+  font-size: 1rem;
+}
+
+.source-scanner .capture-fields {
+  margin: 0.5rem 0 1rem;
+  max-height: min(35vh, 24rem);
+}
+
+.source-scanner .capture-field {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 42px;
+  border-radius: 4px;
+  gap: 0.5rem;
+}
+
+.source-scanner .field-body {
+  min-width: 0;
+}
+
+.source-scanner .capture-field .field-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-scanner .capture-field .status-label {
+  grid-column: auto;
+  max-width: 8rem;
+}
+
+.source-scanner .task-tools {
+  border-top: 1px solid var(--line);
+  padding-top: 0.65rem;
+}
+
+.source-scanner .task-tools > .toolbar {
+  margin-top: 0.65rem;
+}
+
+.scanner-preview {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+
+.free-scanner-preview {
+  display: none;
+}
+
+.capture-panel .session-heading {
+  flex-wrap: wrap;
+}
+
+.session-heading h1 {
+  flex-basis: 100%;
+}
+
+@media (min-width: 661px) {
+  .scanner-layout:has(.scanner-preview) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .free-scanner-preview {
+    display: block;
+  }
+
+  .scanner-preview {
+    border-top: 0;
+    border-inline-start: 1px solid var(--line);
+    padding: 0 0 0 1.25rem;
+  }
+
+  .sticky-preview,
+  .template-form-grid #form-output {
+    position: sticky;
+    align-self: start;
+    top: clamp(1rem, 14vh, 6rem);
+    max-height: 76vh;
+    overflow: auto;
+  }
+}

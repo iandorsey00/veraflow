@@ -310,20 +310,20 @@ function render() {
     manualDrafts.set(input.dataset.draftKey!, input.value);
   applyAppearance();
   root.className = view === "session" && !templateFormActive() ? "compact" : "";
-  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${button("nav-templates", "templates", view === "templates" ? "selected" : "")}${button("nav-recent", "recentTemplates", view === "recent" ? "selected" : "")}${library.preferences.showWorkspace ? button("nav-workspace", "workspace", view === "workspace" ? "selected" : "") : ""}${session ? button("nav-session", session.mode === "complete" ? "sessionResults" : paused && focusedWorkflow ? "resumeTask" : "session") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
+  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${view !== "recent" ? button("nav-recent", "recentTemplates") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
     ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
     ${paused && session && view !== "session" ? pausedTaskView() : ""}
     ${view === "recent" ? recentView() : view === "outputs" ? outputsView() : view === "workspace" ? workspace.view() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
-    ${view !== "session" ? `<footer>${button("nav-scanner", "freeScanner")}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
+    ${view !== "session" ? `<footer>${button("nav-scanner", "freeScanner")}${library.preferences.showWorkspace ? button("nav-workspace", "workspace") : ""}${session && !(paused && focusedWorkflow) ? button("nav-session", session.mode === "complete" ? "sessionResults" : "session") : ""}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
   click("nav-workspace", () => navigate("workspace"));
   click("nav-scanner", () =>
     navigate(session?.scanner ? "session" : "scanner"),
   );
   click("start-scanner", () => setupScanner());
   click("import-scanner-home", () => loadScannerJSON());
-  click("nav-templates", () => navigate("templates"));
+  click("open-legacy-library", () => navigate("templates"));
   click("nav-recent", () => navigate("recent"));
   click("open-document", pickDocument);
   click("nav-settings", () => navigate("settings"));
@@ -490,7 +490,15 @@ function bindScannerExtras() {
   if (!session?.scanner) return;
   updateScannerMatches();
   on("scanner-output-template", "input", (e) => {
-    session!.scannerOutputTemplate = (e.target as HTMLTextAreaElement).value;
+    const s = session!;
+    s.scannerOutputTemplate = (e.target as HTMLTextAreaElement).value;
+    const value = document.getElementById("free-preview-value");
+    const heading = document.getElementById("free-preview-heading");
+    if (value) value.textContent = freeScannerOutput(s);
+    if (heading)
+      heading.textContent = t(
+        s.scannerOutputTemplate ? "outputPreview" : "capturedValue",
+      );
     updateScannerMatches();
   });
   click("scanner-rename", async () => {
@@ -639,14 +647,15 @@ async function launchScanner(saved?: Session, confirmed = false) {
   taskToolsOpen = false;
   manualOpen = true;
   scannerOutput = "copy";
+  if (session.mode === "verify") reverification = "all";
   render();
-  focus(`field-${session.active}`);
+  focus(session.mode === "verify" ? "manual-value" : `field-${session.active}`);
 }
 function scannerControls(secondaryOnly = false): string {
   const s = session!;
   return `<section class="scanner-tools" aria-label="${esc(t("scanner"))}">
     <div class="scanner-bottom-actions"><div class="toolbar">
-      ${secondaryOnly ? "" : button("verify-start", "verifyStart") + button("scanner-copy", "copyField", "primary") + button("scanner-paste", "pasteToApp", "", !desktop)}
+      ${secondaryOnly ? "" : (s.mode === "verify" ? "" : button("verify-start", "verifyStart")) + button("scanner-copy", "copyField", "primary") + button("scanner-paste", "pasteToApp", "", !desktop)}
     </div><div class="toolbar">${button("scanner-capture-mode", "scannerNewValue")}${button("scanner-rename", "renameField")}${button("scanner-save-row", s.rowLink ? "saveRow" : "saveAsRow")}</div></div>
     <${secondaryOnly ? "div" : "details"} id="scanner-more" class="scanner-template-panel" ${scannerMoreOpen ? "open" : ""}>${secondaryOnly ? "" : `<summary>${esc(t("scannerMore"))}</summary>`}<h2>${esc(t("scannerTemplate"))}</h2><label for="scanner-output-template">${esc(t("scannerTemplate"))}</label><textarea id="scanner-output-template" rows="3">${esc(s.scannerOutputTemplate ?? "")}</textarea><div id="scanner-template-match" class="template-match" aria-live="polite"></div><div class="toolbar">${button("scanner-add-missing", "addMissing")}${button("scanner-copy-template", "copyTemplate")}</div><h2>${esc(t("scannerOutput"))}</h2><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd> ${esc(t("mousePasteHelp"))}</p><h2>${esc(t("useTemplate"))}</h2><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}<h2>JSON</h2><div class="toolbar">${button("scanner-import", "importScanner")}${button("scanner-export-fields", "exportScannerFields")}${button("scanner-export-values", "exportScannerValues")}</div><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", s.fields[s.active]?.value === null)}${button("skip", "skip")}${button("scanner-remove", "removeField", "quiet danger", s.fields.length === 1)}</div></${secondaryOnly ? "div" : "details"}>
   </section>`;
@@ -1064,6 +1073,11 @@ async function openDocument(file: OpenDocument) {
       data.fields[0],
     );
     scanner.fields = csvSeed(scanner.template, row).fields;
+    if (
+      scanner.template.verificationEnabled &&
+      scanner.fields.some((field) => field.value?.trim())
+    )
+      beginReverification(scanner, true);
     await launchScanner(scanner);
   }
 }
@@ -1475,7 +1489,7 @@ async function navigate(next: typeof view) {
 }
 function settingsView(): string {
   const p = (settingsDraft ??= structuredClone(library.preferences));
-  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("showWorkspace", "showWorkspace", p.showWorkspace ?? false)}${check("tabBetweenSections", "sectionTab", p.tabBetweenSections ?? false)}<label for="outputHistoryLimit">${esc(t("outputHistoryLimit"))}</label><input id="outputHistoryLimit" type="number" min="0" max="${maxOutputHistoryLimit}" step="1" value="${historyLimit(p)}" aria-describedby="output-history-help"><p id="output-history-help" class="hint">${esc(t("outputHistoryHelp"))}</p></section>
+  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><details class="legacy-library"><summary>${esc(t("legacyLibrary"))}</summary><p>${esc(t("legacyLibraryHelp"))}</p>${button("open-legacy-library", "templates")}</details><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("showWorkspace", "showWorkspace", p.showWorkspace ?? false)}${check("tabBetweenSections", "sectionTab", p.tabBetweenSections ?? false)}<label for="outputHistoryLimit">${esc(t("outputHistoryLimit"))}</label><input id="outputHistoryLimit" type="number" min="0" max="${maxOutputHistoryLimit}" step="1" value="${historyLimit(p)}" aria-describedby="output-history-help"><p id="output-history-help" class="hint">${esc(t("outputHistoryHelp"))}</p></section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("clipboardDefaultHelp"))}</p><p class="hint">${esc(t("quitPrivacy"))}</p></section>
   <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
@@ -1732,7 +1746,9 @@ async function launch(
   focus(
     form
       ? controlFocus(`form-field-${session.active}`)
-      : `field-${session.active}`,
+      : session.template.placeholderStyle === "source"
+        ? focusSourceScanner()
+        : `field-${session.active}`,
   );
   if (!session.fields.length) focus("finish");
   if (shortcutError) report(shortcutError);
@@ -1830,6 +1846,7 @@ function focusedSessionView(s: Session): string {
     key === "verified" ? t("matchedSource") : t(key);
   const selectedMatched = f?.status === "verified";
   return `<main class="capture-panel focused-session ${s.scanner ? "scanner-panel" : ""}">${heading}
+    ${s.scanner ? '<div class="scanner-layout free-scanner-layout"><div class="scanner-work">' : ""}
     <section class="active-task" aria-labelledby="active-task-heading"><p class="eyebrow">${esc(t(progress.next))}</p><h2 id="active-task-heading">${esc(ready ? t("nextOutput") : f ? fieldLabel(s, f.name) : t("noFields"))}</h2>
     ${f ? `<pre tabindex="0" aria-label="${esc(t("capturedValue"))}" class="active-value ${p.verifiedBackground && selectedMatched ? "verified-background" : ""}">${esc(f.value ?? t("empty"))}</pre><p class="active-status">${esc(status(f.status))}</p>` : ""}
     ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
@@ -1862,7 +1879,7 @@ function focusedSessionView(s: Session): string {
         : ""
     }
     ${!library.preferences.hideLivePreview && !s.scanner && !preview ? outputPreview(s.template, s) : ""}
-    <details class="focus-guide"><summary>${esc(t("quickGuide"))}</summary><ol><li>${esc(t("guideCapture"))}</li><li>${esc(t("guideCheck"))}</li><li>${esc(t("guideCopy"))}</li><li>${esc(t("guidePause"))}</li></ol></details><div class="actions">${button("cancel-session", s.scanner ? "endScanner" : s.template.placeholderStyle === "source" ? "closeSession" : "cancelSession", "quiet danger")}</div></main>`;
+    <details class="focus-guide"><summary>${esc(t("quickGuide"))}</summary><ol><li>${esc(t("guideCapture"))}</li><li>${esc(t("guideCheck"))}</li><li>${esc(t("guideCopy"))}</li><li>${esc(t("guidePause"))}</li></ol></details><div class="actions">${button("cancel-session", s.scanner ? "endScanner" : s.template.placeholderStyle === "source" ? "closeSession" : "cancelSession", "quiet danger")}</div>${s.scanner ? `</div>${!p.hideLivePreview ? freeScannerPreview(s) : ""}</div>` : ""}</main>`;
 }
 
 function outputPreview(template: Template, s?: Session): string {
@@ -2029,9 +2046,9 @@ function sessionRecovery(s?: Session) {
     s.fields.some((field) => field.value !== null);
   return `<div class="actions">${button("restart-session", "restartSession")}${reuse ? button("reuse-session", "reuseSession") : ""}</div>`;
 }
-function activeScannerControl(s: Session) {
+function activeScannerControl(s: Session, primary = false) {
   return `<div class="template-form-field">${fieldControl(s, s.active, "scanner-control", s.mode === "verify")}
-    ${button("use-scanner-control", s.mode === "verify" ? "compare" : "apply")}</div>`;
+    ${button("use-scanner-control", s.mode === "verify" ? "compare" : "apply", primary ? "primary" : "")}</div>`;
 }
 function selectedControl(id: string) {
   const element = document.getElementById(id);
@@ -2092,6 +2109,94 @@ function sectionDeliveryView(s: Session) {
     <div class="actions">${button("section-edit", "editResponses")}${button("cancel-session", "closeSession")}</div>
   </main>`;
 }
+function freeScannerOutput(s: Session) {
+  if (!s.scannerOutputTemplate) return s.fields[s.active]?.value ?? "—";
+  const values = new Map(s.fields.map(({ name, value }) => [name, value]));
+  return scannerTemplateParts(s.scannerOutputTemplate)
+    .map(({ name, text }) => (name ? (values.get(name) ?? text) : text))
+    .join("");
+}
+function freeScannerPreview(s: Session) {
+  return `<aside class="scanner-preview sticky-preview free-scanner-preview" aria-labelledby="free-preview-heading">
+    <h2 id="free-preview-heading">${esc(t(s.scannerOutputTemplate ? "outputPreview" : "capturedValue"))}</h2>
+    <pre class="output" id="free-preview-value">${esc(freeScannerOutput(s))}</pre>
+  </aside>`;
+}
+
+function focusSourceScanner() {
+  if (session?.mode === "ready") return "finish";
+  return !manualOpen && document.getElementById("scanner-control")
+    ? controlFocus("scanner-control")
+    : "manual-value";
+}
+
+function sourceScannerView(s: Session) {
+  const field = s.fields[s.active];
+  const checking = s.mode === "verify";
+  const ready = s.mode === "ready";
+  const active = activeSourceFields(s);
+  const showPreview = !library.preferences.hideLivePreview;
+  const status = (entry: Session["fields"][number]) =>
+    esc(t(entry.status === "verified" ? "matchedSource" : entry.status));
+  return `<main class="capture-panel source-scanner">
+    <header class="scanner-header">
+      <h1>${esc(s.template.name)}</h1>
+      <p class="task-progress" role="status">${esc(progressText(s))}</p>
+    </header>
+    <div class="scanner-layout ${showPreview ? "" : "without-preview"}">
+      <div class="scanner-work">
+        <section class="scanner-current" aria-labelledby="active-task-heading">
+          <h2 id="active-task-heading">${esc(ready ? t("nextOutput") : field ? fieldLabel(s, field.name) : t("noFields"))}</h2>
+          ${field?.status === "mismatch" ? mismatchView(field.value!, field.candidate!) : ""}
+          ${
+            !ready && field
+              ? `
+            ${s.controls?.has(field.name) ? activeScannerControl(s, true) : ""}
+            <details id="manual-entry" ${manualOpen || !s.controls?.has(field.name) ? "open" : ""}>
+              <summary>${esc(t(s.controls?.has(field.name) ? "clipboard" : "manualEntry"))}</summary>
+              <form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label>${manualValueEditor(s)}
+              <div class="toolbar">${button("apply-value", checking ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>
+            </details>
+            <div class="toolbar scanner-navigation">${button("previous", "previous")}${mouseMode ? button("mouse-transfer", checking ? "compareSelection" : "transfer", "", !desktop) : ""}${button("next", "next")}</div>`
+              : `<div class="toolbar">${button("finish", "prepareSections", "primary")}</div>`
+          }
+        </section>
+        <section class="scanner-fields" aria-labelledby="scanner-fields-heading">
+          <h2 id="scanner-fields-heading">${esc(t("fields"))}</h2>
+          <ol class="capture-fields" aria-label="${esc(t("fields"))}">
+            ${s.fields
+              .map((entry, index) =>
+                fieldVisible(s, entry.name, active)
+                  ? `
+              <li><button id="field-${index}" data-field="${index}" class="capture-field ${index === s.active ? "active" : ""} ${library.preferences.verifiedBackground && entry.status === "verified" ? "verified-background" : ""}" ${index === s.active ? 'aria-current="step"' : ""}>
+                <span class="field-body"><strong>${esc(fieldLabel(s, entry.name))}</strong>${entry.value !== null ? `<span class="field-value">${esc(entry.value)}</span>` : ""}</span>
+                <span class="status-label">${status(entry)}</span>
+              </button></li>`
+                  : "",
+              )
+              .join("")}
+          </ol>
+        </section>
+        <details id="task-tools" class="task-tools" ${taskToolsOpen ? "open" : ""}>
+          <summary>${esc(t("scannerToolsLabel"))}</summary>
+          <div class="toolbar">
+            ${!checking && !ready ? button("verify-start", "verifyStart") : ""}
+            ${s.fields.some((entry) => entry.value?.trim()) ? button("reverify-all", "reverifyAll") : ""}
+            ${field?.value?.trim() ? button("reverify-field", "reverifyField") : ""}
+            ${field ? button("clear", "clear", "", field.value === null) + button("clean-lines", "removeBlankLines", "", field.value === null) + button("skip", "skip") : ""}
+          </div>
+          <div class="toolbar">${check("mouse-mode", "mouseMode", mouseMode)}${check("preserve-clipboard", "preserveClipboard", preserveClipboard)}</div>
+        </details>
+        <div class="toolbar scanner-session-actions">
+          ${button("switch-form", "fillForm", "quiet")}
+          ${button("pause-task", "pauseTask", "quiet")}
+          ${button("cancel-session", "closeSession", "quiet")}
+        </div>
+      </div>
+      ${showPreview ? `<aside class="scanner-preview sticky-preview">${outputPreview(s.template, s)}</aside>` : ""}
+    </div>
+  </main>`;
+}
 function sessionView(): string {
   if (!session) return "";
   const s = session,
@@ -2099,6 +2204,7 @@ function sessionView(): string {
     f = s.fields[s.active];
   if (s.mode === "delivery" && s.prepared) return sectionDeliveryView(s);
   if (templateFormActive()) return templateFormView(s);
+  if (s.template.placeholderStyle === "source") return sourceScannerView(s);
   if (focusedWorkflow && !["review", "complete"].includes(s.mode))
     return focusedSessionView(s);
   if (s.mode === "review")
@@ -2108,7 +2214,7 @@ function sessionView(): string {
   if (s.mode === "delivery") {
     const parts = renderEmail(s),
       index = s.deliveryIndex ?? 0;
-    return `<main class="capture-panel"><div class="task-toolbar">${button("pause-task", "pauseTask")}${button("toggle-workflow", "focusedView")}</div><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", s.scanner ? "endScanner" : s.template.placeholderStyle === "source" ? "closeSession" : "cancelSession", "quiet danger")}</div></main>`;
+    return `<main class="capture-panel"><div class="task-toolbar">${button("pause-task", "pauseTask")}${button("toggle-workflow", "focusedView")}</div><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
   }
   const active = activeSourceFields(s);
   const mode = s.mode === "verify" ? "verify" : "capture";
@@ -2137,7 +2243,8 @@ function sessionView(): string {
       preview = false;
     }
   }
-  return `<main class="capture-panel ${s.scanner ? "scanner-panel" : ""}"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${!s.scanner ? button("switch-form", "fillForm") : ""}${button("toggle-workflow", "focusedView")}${button("pause-task", "pauseTask")}${button("session-back", s.scanner && library.preferences.showWorkspace ? "workspace" : "templates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
+  return `<main class="capture-panel ${s.scanner ? "scanner-panel" : ""}"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${!s.scanner ? button("switch-form", "fillForm") : ""}${button("toggle-workflow", "focusedView")}${button("pause-task", "pauseTask")}${button("session-back", s.scanner && library.preferences.showWorkspace ? "workspace" : "recentTemplates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
+  ${s.scanner ? '<div class="scanner-layout free-scanner-layout"><div class="scanner-work">' : ""}
   ${s.scanner ? `<p class="vera-id">${esc(s.rowLink?.rowId ?? s.scannerId)}${s.rowLink ? `<br>${esc(s.rowLink.tableId)}` : ""}</p><p class="hint">${esc(t(s.rowLink ? "rowSaveHelp" : "scannerTemporary"))}</p>` : ""}
   ${f && s.controls?.has(f.name) ? activeScannerControl(s) : ""}
   ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label>${manualValueEditor(s)}<div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>${!s.scanner ? `<p class="hint">${esc(t("clipboardHelp"))}</p>` : ""}</details>` : ""}
@@ -2153,10 +2260,10 @@ function sessionView(): string {
 
   ${s.fields.some((field) => field.value !== null) ? `<details class="reverification"><summary>${esc(t("verifyAgain"))}</summary><div class="toolbar">${button("reverify-field", "reverifyField", "", !f || f.value === null)}${button("reverify-all", "reverifyAll")}</div><p class="hint">${esc(t("reverifyHelp"))}</p></details>` : ""}
   ${!s.scanner ? `<div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>` : ""}
-  ${s.scanner ? scannerControls() : s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
+  ${s.scanner ? scannerControls() : s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
   ${preview ? `<pre class="output">${esc(rendered)}</pre>` : !library.preferences.hideLivePreview && !s.scanner ? outputPreview(s.template, s) : ""}
   <details><summary>${esc(t("help"))}</summary><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
-  <div class="actions">${button("cancel-session", s.scanner ? "endScanner" : s.template.placeholderStyle === "source" ? "closeSession" : "cancelSession", "quiet danger")}</div></main>`;
+  <div class="actions">${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div>${s.scanner ? `</div>${!p.hideLivePreview ? freeScannerPreview(s) : ""}</div>` : ""}</main>`;
 }
 function mismatchView(a: string, b: string): string {
   const diff = difference(a, b);
@@ -2229,10 +2336,10 @@ function selectSessionField(index: number) {
   const s = session!;
   s.active = index;
   const keepChecking =
-    focusedWorkflow &&
+    (focusedWorkflow || reverification === "all") &&
     s.scanner &&
     s.mode === "verify" &&
-    s.fields[index]?.value !== null;
+    !!s.fields[index]?.value?.trim();
   if (keepChecking) reverification ??= "field";
   else {
     reverification = null;
@@ -2594,7 +2701,11 @@ function bindSession() {
     await closeSession();
   });
   click("session-back", () =>
-    navigate(session?.scanner ? "workspace" : "templates"),
+    navigate(
+      session?.scanner && library.preferences.showWorkspace
+        ? "workspace"
+        : "recent",
+    ),
   );
   click("erase-results", () => {
     eraseSession(session!);
@@ -2737,15 +2848,17 @@ async function accept(
   preview = false;
   render();
   focus(
-    session.mode === "ready"
-      ? "finish"
-      : manualOpen
-        ? "manual-value"
-        : focusedWorkflow &&
-            session.scanner &&
-            session.fields[session.active]?.status === "verified"
-          ? "scanner-copy"
-          : `field-${session.active}`,
+    session.template.placeholderStyle === "source"
+      ? focusSourceScanner()
+      : session.mode === "ready"
+        ? "finish"
+        : manualOpen
+          ? "manual-value"
+          : focusedWorkflow &&
+              session.scanner &&
+              session.fields[session.active]?.status === "verified"
+            ? "scanner-copy"
+            : `field-${session.active}`,
   );
 }
 function dispatch(action: Action) {
@@ -3342,7 +3455,7 @@ async function init() {
           );
         else if (action === "settings") await navigate("settings");
         else if (action === "session" && session) await navigate("session");
-        else await navigate(action === "templates" ? "templates" : "recent");
+        else await navigate("recent");
       }),
   );
   try {

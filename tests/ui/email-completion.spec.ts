@@ -1,11 +1,9 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 async function finishEmail(page: Page) {
   await page.goto("/?workflow=classic");
-  await page.locator("#nav-templates").click();
-  await expect(page.locator(".appbar nav button").nth(0)).toHaveText(
-    "Templates",
-  );
+  await openLegacyLibrary(page);
   await expect(page.locator("#nav-workspace")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Templates", exact: true }),

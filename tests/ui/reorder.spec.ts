@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import { defineScanner, addField } from "./fixtures";
 async function drag(page: Page, list: string, from: number, to: number) {
@@ -9,7 +10,7 @@ test("capture and email order support drag with arrows and persist after togglin
   page,
 }) => {
   await page.goto("/?workflow=classic");
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await page.locator("#email-subject").fill("{{subject}}");
   await page.locator("#email-to").fill("{{recipient}}");
   await page.locator("#template-content").fill("{{first}} {{second}}");
@@ -53,7 +54,7 @@ test("capture and email order support drag with arrows and persist after togglin
   ]);
   await page.locator("#save").click();
   await page.locator("#nav-settings").click();
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   await expect(page.locator("#field-order code")).toHaveText([
     "recipient",
     "first",

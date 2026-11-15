@@ -1,6 +1,6 @@
 # Test the VeraFlow source preview
 
-Use the assets on the [source prerelease page](https://github.com/iandorsey00/veraflow/releases/tag/preview-source.1). The test app is called **VeraFlow Test**. It has a separate local library and upgrades through a new manual download. Quit any running VeraFlow instance before starting the test app so it releases the global shortcuts.
+Choose the `preview-source.*` build you want on [Releases](https://github.com/iandorsey00/veraflow/releases) and download its assets. The test app is called **VeraFlow Test**. It has a separate local library and upgrades through a new manual download. Quit any running VeraFlow instance before starting the test app so it releases the global shortcuts.
 
 - **Windows 11**. Download and run `VeraFlow-Test-windows-x64-setup.exe`, then open **VeraFlow Test** from Start. The installer may show an unsigned-publisher warning. In File Explorer, right-click a template or CSV and choose **Open with → VeraFlow Test**. To test double-click, pick VeraFlow Test as the default for `.veraflow` or `.vf`.
 - **macOS**. Download `VeraFlow-Test-macos-arm64.zip` on Apple silicon or `VeraFlow-Test-macos-x64.zip` on Intel. Extract it and move **VeraFlow Test.app** to Applications. Use the per-app **Open Anyway** option in Privacy & Security if Gatekeeper blocks the preview and you trust the download. Give VeraFlow Test Accessibility permission there for cross-app shortcuts. Finder’s **Open With** menu can open the examples in the test app.

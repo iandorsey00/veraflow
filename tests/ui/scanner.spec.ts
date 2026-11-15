@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import {
   legacyTemplate,
   renameField,
@@ -65,7 +66,7 @@ for (const keep of [false, true])
       });
     });
     await page.goto("/?workflow=classic");
-    await page.getByRole("button", { name: "Templates", exact: true }).click();
+    await openLegacyLibrary(page);
     await legacyTemplate(page);
     await page
       .getByLabel("Template text", { exact: true })

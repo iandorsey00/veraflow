@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
@@ -5,7 +6,7 @@ const fixture = (name: string) =>
   readFile(new URL(`../../examples/source/${name}`, import.meta.url));
 
 async function openSource(page: Page) {
-  await page.locator("#nav-templates").click();
+  await openLegacyLibrary(page);
   const picker = page.waitForEvent("filechooser");
   await page.locator("#open-source").click();
   await (
@@ -298,7 +299,7 @@ test("saves incomplete responses as a file and reopens an editable copy", async 
   expect(await readFile((await output.path())!, "utf8")).toBe(
     "Hello Drew from Seattle.",
   );
-  await expect(page.locator("#nav-templates")).toBeVisible();
+  await expect(page.locator("#nav-settings")).toBeVisible();
 });
 
 test("canceling a save leaves the source session open", async ({ page }) => {
@@ -323,7 +324,7 @@ test("canceling a save leaves the source session open", async ({ page }) => {
   await expect(page.getByLabel("name", { exact: true })).toHaveValue("Alex");
   await page.locator("#cancel-session").click();
   await page.getByRole("button", { name: "Close without saving" }).click();
-  await expect(page.locator("#nav-templates")).toBeVisible();
+  await expect(page.locator("#nav-settings")).toBeVisible();
 });
 
 test("explicit navigation works in step and sequence mode and failure retains the pending section", async ({
@@ -549,4 +550,91 @@ test("recent outputs keep five transferred results, support copy, and clear when
   await page.locator("#nav-recent").click();
   await page.locator("#open-outputs").click();
   await expect(page.locator("[data-output]")).toHaveCount(0);
+});
+
+test("CSV verification advances through populated cells and skips blank ones", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "checks.csv",
+    "recipient,optional,reference\nAlex,,AB-104",
+  );
+  await page.getByRole("dialog").locator('button[type="submit"]').click();
+  await expect(page.locator("#field-0")).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await page.locator("#manual-value").fill("Alex");
+  await page.locator("#apply-value").click();
+  await expect(page.locator("#field-0")).toHaveClass(/verified/);
+  await expect(page.locator("#field-2")).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await expect(page.locator("#manual-value")).toBeFocused();
+  await page.locator("#manual-value").fill("AB-104");
+  await page.locator("#apply-value").click();
+  await expect(page.locator("#field-2")).toHaveClass(/verified/);
+  await expect(page.locator("#field-1")).not.toHaveClass(/verified/);
+});
+
+test("source Scanner gives its title room and puts its preview beside the fields when widened", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 690 });
+  await page.goto("/");
+  await expect(page.locator(".appbar nav button")).toHaveText(["Settings"]);
+  await pickDocument(
+    page,
+    "address.veraflow",
+    (await fixture("address.veraflow")).toString(),
+  );
+  const title = page.getByRole("heading", { name: "Address", exact: true });
+  await expect(title).toBeVisible();
+  const heading = await title.boundingBox();
+  expect(heading?.width).toBeGreaterThan(240);
+  await expect(page.locator("#task-tools")).not.toHaveAttribute("open");
+  const work = page.locator(".scanner-work");
+  const preview = page.locator(".scanner-preview");
+  expect((await preview.boundingBox())!.y).toBeGreaterThan(
+    (await work.boundingBox())!.y,
+  );
+
+  await page.setViewportSize({ width: 900, height: 690 });
+  await expect(preview).toHaveCSS("position", "sticky");
+  expect((await preview.boundingBox())!.x).toBeGreaterThan(
+    (await work.boundingBox())!.x,
+  );
+  await page.locator("#scanner-control").fill("Alex Example");
+  await page.locator("#use-scanner-control").click();
+  await expect(preview).toContainText("Alex Example");
+});
+
+test("preview stays in the viewport as a long Fill form scrolls", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 650 });
+  await page.goto("/");
+  const fields = Array.from(
+    { length: 22 },
+    (_, index) => `Field ${index + 1} {{field-${index + 1}}}`,
+  ).join("\n");
+  await pickDocument(
+    page,
+    "long-form.vf",
+    `--- veraflow 2\n{"workflow":"form"}\n---\n${fields}`,
+  );
+  const preview = page.locator("#form-output");
+  await expect(preview).toHaveCSS("position", "sticky");
+  await page.evaluate(() => window.scrollTo(0, 700));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  const panel = await preview.boundingBox();
+  expect(panel?.y).toBeGreaterThanOrEqual(0);
+  expect(panel?.y).toBeLessThan(180);
+  await page
+    .getByLabel("field-15", { exact: true })
+    .fill("Updated while scrolling");
+  await expect(preview).toContainText("Updated while scrolling");
 });

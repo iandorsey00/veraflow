@@ -1,3 +1,4 @@
+import { openLegacyLibrary } from "./fixtures";
 import { test, expect } from "@playwright/test";
 import { defineScanner } from "./fixtures";
 for (const scanner of [true, false])
@@ -13,7 +14,7 @@ for (const scanner of [true, false])
           .click();
         await defineScanner(page);
       } else {
-        await page.locator("#nav-templates").click();
+        await openLegacyLibrary(page);
         await page.locator("#email-enabled").uncheck();
         await page.locator("#template-content").fill("{{field}}");
         await page.locator("#start").click();

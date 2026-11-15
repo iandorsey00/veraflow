@@ -6,7 +6,7 @@ Built for macOS and Windows with Tauri 2, Rust, and TypeScript. No account, anal
 
 ## Test the source preview
 
-Download the isolated **VeraFlow Test** installers, example files, and VS Code extension from the [source prerelease](https://github.com/iandorsey00/veraflow/releases/tag/preview-source.1). Follow the [installation and testing guide](docs/source-preview.md) for Windows and macOS.
+Download the isolated **VeraFlow Test** installers, example files, and VS Code extension from the newest `preview-source.*` entry on [Releases](https://github.com/iandorsey00/veraflow/releases). Follow the [installation and testing guide](docs/source-preview.md) for Windows and macOS.
 
 ## Install the public preview
 
@@ -22,7 +22,9 @@ The [portable specification](docs/portable-templates.md) explains how to fill a 
 
 Source builds also support [opening .veraflow files, filling from CSV, and preparing output sections](docs/veraflow-language-draft.md). The [VS Code extension](editors/vscode/README.md) adds highlighting, folding, and snippets.
 
-## Templates on main
+## Templates
+
+Open a `.veraflow` or `.vf` file from the launcher or your file manager. For templates stored in the older library, use **Settings → Legacy template library**.
 
 The source branch includes **Scanner workflow** and **Typing workflow** for each template. Pick a template to preview it, then choose how to enter its values. Typing adds a full-window form with live output. Enable **Focused view** in Settings to use the optional compact Scanner layout.
 

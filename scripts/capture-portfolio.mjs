@@ -12,6 +12,14 @@ async function openWorkspace(page) {
   await page.locator("#save-settings").click();
   await page.locator("#nav-workspace").click();
 }
+async function openLegacyLibrary(page) {
+  if (await page.locator(".library-layout").isVisible()) return;
+  if (!(await page.locator(".settings-grid").isVisible())) {
+    await page.locator("#nav-settings").click();
+  }
+  await page.locator(".legacy-library summary").click();
+  await page.locator("#open-legacy-library").click();
+}
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({
@@ -24,7 +32,7 @@ try {
   });
   const page = await context.newPage();
   await page.goto(classicUrl.href);
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await mkdir("docs/portfolio/screenshots", { recursive: true });
   await page.screenshot({
     path: "docs/portfolio/screenshots/01-template-library.png",
@@ -48,7 +56,7 @@ try {
   await page
     .getByRole("button", { name: "Save template", exact: true })
     .click();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await mkdir("docs/portfolio/screenshots", { recursive: true });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page
@@ -57,7 +65,7 @@ try {
   await page
     .getByRole("button", { name: "Save settings", exact: true })
     .click();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();
@@ -90,7 +98,7 @@ try {
     path: "docs/portfolio/screenshots/02-verification-mismatch.png",
     fullPage: true,
   });
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  await openLegacyLibrary(page);
   await page.setViewportSize({ width: 1040, height: 1000 });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByLabel("Language", { exact: true }).selectOption("zh-CN");
@@ -117,9 +125,7 @@ try {
   const emailPage = await context.newPage();
   await emailPage.setViewportSize({ width: 1440, height: 2300 });
   await emailPage.goto(classicUrl.href);
-  await emailPage
-    .getByRole("button", { name: "Templates", exact: true })
-    .click();
+  await openLegacyLibrary(emailPage);
   await emailPage.locator("#email-enabled").uncheck();
   await emailPage
     .getByLabel("Placeholder syntax", { exact: true })
@@ -143,9 +149,7 @@ try {
   await emailPage
     .getByRole("button", { name: "Save template", exact: true })
     .click();
-  await emailPage
-    .getByRole("button", { name: "Templates", exact: true })
-    .click();
+  await openLegacyLibrary(emailPage);
   await emailPage.screenshot({
     path: "docs/portfolio/screenshots/04-email-template.png",
     fullPage: false,
