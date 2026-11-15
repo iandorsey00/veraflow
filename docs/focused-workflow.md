@@ -1,6 +1,6 @@
 # Templates and workflows
 
-For portable syntax, exact output examples, and workspace exchange, see the [portable specification](portable-templates.md).
+For portable syntax, exact output examples, and legacy archive formats, see the [portable specification](portable-templates.md).
 
 ## Template workflows
 
@@ -54,13 +54,13 @@ Booking reference
 
 Use `Alex Example` and `AB-104` as the values. You can type them manually; a source application is not required for this first exercise.
 
-1. Open **Free Scanner** at the bottom of Workspace.
+1. Open **Free Scanner** in the launcher.
 2. Choose **Define fields**, enter those two lines, and choose **Start Scanner**.
 3. The heading identifies the task. The next-action line tells you what to do with the active field. The checklist shows all fields and their state.
 4. **Enter value manually** starts open in Scanner. Paste or type `Alex Example` and choose **Capture value**. Capture advances to the next empty field when automatic advancement is enabled.
 5. Enter `AB-104` for Booking reference.
 
-For real work, open a saved row from a table instead. The task heading shows the table and row title, when present. Table fields and existing values are loaded into Scanner. Previously saved values need a fresh source check when verification is required.
+To start with existing values, open a CSV from the launcher, select a row, and choose **Free Scanner**. Column names become field names. Populated fields need a fresh source check when verification is enabled.
 
 ## Capture from another application
 
@@ -103,11 +103,11 @@ The line records the latest action in this session, not a permanent history. Its
 
 ## Pause and return after an interruption
 
-Choose **Pause**. VeraFlow returns to Workspace and shows a recap: task name, captured/matched counts, active field, and last action. Session capture shortcuts are suspended, and source-window tracking for the paused session stops. If you separately use snippets in Workspace, their existing source-window tracking may run.
+Choose **Pause**. VeraFlow returns to the launcher and shows a recap: task name, captured/matched counts, active field, and last action. Session capture shortcuts are suspended, and source-window tracking for the paused session stops.
 
 Choose **Resume task** to return. The active field, comparison mode, mismatch, captured values, email position, and unfinished manual typing are retained. Moving to another main page from Classic view also pauses the task. An unresolved shortcut conflict on resume reports an error while leaving manual entry available.
 
-**Pause is not Save.** It keeps work only while the app is running. Quitting, restarting, or clearing a session erases temporary work. Quit and update guards still apply. Use **Edit fields and output → Save row** or **Save as new table row** when you want captured values saved locally. A row save stores captured values, not an in-progress comparison or unfinished typing. Free Scanner never starts saving automatically.
+**Pause is not Save.** It keeps work only while the app is running. Quitting, restarting, or clearing a session erases temporary work. Quit and update guards still apply. To keep Free Scanner values, use **More tools → Export fields and values JSON**. When working with a source template, **Close session** offers to save an editable prefilled copy.
 
 ## Templates and email
 

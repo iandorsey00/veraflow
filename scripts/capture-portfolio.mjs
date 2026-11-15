@@ -5,13 +5,6 @@ if (!["localhost", "127.0.0.1"].includes(new URL(url).hostname))
   throw new Error("Portfolio captures require a local preview.");
 const classicUrl = new URL(url);
 classicUrl.searchParams.set("workflow", "classic");
-async function openWorkspace(page) {
-  await page.goto(classicUrl.href);
-  await page.locator("#nav-settings").click();
-  await page.locator("#showWorkspace").check();
-  await page.locator("#save-settings").click();
-  await page.locator("#nav-workspace").click();
-}
 async function openLegacyLibrary(page) {
   if (await page.locator(".library-layout").isVisible()) return;
   if (!(await page.locator(".settings-grid").isVisible())) {
@@ -200,96 +193,6 @@ try {
   await scannerPage.locator("#apply-value").click();
   await scannerPage.screenshot({
     path: "docs/portfolio/screenshots/06-scanner.png",
-    fullPage: true,
-  });
-  const workspacePage = await context.newPage();
-  await openWorkspace(workspacePage);
-  await workspacePage
-    .getByRole("button", { name: "Create table", exact: true })
-    .click();
-  await workspacePage.locator("#dialog-name").fill("Travel bookings");
-  await workspacePage
-    .locator("#dialog-fields")
-    .fill("reference\ntraveler\ndestination");
-  await workspacePage
-    .locator("#dialog-output")
-    .fill("Booking {{reference}} for {{traveler}} — {{destination}}");
-  await workspacePage
-    .getByRole("dialog")
-    .getByRole("button", { name: "Save table", exact: true })
-    .click();
-  await workspacePage
-    .getByRole("button", { name: "New row", exact: true })
-    .click();
-  await workspacePage.locator("#dialog-title").fill("Example trip");
-  await workspacePage
-    .getByRole("dialog")
-    .getByRole("button", { name: "Create row", exact: true })
-    .click();
-  for (const value of ["AB-104", "Alex Morgan", "Example City"]) {
-    await workspacePage.locator("#manual-value").fill(value);
-    await workspacePage.locator("#apply-value").click();
-    await expect(workspacePage.locator("#app")).not.toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
-  }
-  await workspacePage.locator("#scanner-save-row").click();
-  await workspacePage.locator("#session-back").click();
-  await workspacePage.screenshot({
-    path: "docs/portfolio/screenshots/07-workspace.png",
-    fullPage: true,
-  });
-  const snippetPage = await context.newPage();
-  await snippetPage.setViewportSize({ width: 1440, height: 1100 });
-  await openWorkspace(snippetPage);
-  await snippetPage
-    .getByRole("button", { name: "Create table", exact: true })
-    .click();
-  await snippetPage.locator("#dialog-name").fill("Travel messages");
-  await snippetPage
-    .getByRole("dialog")
-    .getByRole("button", { name: "Save table", exact: true })
-    .click();
-  await snippetPage.locator("#table-snippets > summary").click();
-  async function demoSnippet(title, content) {
-    await snippetPage
-      .getByRole("button", { name: "New snippet", exact: true })
-      .click();
-    await snippetPage.locator("#dialog-title").fill(title);
-    await snippetPage.locator("#dialog-content").fill(content);
-    await snippetPage
-      .getByRole("dialog")
-      .getByRole("button", { name: "Save snippet", exact: true })
-      .click();
-    await expect(snippetPage.locator("#app")).not.toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
-  }
-  await demoSnippet(
-    "Booking confirmation",
-    "Your booking is confirmed.\nPlease retain this message for your records.",
-  );
-  await demoSnippet(
-    "Arrival instructions",
-    "Please arrive at the main entrance.\nContact our team if you need assistance.",
-  );
-  await snippetPage.locator(".snippet-card h3").first().click();
-  await snippetPage.screenshot({
-    path: "docs/portfolio/screenshots/08-table-snippets.png",
-    fullPage: true,
-  });
-  await snippetPage
-    .getByRole("button", { name: "Unfiled snippets", exact: true })
-    .click();
-  await demoSnippet(
-    "Thank you",
-    "Thank you for your message.\nWe will be in touch shortly.",
-  );
-  await snippetPage.locator(".snippet-card h3").click();
-  await snippetPage.screenshot({
-    path: "docs/portfolio/screenshots/09-unfiled-snippets.png",
     fullPage: true,
   });
 } finally {

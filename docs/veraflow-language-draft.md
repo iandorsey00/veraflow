@@ -4,7 +4,7 @@ Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a se
 
 **Settings → Legacy template library → Templates → Import template file** creates a library copy for editing. This picker also accepts `.txt`. **Export .veraflow** saves the definition. Responses stay separate.
 
-Open a CSV from Finder or File Explorer with **Open With → VeraFlow**, or use **Open file…** on the launcher. Use the first row for column names. Search all columns or enter a data row number. Use Previous and Next to browse groups of rows. The preview shows the selected row’s columns before you open it in Free Scanner or use it to fill a source template. When verification is enabled, Free Scanner checks the imported row in order and advances after each match. Blank cells are skipped. Select a template from your library or open one from disk. CSV columns match template fields by exact name. Values stay in the session unless you explicitly save them. To import an entire CSV into a table, enable **Show Workspace tab** in Settings and use Workspace’s **Import CSV**.
+Open a CSV from Finder or File Explorer with **Open With → VeraFlow**, or use **Open file…** on the launcher. Use the first row for column names. Search all columns or enter a data row number. Use Previous and Next to browse groups of rows. The preview shows the selected row’s columns before you open it in Free Scanner or use it to fill a source template. When verification is enabled, Free Scanner checks the imported row in order and advances after each match. Blank cells are skipped. Select a template from your library or open one from disk. CSV columns match template fields by exact name. Values stay in the session unless you explicitly save them.
 
 A header-free file uses the [plain brace rules](portable-templates.md#plain-text) and produces one Body section:
 
@@ -93,7 +93,7 @@ Try the [RMA template](../examples/source/rma.veraflow). Its Boolean controls th
 
 ### Keystrokes between sections
 
-Use the optional top-level `delivery` object. `mode` defaults to `"step"`. In step mode, one shortcut pastes the current section, issues its keys, and waits for the next shortcut. Set `"mode": "sequence"` to paste all remaining sections from the current position with one shortcut. **Paste mode** overrides this preference for the current session.
+Use the optional top-level `delivery` object. `mode` defaults to `"step"`. In step mode, one shortcut pastes the current section, issues its keys, and waits for the next shortcut. Set `"mode": "sequence"` to paste all remaining sections from the current position with one shortcut. **Paste options → Paste mode** overrides this preference for the current session.
 
 ```json
 {
@@ -127,9 +127,9 @@ Set **Settings → Number of recent outputs to keep** from 0 to 20. Setting it t
 
 ## CSV and existing libraries
 
-Open a source template and choose **Fill from CSV** in its editor. Pick a row from a comma-separated UTF-8 file with headers. Columns match field IDs exactly. Try the [RMA CSV](../examples/source/rma.csv). The selected row supplies responses without importing a Workspace table.
+Open a comma-separated UTF-8 file with headers and pick a row. Choose a template from the library or open a source template from disk. Columns match field IDs exactly. Try the [RMA CSV](../examples/source/rma.csv). The selected row supplies responses for this session.
 
-Workspace still carries tables, references, snippets, and sparse records. A directory of `.veraflow` and CSV files makes a shareable collection today. The app opens individual templates and CSV files. Browsing a directory as a package, linking files for synchronization, and Excel import are possible later additions.
+Use **Open folder…** to browse and search a directory of `.veraflow` and `.vf` files, including subfolders. Relative paths distinguish templates with the same name. Put CSV files alongside templates if useful, then open them with **Open file…**. Use **Refresh folder** to pick up changes made outside VeraFlow.
 
 Existing Email Mode templates retain their separate workflow and email-specific validation. Source sections are generic text. A future Email preset can add header validation and translate older templates. JSON export preserves a source template using `placeholderStyle: "source"`. Older builds can reject this style. Keep a compatible library backup before using it with an existing installation. The independent Python reader currently covers the earlier portable profile.
 

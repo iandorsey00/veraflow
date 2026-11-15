@@ -2,7 +2,7 @@
 
 This is the first interoperability profile for VeraFlow. It uses UTF-8 text and the existing version 1 template and workspace JSON archives. The same template and value map produce ordered, named text parts regardless of where the values came from. Clipboard actions, verification, session history, and email delivery are outside the format.
 
-For the source-language profile with Boolean conditions and named sections, see [VeraFlow source files](veraflow-language-draft.md).
+The workspace archive format below is documented for existing files and independent readers; VeraFlow 0.10.0 no longer exposes the old Workspace interface. For current file-based workflows, Boolean conditions, and named output sections, see [VeraFlow source files](veraflow-language-draft.md).
 
 ## Fill a template by hand
 

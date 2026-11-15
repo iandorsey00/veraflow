@@ -1,5 +1,11 @@
 # Release and rollback
 
+## 0.10.0 file-based workflows
+
+Full release cycle: this is the first public preview of source templates, prefilled files, CSV sessions, native folder browsing, and configurable paste delivery. The public tag runs both platform checks and gates all three packages on updater signature, authenticated-version, checksum, and feed verification.
+
+Smoke-test the folder picker, a nested template, CSV row verification, a multi-section paste, close/save/reopen, and the updater on Windows 11 and macOS. Before upgrading, back up `library.json` while the app is closed. To return to 0.9.1, quit 0.10.0, restore the pre-upgrade backup, and reinstall from the [0.9.1 assets](https://github.com/iandorsey00/veraflow/releases/tag/v0.9.1). Keep any new source files separately; 0.9.1 cannot open them. If a public build is bad, issue a forward fix rather than moving a published tag or update feed backwards.
+
 ## 0.9.1 portable templates
 
 Full release cycle for the portable specification and the renderer shared by Typing, Scanner, and saved value maps. The template and workspace archives continue to use version 1. See the [portable specification](portable-templates.md) and [validation](validation.md).

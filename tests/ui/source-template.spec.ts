@@ -1,6 +1,8 @@
 import { openLegacyLibrary } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const fixture = (name: string) =>
   readFile(new URL(`../../examples/source/${name}`, import.meta.url));
@@ -93,6 +95,7 @@ test("source file fills from CSV and retains paste output for retry, grouping an
   expect(
     await page.evaluate(() => (window as unknown as TestWindow).vfPastes),
   ).toEqual([["review@example.test", false]]);
+  await page.locator("#paste-options summary").click();
   await page.locator("#group-sections").check();
   const expected =
     "review@example.test\n[RMA] [DOA] [TKT-123457] Return\n50 Sample Avenue\nSeattle, WA 98101";
@@ -272,7 +275,7 @@ test("saves incomplete responses as a file and reopens an editable copy", async 
   const dialog = page.getByRole("dialog", { name: "Save before closing?" });
   await expect(
     dialog.getByRole("button", { name: "Save output as text" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await dialog.getByRole("button", { name: "Keep working" }).click();
   await expect(page.getByLabel("name", { exact: true })).toHaveValue("Alex");
   await page.locator("#cancel-session").click();
@@ -362,6 +365,7 @@ test("explicit navigation works in step and sequence mode and failure retains th
   expect(
     await page.evaluate(() => (window as unknown as TestWindow).vfPastes),
   ).toEqual([["alex@example.test", ["Tab", "Tab"], null]]);
+  await page.locator("#paste-options summary").click();
   await page.locator("#delivery-mode").selectOption("sequence");
   await page.evaluate(() => {
     (window as unknown as TestWindow).vfFailPaste = true;
@@ -637,4 +641,45 @@ test("preview stays in the viewport as a long Fill form scrolls", async ({
     .getByLabel("field-15", { exact: true })
     .fill("Updated while scrolling");
   await expect(preview).toContainText("Updated while scrolling");
+});
+
+test("opens a nested template from a selected folder and keeps the folder after closing", async ({
+  page,
+}) => {
+  const folder = await mkdtemp(join(tmpdir(), "vf-templates-"));
+  try {
+    await mkdir(join(folder, "nested"));
+    const greeting = '--- veraflow 2\n{"workflow":"form"}\n---\nHello {{name}}';
+    await Promise.all([
+      writeFile(join(folder, "Greeting.vf"), greeting),
+      writeFile(join(folder, "nested", "Greeting.veraflow"), greeting),
+      writeFile(join(folder, "records.csv"), "name\nAlex Example"),
+    ]);
+    await page.goto("/");
+    const picker = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Open folder…" }).click();
+    await (await picker).setFiles(folder);
+    const search = page.getByRole("searchbox", { name: "Find a template" });
+    const nested = page.getByRole("button", {
+      name: "nested/Greeting.veraflow",
+      exact: true,
+    });
+    await expect(
+      page.getByRole("button", { name: "Greeting.vf", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "records.csv", exact: true }),
+    ).toHaveCount(0);
+    await search.fill("nested");
+    await expect(
+      page.getByRole("button", { name: "Greeting.vf", exact: true }),
+    ).toBeHidden();
+    await nested.click();
+    await expect(page.getByLabel("name", { exact: true })).toBeEditable();
+    await page.locator("#cancel-session").click();
+    await page.locator('button[value="discard"]').click();
+    await expect(nested).toBeVisible();
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
 });

@@ -127,7 +127,6 @@ export type Session = {
   typing?: boolean;
   controls?: Map<string, import("./form").Control>;
   scannerId?: string;
-  rowLink?: { tableId: string; rowId: string };
   scannerOutputTemplate?: string;
   template: Template;
   fields: Field[];

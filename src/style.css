@@ -1365,3 +1365,48 @@ input.toggle-switch:checked::before {
     overflow: auto;
   }
 }
+
+.template-folder {
+  border-block: 1px solid var(--line);
+  margin-block: 1rem;
+  padding-block: 0.75rem;
+}
+
+.folder-list {
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.delivery-panel .delivery-text {
+  min-height: 6rem;
+  max-height: 40vh;
+  overflow: auto;
+  margin-block: 0 0.75rem;
+}
+
+.delivery-panel details,
+.delivery-navigation,
+.delivery-exit {
+  margin-block-start: 1rem;
+}
+
+.delivery-exit,
+.close-exit-actions {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+
+.session-close-dialog .actions,
+.close-save-actions {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.close-exit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}

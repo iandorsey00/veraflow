@@ -23,6 +23,15 @@ export const en = {
   legacyLibrary: "Legacy template library",
   legacyLibraryHelp:
     "Open saved library templates and export them for migration.",
+  openFolder: "Open folder…",
+  refreshFolder: "Refresh",
+  closeFolder: "Close folder",
+  searchTemplates: "Find a template",
+  folderEmpty: "This folder has no VeraFlow template files.",
+  folderReadFailed: "VeraFlow could not read this folder.",
+  folderTooLarge: "This folder is too large. Choose a smaller folder.",
+  pasteOptions: "Paste options",
+  outputHeading: "Output",
   recentTemplates: "Recently opened templates",
   recentEmpty: "Open a .veraflow or .vf file to start.",
   clearRecent: "Clear recent templates",
@@ -33,7 +42,6 @@ export const en = {
   chooseWorkflowRequired: "Choose Fill form or Scanner.",
   csvUseTemplate: "Open a template file…",
   csvFreeScanner: "Free Scanner · CSV columns",
-  showWorkspace: "Show Workspace tab",
   exportSource: "Export .veraflow",
   sourceTemplate: "Imported template",
   sourceText: "Template source",
@@ -97,7 +105,7 @@ export const en = {
   guideCopy:
     "Copy field or Ctrl/Cmd+C on a selected Scanner field copies its value after any required check. Paste into your destination and inspect the result.",
   guidePause:
-    "Pause returns to Workspace. Resume task restores your place and unfinished typing. Choose Classic view to switch layouts without losing values.",
+    "Pause returns to the launcher. Resume task restores your place and unfinished typing. Choose Classic view to switch layouts without losing values.",
 
   focusedView: "Focused view",
   classicView: "Classic view",
@@ -105,7 +113,7 @@ export const en = {
   resumeTask: "Resume task",
   taskPaused: "Task paused",
   pausePrivacy:
-    "Kept in memory while VeraFlow is open. Quitting clears this session; saved rows stay saved.",
+    "Kept in memory while VeraFlow is open. Quitting clears this session.",
   taskTools: "Edit fields and output",
   progressCaptured: "captured",
   progressMatched: "matched source",
@@ -148,19 +156,14 @@ export const en = {
     "CSV rows have different column counts. Check the delimiter and quoting.",
 
   scannerMore: "More tools",
-  scannerTemporary: "Temporary until saved as a row or exported.",
+  scannerTemporary: "Temporary until exported.",
   mousePasteHelp:
     "Mouse paste uses the last external app. Focus its destination first and keep mouse mode on.",
 
   pasteToApp: "Paste field to last app",
   pasteRequested: "Paste requested. Check the destination before retrying.",
-  tableDestination: "Existing table name or VeraFlow ID; or a new table name",
-  tableAmbiguous:
-    "Several tables have that name. Enter the table’s VeraFlow ID.",
 
-  workspace: "Workspace",
   freeScanner: "Free Scanner",
-  workspaceConfirm: "Apply this workspace action?",
   defineFields: "Define fields",
   fieldLines:
     "Field names — one per line; or leave blank and supply a template",
@@ -168,25 +171,14 @@ export const en = {
   scannerTemplate: "Text or template — use {{field_name}} (optional)",
   addMissing: "Add missing fields",
   copyTemplate: "Copy template output",
-  saveRow: "Save row",
-  saveAsRow: "Save as new table row",
   exportScannerFields: "Export fields JSON",
   exportScannerValues: "Export fields and values JSON",
   fieldMatched: "matched",
   fieldMissing: "no matching field",
-  rowSaveHelp:
-    "Edits stay temporary until Save row. Saved values remain after ending Scanner.",
   exportValuesConfirm:
     "Export captured values to JSON? The file may contain private information. Mismatches are excluded.",
-  newTableName: "New table name",
-  rowTitle: "Row title (optional)",
-  rowSaved: "Row saved locally.",
-  rowMissing:
-    "The saved table or row was removed. Reopen Scanner from the workspace.",
   invalidFields:
     "Enter unique field names, one per line, without brackets or control characters.",
-  invalidReferences: "Use one Label=Value per line for external IDs.",
-  folderNotFound: "No folder has that name. Create it first.",
 
   sampleSubject: "{{subject}}",
   sampleTo: "{{recipient_email}}",
@@ -216,7 +208,7 @@ export const en = {
   scannerIntro:
     "Capture, verify, and transfer text without a template. Define field names, one per line, or import Scanner JSON.",
   scannerPrivacy:
-    "Free Scanner stays temporary until Save as row or export. Ending it clears unsaved values. Saved rows remain on this device.",
+    "Ending Free Scanner clears captured values. Export them first if you want to keep them.",
   scannerFieldName: "Field name",
   renameField: "Rename field",
   addField: "Add field",
@@ -350,8 +342,7 @@ export const en = {
   newTemplate: "New template",
   tagline: "Capture once. Verify with confidence.",
   localOnly: "Local by default",
-  localNote:
-    "Tables and templates stay on this device. Free Scanner stays temporary until saved.",
+  localNote: "Templates stay on this device.",
   search: "Find a template",
   allFolders: "All folders",
   noTemplates: "No templates yet",

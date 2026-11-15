@@ -10,9 +10,9 @@ Compare downloads with `SHA256SUMS.txt` if you want to verify them. Windows uses
 ## Try the examples
 
 1. Extract `VeraFlow-examples.zip`. The [examples README](https://github.com/iandorsey00/veraflow/tree/codex/source-preview/examples/source#readme) lists the expected results.
-2. Open `test-destination.html` in your browser and `step-tabs.veraflow` in VeraFlow Test. Choose **Prepare output sections**.
+2. Open `test-destination.html` in your browser. Use **Open folder…** in VeraFlow Test to browse the extracted examples, then choose `step-tabs.veraflow`. Choose **Prepare output sections**.
 3. Click **Recipient** in the browser and press **Ctrl+Alt+8** on Windows or **Cmd+Alt+8** on macOS. Recipient fills and focus moves two Tabs to Subject. Press the shortcut twice more to fill Subject and Body.
-4. Repeat with `full-sequence.veraflow`. One shortcut fills all three fields. Use **Paste mode** on the delivery screen to override the template’s default.
+4. Repeat with `full-sequence.veraflow`. One shortcut fills all three fields. Use **Paste options** on the delivery screen to override the template’s default.
 5. Try the CSV, address, and prefilled examples. Save a partially filled session, reopen it, and edit the responses.
 
 Check the destination after a partial paste or focus change before resuming. The app keeps the pending section available for manual copy or navigation.

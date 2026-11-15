@@ -68,6 +68,8 @@ async function browserDocument(
     recentToken,
   };
 }
+export type FolderListing = { name: string; files: string[] };
+let browserFolder: { listing: FolderListing; templates: File[] } | null = null;
 export type OpenDocument = {
   name: string;
   format: "source" | "csv";
@@ -126,6 +128,51 @@ export const platform = {
       };
       input.click();
     });
+  },
+  async pickTemplateFolder(): Promise<FolderListing | null> {
+    if (desktop) return invoke("pick_template_folder");
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.webkitdirectory = true;
+      input.oncancel = () => resolve(null);
+      input.onchange = () => {
+        const files = Array.from(input.files ?? []);
+        if (!files.length) return resolve(null);
+        const templates = files
+          .filter(
+            (file) =>
+              /\.(veraflow|vf)$/i.test(file.name) &&
+              file.webkitRelativePath
+                .split("/")
+                .slice(1)
+                .every((part) => !part.startsWith(".")),
+          )
+          .sort((a, b) =>
+            a.webkitRelativePath.localeCompare(b.webkitRelativePath),
+          );
+        const listing = {
+          name: files[0].webkitRelativePath.split("/")[0],
+          files: templates.map((file) =>
+            file.webkitRelativePath.split("/").slice(1).join("/"),
+          ),
+        };
+        browserFolder = { listing, templates };
+        resolve(listing);
+      };
+      input.click();
+    });
+  },
+  async refreshTemplateFolder(): Promise<FolderListing> {
+    if (desktop) return invoke("refresh_template_folder");
+    if (!browserFolder) throw Error("folderReadFailed");
+    return browserFolder.listing;
+  },
+  async openFolderTemplate(index: number): Promise<OpenDocument> {
+    if (desktop) return invoke("open_folder_template", { index });
+    const file = browserFolder?.templates[index];
+    if (!file) throw Error("recentMissing");
+    return browserDocument(file, true);
   },
   async listOutputs(): Promise<OutputLabel[]> {
     return desktop

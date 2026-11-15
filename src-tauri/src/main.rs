@@ -334,12 +334,14 @@ fn build_menu(app: &tauri::AppHandle, zh: bool, update_available: bool) -> Resul
     let mut entries = if zh {
         vec![
             ("open", "打开文件…"),
+            ("folder", "打开文件夹…"),
             ("session", "当前会话"),
             ("settings", "设置"),
         ]
     } else {
         vec![
             ("open", "Open file…"),
+            ("folder", "Open folder…"),
             ("session", "Current session"),
             ("settings", "Settings"),
         ]
@@ -441,12 +443,16 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
         .manage(documents::IssuedDocuments::default())
+        .manage(documents::OpenFolder::default())
         .manage(Mutex::new(
             std::collections::VecDeque::<std::path::PathBuf>::new(),
         ))
         .invoke_handler(tauri::generate_handler![
             documents::take_document,
             documents::pick_document,
+            documents::pick_template_folder,
+            documents::open_folder_template,
+            documents::refresh_template_folder,
             documents::recent_documents,
             documents::remember_document,
             documents::open_recent_document,

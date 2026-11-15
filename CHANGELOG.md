@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0
+
+- Open and search template folders from the launcher. Use ordinary files and subfolders to organize work.
+- Open `.veraflow`, `.vf`, and CSV files directly. Use fill-in forms or Scanner, with live output preview, named paste sections, and single-step or sequence delivery.
+- Keep failed paste output available for recovery. Save a prefilled session or finished text, and reopen recent output.
+- Simplified the paste and end-session screens. Removed the old Workspace UI and kept compatibility with existing local libraries.
+
 ## 0.9.1
 
 Published the portable template and workspace specification, shared rendering fixtures, and standalone Python reader. Typing and Scanner use the same final rendering and validation as the portable value-map entry point.

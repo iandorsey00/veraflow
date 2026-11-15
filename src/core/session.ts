@@ -435,7 +435,6 @@ export function eraseSession(s: Session): void {
   }
   delete s.prepared;
   delete s.scannerOutputTemplate;
-  delete s.rowLink;
   delete s.scannerId;
   s.mode = "complete";
 }

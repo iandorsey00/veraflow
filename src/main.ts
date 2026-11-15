@@ -9,12 +9,10 @@ import {
 import { parseCSV, csvTable } from "./core/csv";
 import { sessionProgress } from "./core/progress";
 import { bindReorder } from "./reorder";
-import { workspaceUI, formDialog, type Input } from "./workspace-ui";
+import { formDialog, type Input } from "./form-dialog";
 import {
-  emptyWorkspace,
   fieldNames,
   veraId,
-  rowFromScanner,
   validateWorkspace,
   exportScanner,
   importScanner,
@@ -93,6 +91,7 @@ import {
   bindShortcuts,
   ShortcutBindingError,
   type OpenDocument,
+  type FolderListing,
   type RecentDocument,
   type OutputLabel,
 } from "./platform";
@@ -105,13 +104,9 @@ let library: Library = {
   preferences: structuredClone(defaultPreferences),
 };
 let view:
-  | "recent"
-  | "outputs"
-  | "workspace"
-  | "scanner"
-  | "templates"
-  | "settings"
-  | "session" = "recent";
+  "recent" | "outputs" | "scanner" | "templates" | "settings" | "session" =
+  "recent";
+let templateFolder: FolderListing | null = null;
 let recentDocuments: RecentDocument[] = [];
 let outputLabels: OutputLabel[] = [];
 let selectedOutput: { index: number; text: string } | null = null;
@@ -129,6 +124,7 @@ const layoutOverride = !desktop
 let focusedWorkflow = layoutOverride === "focused";
 let typingCheck = false;
 let groupSections = false;
+let pasteOptionsOpen = false;
 let sectionTab = false;
 let deliveryMode: DeliveryMode = "step";
 let lastTemplate: { definition: Template; typing: boolean } | null = null;
@@ -142,21 +138,7 @@ const emailSteps = new Map<string, Key>();
 let retainedScanner: Session | null = null;
 let returnToScanner = false;
 let scannerOutput: "copy" | "paste" | "tab" = "copy";
-const workspace = workspaceUI({
-  get: () => library.workspace ?? emptyWorkspace(),
-  save: async (value) => {
-    validateWorkspace(value);
-    await persist({ ...library, workspace: value });
-  },
-  lang: () => library.preferences.language === "zh-CN",
-  render,
-  run,
-  open: openRow,
-  copied: () => notify("copied"),
-  pasted: () => notify("pasteRequested"),
-  confirm: (detail, action) =>
-    confirmAction("workspaceConfirm", detail, action),
-});
+
 function privateWork() {
   return (
     !!document.querySelector("dialog[open]") ||
@@ -188,13 +170,12 @@ let mousePolling = false;
 setInterval(async () => {
   if (mousePolling) return;
   const enabled =
-    (mouseMode &&
-      view === "session" &&
-      !paused &&
-      !templateFormActive() &&
-      !!session &&
-      ["capture", "verify"].includes(session.mode)) ||
-    (view === "workspace" && workspace.hasSnippets());
+    mouseMode &&
+    view === "session" &&
+    !paused &&
+    !templateFormActive() &&
+    !!session &&
+    ["capture", "verify"].includes(session.mode);
   if (!enabled && !watchingSource) return;
   mousePolling = true;
   try {
@@ -315,9 +296,8 @@ function render() {
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
     ${paused && session && view !== "session" ? pausedTaskView() : ""}
-    ${view === "recent" ? recentView() : view === "outputs" ? outputsView() : view === "workspace" ? workspace.view() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
-    ${view !== "session" ? `<footer>${button("nav-scanner", "freeScanner")}${library.preferences.showWorkspace ? button("nav-workspace", "workspace") : ""}${session && !(paused && focusedWorkflow) ? button("nav-session", session.mode === "complete" ? "sessionResults" : "session") : ""}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
-  click("nav-workspace", () => navigate("workspace"));
+    ${view === "recent" ? recentView() : view === "outputs" ? outputsView() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
+    ${view !== "session" ? `<footer>${button("nav-scanner", "freeScanner")}${session && !(paused && focusedWorkflow) ? button("nav-session", session.mode === "complete" ? "sessionResults" : "session") : ""}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
   click("nav-scanner", () =>
     navigate(session?.scanner ? "session" : "scanner"),
   );
@@ -335,7 +315,6 @@ function render() {
       ?.scrollIntoView({ block: "nearest" });
   if (view === "recent") bindRecent();
   else if (view === "outputs") bindOutputs();
-  else if (view === "workspace") workspace.bind(root);
   else if (view === "templates") bindLibrary();
   else if (view === "settings") bindSettings();
   else if (view === "session") bindSession();
@@ -456,19 +435,7 @@ async function loadScannerJSON() {
   s.active = 0;
   await launchScanner(s);
 }
-async function openRow(table: DataTable, row: DataRow) {
-  if (!table.fields.length) throw Error("invalidFields");
-  const s = startScanner(library.preferences, table.name, table.fields[0]);
-  s.fields = table.fields.map((name) => ({
-    name,
-    value: Object.hasOwn(row.values, name) ? row.values[name] : null,
-    status: !Object.hasOwn(row.values, name) ? "empty" : "captured",
-  }));
-  s.rowLink = { tableId: table.id, rowId: row.id };
-  s.scannerId = row.id;
-  s.scannerOutputTemplate = table.output;
-  await launchScanner(s);
-}
+
 function updateScannerMatches() {
   const s = session;
   if (!s?.scanner) return;
@@ -565,65 +532,6 @@ function bindScannerExtras() {
     await copyTask(text, t("copyTemplate"));
     notify("copied");
   });
-  click("scanner-save-row", saveScannerRow);
-}
-async function saveScannerRow() {
-  const s = session!,
-    w = structuredClone(library.workspace ?? emptyWorkspace());
-  let table = s.rowLink
-    ? w.tables.find((t) => t.id === s.rowLink!.tableId)
-    : undefined;
-  let row = table?.rows.find((r) => r.id === s.rowLink!.rowId);
-  if (s.rowLink && (!table || !row)) throw Error("rowMissing");
-  if (!table) {
-    const input = await formDialog(
-      t("saveAsRow"),
-      [
-        { key: "table", label: t("tableDestination") },
-        { key: "title", label: t("rowTitle") },
-      ],
-      t("saveAsRow"),
-      t("keep"),
-    );
-    if (!input) return;
-    if (!input.table.trim()) throw Error("nameRequired");
-    const matches = w.tables.filter(
-      (t) => t.name === input.table.trim() || t.id === input.table.trim(),
-    );
-    if (matches.length > 1) throw Error("tableAmbiguous");
-    table = matches[0];
-    row = rowFromScanner(s, input.title);
-    if (table) {
-      for (const f of s.fields)
-        if (!table.fields.includes(f.name)) table.fields.push(f.name);
-      table.rows.push(row);
-    } else {
-      table = {
-        id: veraId(),
-        name: input.table.trim(),
-        folderId: "",
-        fields: s.fields.map((f) => f.name),
-        rowTitles: true,
-        output: s.scannerOutputTemplate ?? "",
-        externalIds: [],
-        rows: [],
-      };
-      table.rows.push(row);
-      w.tables.push(table);
-    }
-  } else {
-    // A saved row may add columns, but cannot silently remove other rows' data.
-    for (const f of s.fields)
-      if (!table.fields.includes(f.name)) table.fields.push(f.name);
-    row!.values = rowFromScanner(s).values;
-    table.output = s.scannerOutputTemplate ?? "";
-  }
-  validateWorkspace(w);
-  await persist({ ...library, workspace: w });
-  s.rowLink = { tableId: table.id, rowId: row!.id };
-  s.scannerId = row!.id;
-  workspace.select(table.id);
-  notify("rowSaved");
 }
 
 function scannerHome(): string {
@@ -656,17 +564,80 @@ function scannerControls(secondaryOnly = false): string {
   return `<section class="scanner-tools" aria-label="${esc(t("scanner"))}">
     <div class="scanner-bottom-actions"><div class="toolbar">
       ${secondaryOnly ? "" : (s.mode === "verify" ? "" : button("verify-start", "verifyStart")) + button("scanner-copy", "copyField", "primary") + button("scanner-paste", "pasteToApp", "", !desktop)}
-    </div><div class="toolbar">${button("scanner-capture-mode", "scannerNewValue")}${button("scanner-rename", "renameField")}${button("scanner-save-row", s.rowLink ? "saveRow" : "saveAsRow")}</div></div>
+    </div><div class="toolbar">${button("scanner-capture-mode", "scannerNewValue")}${button("scanner-rename", "renameField")}</div></div>
     <${secondaryOnly ? "div" : "details"} id="scanner-more" class="scanner-template-panel" ${scannerMoreOpen ? "open" : ""}>${secondaryOnly ? "" : `<summary>${esc(t("scannerMore"))}</summary>`}<h2>${esc(t("scannerTemplate"))}</h2><label for="scanner-output-template">${esc(t("scannerTemplate"))}</label><textarea id="scanner-output-template" rows="3">${esc(s.scannerOutputTemplate ?? "")}</textarea><div id="scanner-template-match" class="template-match" aria-live="polite"></div><div class="toolbar">${button("scanner-add-missing", "addMissing")}${button("scanner-copy-template", "copyTemplate")}</div><h2>${esc(t("scannerOutput"))}</h2><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd> ${esc(t("mousePasteHelp"))}</p><h2>${esc(t("useTemplate"))}</h2><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}<h2>JSON</h2><div class="toolbar">${button("scanner-import", "importScanner")}${button("scanner-export-fields", "exportScannerFields")}${button("scanner-export-values", "exportScannerValues")}</div><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", s.fields[s.active]?.value === null)}${button("skip", "skip")}${button("scanner-remove", "removeField", "quiet danger", s.fields.length === 1)}</div></${secondaryOnly ? "div" : "details"}>
   </section>`;
 }
 
 function recentView() {
-  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentTemplates"))}</h1><div class="toolbar">${button("open-outputs", "recentOutputs")}${button("open-document", "openDocument", "primary")}</div></div>
+  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentTemplates"))}</h1><div class="toolbar">${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-document", "openDocument", "primary")}</div></div>
+    ${templateFolderView()}
     ${recentDocuments.length ? `<ul class="recent-list">${recentDocuments.map((item, index) => `<li><button class="template-item" data-recent="${index}"><strong>${esc(item.title)}</strong><span>${esc(item.file)}</span></button></li>`).join("")}</ul>${button("clear-recent", "clearRecent", "quiet")}` : `<p>${esc(t("recentEmpty"))}</p>`}
     ${!session && lastTemplate ? sessionRecovery() : ""}</main>`;
 }
+function templateFolderView() {
+  if (!templateFolder) return "";
+  return `<section class="template-folder" aria-labelledby="folder-heading">
+    <div class="section-head"><h2 id="folder-heading">${esc(templateFolder.name)}</h2><div class="toolbar">${button("refresh-folder", "refreshFolder", "quiet")}${button("close-folder", "closeFolder", "quiet")}</div></div>
+    ${
+      templateFolder.files.length
+        ? `${field("folder-search", "searchTemplates", "", 'type="search"')}<ul class="recent-list folder-list">${templateFolder.files
+            .map(
+              (path, index) =>
+                `<li><button class="template-item" data-folder-template="${index}">${esc(path)}</button></li>`,
+            )
+            .join(
+              "",
+            )}</ul><p id="folder-no-results" role="status" hidden>${esc(t("noResults"))}</p>`
+        : `<p>${esc(t("folderEmpty"))}</p>`
+    }
+  </section>`;
+}
+async function pickTemplateFolder() {
+  const folder = await platform.pickTemplateFolder();
+  if (!folder) return;
+  templateFolder = folder;
+  if (view === "recent") render();
+  else await navigate("recent");
+  focus(folder.files.length ? "folder-search" : "open-folder");
+}
 function bindRecent() {
+  click("open-folder", pickTemplateFolder);
+  click("refresh-folder", async () => {
+    templateFolder = await platform.refreshTemplateFolder();
+    render();
+    focus("refresh-folder");
+  });
+  click("close-folder", () => {
+    templateFolder = null;
+    render();
+    focus("open-folder");
+  });
+  const files = root.querySelectorAll<HTMLButtonElement>(
+    "[data-folder-template]",
+  );
+  files.forEach((item) => {
+    item.onclick = () =>
+      void run(async () =>
+        openDocument(
+          await platform.openFolderTemplate(
+            Number(item.dataset.folderTemplate),
+          ),
+        ),
+      );
+  });
+  on("folder-search", "input", (event) => {
+    const query = (event.target as HTMLInputElement).value
+      .trim()
+      .toLocaleLowerCase();
+    let matched = false;
+    files.forEach((item) => {
+      const visible = item.textContent!.toLocaleLowerCase().includes(query);
+      item.closest("li")!.hidden = !visible;
+      matched ||= visible;
+    });
+    document.getElementById("folder-no-results")!.hidden = matched;
+  });
   click("open-outputs", () => navigate("outputs"));
   root.querySelectorAll<HTMLButtonElement>("[data-recent]").forEach((item) => {
     item.onclick = () =>
@@ -1427,8 +1398,6 @@ async function abandonDraft() {
   return true;
 }
 async function navigate(next: typeof view) {
-  if (next === "workspace" && !library.preferences.showWorkspace)
-    next = "templates";
   if (!(await abandonDraft())) return;
   if (next === "session" && !session) return;
   const labels =
@@ -1489,7 +1458,7 @@ async function navigate(next: typeof view) {
 }
 function settingsView(): string {
   const p = (settingsDraft ??= structuredClone(library.preferences));
-  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><details class="legacy-library"><summary>${esc(t("legacyLibrary"))}</summary><p>${esc(t("legacyLibraryHelp"))}</p>${button("open-legacy-library", "templates")}</details><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("showWorkspace", "showWorkspace", p.showWorkspace ?? false)}${check("tabBetweenSections", "sectionTab", p.tabBetweenSections ?? false)}<label for="outputHistoryLimit">${esc(t("outputHistoryLimit"))}</label><input id="outputHistoryLimit" type="number" min="0" max="${maxOutputHistoryLimit}" step="1" value="${historyLimit(p)}" aria-describedby="output-history-help"><p id="output-history-help" class="hint">${esc(t("outputHistoryHelp"))}</p></section>
+  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><details class="legacy-library"><summary>${esc(t("legacyLibrary"))}</summary><p>${esc(t("legacyLibraryHelp"))}</p>${button("open-legacy-library", "templates")}</details><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("tabBetweenSections", "sectionTab", p.tabBetweenSections ?? false)}<label for="outputHistoryLimit">${esc(t("outputHistoryLimit"))}</label><input id="outputHistoryLimit" type="number" min="0" max="${maxOutputHistoryLimit}" step="1" value="${historyLimit(p)}" aria-describedby="output-history-help"><p id="output-history-help" class="hint">${esc(t("outputHistoryHelp"))}</p></section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("clipboardDefaultHelp"))}</p><p class="hint">${esc(t("quitPrivacy"))}</p></section>
   <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
@@ -1580,7 +1549,6 @@ function bindSettings() {
     "restoreClipboard",
     "focusedWorkflow",
     "hideLivePreview",
-    "showWorkspace",
     "tabBetweenSections",
   ] as const)
     on(key, "change", (e) => {
@@ -1588,7 +1556,6 @@ function bindSettings() {
       if (
         (key === "focusedWorkflow" ||
           key === "hideLivePreview" ||
-          key === "showWorkspace" ||
           key === "tabBetweenSections") &&
         !p[key]
       )
@@ -1717,6 +1684,7 @@ async function launch(
   session = nextSession;
   templateForm = form;
   groupSections = false;
+  pasteOptionsOpen = false;
   sectionTab = library.preferences.tabBetweenSections === true;
   deliveryMode =
     template.placeholderStyle === "source"
@@ -1783,13 +1751,7 @@ async function pasteTask(
   lastStep = { key: "stepPaste", name };
 }
 function taskName(s: Session): string {
-  const table = library.workspace?.tables.find(
-    (table) => table.id === s.rowLink?.tableId,
-  );
-  const row = table?.rows.find((row) => row.id === s.rowLink?.rowId);
-  return table
-    ? `${table.name}${row?.title ? ` · ${row.title}` : ""}`
-    : s.template.name;
+  return s.template.name;
 }
 function fieldLabel(s: Session, name: string) {
   return s.controls?.get(name)?.label?.trim() || name;
@@ -1835,11 +1797,6 @@ function focusedSessionView(s: Session): string {
   const active = activeSourceFields(s);
   const toolbar = `<div class="task-toolbar">${!s.scanner && s.mode !== "delivery" ? button("switch-form", "fillForm") : ""}${button("pause-task", "pauseTask")}${button("toggle-workflow", "classicView")}</div>`;
   const heading = `<header class="task-heading"><h1>${esc(taskName(s))}</h1>${toolbar}<p class="task-progress">${esc(progressText(s))}</p></header>`;
-  if (s.mode === "delivery") {
-    const parts = renderEmail(s),
-      index = s.deliveryIndex ?? 0;
-    return `<main class="capture-panel focused-session">${heading}<h2>${esc(t("nextEmail"))} · ${esc(t(parts[index].key))}</h2><ol class="email-checklist" aria-label="${esc(t("emailOrder"))}">${parts.map((part, i) => `<li ${index === i ? 'aria-current="step"' : ""}><strong>${esc(t(part.key))}</strong> · ${esc(t(emailSteps.get(part.key) ?? "transferPending"))}</li>`).join("")}</ol><pre class="output">${esc(parts[index].text)}</pre><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p>${lastStepView()}<div class="toolbar">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}</div><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p>${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("cancel-session", "cancelSession", "quiet danger")}</div></main>`;
-  }
   const ready = s.mode === "ready";
   const configured = f && s.controls?.has(f.name);
   const status = (key: Session["fields"][number]["status"]) =>
@@ -1864,7 +1821,7 @@ function focusedSessionView(s: Session): string {
     <details id="task-tools" class="task-tools" ${taskToolsOpen ? "open" : ""}><summary>${esc(t("taskTools"))}</summary><p class="hint">${esc(t("matchMeaning"))}</p>
     ${s.scanner ? `<div class="toolbar">${button("scanner-add", "addField")}<button id="scanner-reorder" aria-pressed="${scannerReordering}">${esc(t(scannerReordering ? "doneReordering" : "reorderFields"))}</button></div>${scannerControls(true)}` : `<div class="toolbar">${button("verify-start", "verifyStart")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>${!s.template.verificationEnabled && !ready ? button("finish", s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish") : ""}`}
     ${s.fields.some((field) => field.value !== null) ? `<div class="reverification"><h3>${esc(t("verifyAgain"))}</h3><div class="toolbar">${button("reverify-field", "reverifyField", "", !f || f.value === null)}${button("reverify-all", "reverifyAll")}</div></div>` : ""}
-    ${s.scanner ? `<p class="vera-id">${esc(s.scannerId)}${s.rowLink ? `<br>${esc(s.rowLink.tableId)}` : ""}</p><p class="hint">${esc(t(s.rowLink ? "rowSaveHelp" : "scannerTemporary"))}</p>` : ""}
+    ${s.scanner ? `<p class="vera-id">${esc(s.scannerId)}</p><p class="hint">${esc(t("scannerTemporary"))}</p>` : ""}
     </details>
     <details id="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary>${check("mouse-mode", "mouseMode", mouseMode)}${check("preserve-clipboard", "preserveClipboard", preserveClipboard)}<p class="hint">${esc(t("preserveClipboardHelp"))}</p><p class="hint">${esc(t("mouseHelp"))}</p><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
     ${
@@ -2095,18 +2052,38 @@ function sectionDeliveryView(s: Session) {
         ? "Tab"
         : ""
       : navigation.join(" → ");
-  return `<main class="capture-panel focused-session">
-    <div class="section-head"><h1>${esc(t("prepareSections"))}</h1>${button("pause-task", "pauseTask")}</div>
-    ${s.prepared!.length > 1 ? check("group-sections", "groupSections", groupSections) : ""}${check("section-tab", "sectionTab", sectionTab)}
-    ${parts.length > 1 ? `<label for="delivery-mode">${esc(t("deliveryMode"))}</label><select id="delivery-mode"><option value="step" ${deliveryMode === "step" ? "selected" : ""}>${esc(t("deliveryStep"))}</option><option value="sequence" ${deliveryMode === "sequence" ? "selected" : ""}>${esc(t("deliverySequence"))}</option></select>` : ""}
-    <p role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p>
-    ${parts.length > 1 && !s.deliveryDone ? `<p class="hint">${esc(t("afterSection"))} ${esc(keys || t("noNavigation"))}</p>` : ""}
-    <pre class="output">${esc(parts[index].text)}</pre>
+  return `<main class="capture-panel delivery-panel">
+    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1><p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
+    <pre class="output delivery-text" tabindex="0">${esc(parts[index].text)}</pre>
+    <div class="toolbar delivery-primary">${button("copy-section", "copySection", "primary")}${button("save-sections", "saveSections", "quiet")}</div>
     <p class="hint">${esc(t("sectionDeliveryHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd></p>
-    ${lastStepView()}
-    <div class="toolbar">${button("copy-section", "copySection", "primary")}${button("save-sections", "saveSections")}</div>
-    <div class="toolbar">${button("section-prev", "emailManualBack", "", index === 0 && !s.deliveryDone)}${button("section-next", "emailManualNext", "", index === parts.length - 1)}</div>
-    <div class="actions">${button("section-edit", "editResponses")}${button("cancel-session", "closeSession")}</div>
+    ${lastStep ? lastStepView() : ""}
+    ${parts.length > 1 ? `<div class="toolbar delivery-navigation">${button("section-prev", "emailManualBack", "", index === 0 && !s.deliveryDone)}${button("section-next", "emailManualNext", "", index === parts.length - 1)}</div>` : ""}
+    ${
+      s.prepared!.length > 1
+        ? `<details id="paste-options" ${pasteOptionsOpen ? "open" : ""}><summary>${esc(t("pasteOptions"))}</summary>
+      ${check("group-sections", "groupSections", groupSections)}${check("section-tab", "sectionTab", sectionTab)}
+      <label for="delivery-mode">${esc(t("deliveryMode"))}</label><select id="delivery-mode" ${groupSections ? "disabled" : ""}><option value="step" ${deliveryMode === "step" ? "selected" : ""}>${esc(t("deliveryStep"))}</option><option value="sequence" ${deliveryMode === "sequence" ? "selected" : ""}>${esc(t("deliverySequence"))}</option></select>
+    </details>`
+        : ""
+    }
+    ${parts.length > 1 && !s.deliveryDone ? `<p class="hint">${esc(t("afterSection"))} ${esc(keys || t("noNavigation"))}</p>` : ""}
+    <div class="toolbar delivery-exit">${button("section-edit", "editResponses", "quiet")}${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
+  </main>`;
+}
+function emailDeliveryView(s: Session) {
+  const parts = renderEmail(s),
+    index = s.deliveryIndex ?? 0;
+  const { shortcuts } = library.preferences;
+  return `<main class="capture-panel delivery-panel">
+    <header class="scanner-header"><h1>${esc(t("emailDelivery"))}</h1><p class="task-progress" role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p></header>
+    <pre class="output delivery-text" tabindex="0">${esc(parts[index].text)}</pre>
+    <div class="toolbar delivery-primary">${button("email-copy", "emailCopy", s.deliveryDone ? "" : "primary")}${button("email-done", "emailDone", s.deliveryDone ? "primary" : "quiet", !s.deliveryDone)}</div>
+    <div class="toolbar delivery-navigation">${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}</div>
+    ${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}
+    ${focusedWorkflow ? lastStepView() + `<ol class="email-checklist" aria-label="${esc(t("emailOrder"))}">${parts.map((part, i) => `<li ${index === i ? 'aria-current="step"' : ""}><strong>${esc(t(part.key))}</strong> · ${esc(t(emailSteps.get(part.key) ?? "transferPending"))}</li>`).join("")}</ol>` : ""}
+    <details><summary>${esc(t("pasteOptions"))}</summary><p>${esc(t("emailDeliveryHelp"))}</p><p><kbd>${esc(shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p>${esc(t("emailBackHelp"))}</p></details>
+    <div class="toolbar delivery-exit">${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "cancelSession", "quiet")}</div>
   </main>`;
 }
 function freeScannerOutput(s: Session) {
@@ -2202,7 +2179,9 @@ function sessionView(): string {
   const s = session,
     p = library.preferences,
     f = s.fields[s.active];
-  if (s.mode === "delivery" && s.prepared) return sectionDeliveryView(s);
+  if (s.mode === "delivery") {
+    return s.prepared ? sectionDeliveryView(s) : emailDeliveryView(s);
+  }
   if (templateFormActive()) return templateFormView(s);
   if (s.template.placeholderStyle === "source") return sourceScannerView(s);
   if (focusedWorkflow && !["review", "complete"].includes(s.mode))
@@ -2211,11 +2190,6 @@ function sessionView(): string {
     return `<main class="capture-panel"><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailReviewHelp" : "extraFieldsReviewHelp"))}</p><div class="actions">${button("email-to-scanner", "emailToScanner", "primary")}${button("email-clear-close", "clearClose", "danger") + button("close-session", "closeSession")}</div>${!p.clearAfterCompletion ? outputPreview(s.template, s) + button("retain-email-results", "closeSession") : ""}${sessionRecovery(s)}</main>`;
   if (s.mode === "complete")
     return `<main class="capture-panel"><p class="eyebrow">${esc(t("app"))}</p><h1>✓ ${esc(t(s.template.email?.enabled ? "emailDone" : "complete"))}</h1><p>${esc(t(s.template.email?.enabled ? "emailFinished" : "copied"))}</p><p class="muted">${esc(t(p.clearAfterCompletion || !s.fields.some((f) => f.value !== null) ? "erased" : "retained"))}</p>${button("close-session", returnToScanner ? "returnScanner" : "closeSession", "primary")}${!p.clearAfterCompletion && !s.scanner && s.fields.some((f) => f.value !== null) ? outputPreview(s.template, s) + button("erase-results", "eraseSession", "quiet danger") : ""}${sessionRecovery(s)}</main>`;
-  if (s.mode === "delivery") {
-    const parts = renderEmail(s),
-      index = s.deliveryIndex ?? 0;
-    return `<main class="capture-panel"><div class="task-toolbar">${button("pause-task", "pauseTask")}${button("toggle-workflow", "focusedView")}</div><h1>${esc(t("emailDelivery"))}</h1><p class="hint">${esc(t("emailDeliveryHelp"))}</p><p role="status">${esc(t(parts[index].key))} · ${index + 1}/${parts.length}</p><pre class="output">${esc(parts[index].text)}</pre><p><kbd>${esc(p.shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(p.shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p class="hint">${esc(t("emailBackHelp"))}</p>${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}<div class="actions">${button("email-copy", "emailCopy")}${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}${button("email-done", "emailDone", "primary", !s.deliveryDone)}${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div></main>`;
-  }
   const active = activeSourceFields(s);
   const mode = s.mode === "verify" ? "verify" : "capture";
   const done = s.fields.filter(
@@ -2243,9 +2217,9 @@ function sessionView(): string {
       preview = false;
     }
   }
-  return `<main class="capture-panel ${s.scanner ? "scanner-panel" : ""}"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${!s.scanner ? button("switch-form", "fillForm") : ""}${button("toggle-workflow", "focusedView")}${button("pause-task", "pauseTask")}${button("session-back", s.scanner && library.preferences.showWorkspace ? "workspace" : "recentTemplates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
+  return `<main class="capture-panel ${s.scanner ? "scanner-panel" : ""}"><div class="section-head session-heading"><h1>${esc(s.scanner ? t("scanner") : s.template.name)}</h1>${!s.scanner ? button("switch-form", "fillForm") : ""}${button("toggle-workflow", "focusedView")}${button("pause-task", "pauseTask")}${button("session-back", "recentTemplates")}</div><p class="eyebrow" role="status">${esc(t(s.mode))} · ${done}/${s.fields.length}</p>
   ${s.scanner ? '<div class="scanner-layout free-scanner-layout"><div class="scanner-work">' : ""}
-  ${s.scanner ? `<p class="vera-id">${esc(s.rowLink?.rowId ?? s.scannerId)}${s.rowLink ? `<br>${esc(s.rowLink.tableId)}` : ""}</p><p class="hint">${esc(t(s.rowLink ? "rowSaveHelp" : "scannerTemporary"))}</p>` : ""}
+  ${s.scanner ? `<p class="vera-id">${esc(s.scannerId)}</p><p class="hint">${esc(t("scannerTemporary"))}</p>` : ""}
   ${f && s.controls?.has(f.name) ? activeScannerControl(s) : ""}
   ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label>${manualValueEditor(s)}<div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>${!s.scanner ? `<p class="hint">${esc(t("clipboardHelp"))}</p>` : ""}</details>` : ""}
   ${mouseMode ? `<div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
@@ -2370,6 +2344,10 @@ function bindSession() {
     await switchTemplateView(templateForm);
     delete session!.prepared;
     recordedOutputs.delete(session!);
+  });
+  on("paste-options", "toggle", (event) => {
+    const options = event.target as HTMLDetailsElement;
+    if (options.isConnected) pasteOptionsOpen = options.open;
   });
   on("group-sections", "change", (event) => {
     groupSections = (event.target as HTMLInputElement).checked;
@@ -2517,11 +2495,7 @@ function bindSession() {
     render();
     focus("toggle-workflow");
   });
-  click("pause-task", () =>
-    navigate(
-      session?.template.placeholderStyle === "source" ? "recent" : "workspace",
-    ),
-  );
+  click("pause-task", () => navigate("recent"));
   on("task-tools", "toggle", (event) => {
     if ((event.target as HTMLElement).isConnected)
       taskToolsOpen = (event.target as HTMLDetailsElement).open;
@@ -2700,13 +2674,7 @@ function bindSession() {
     returnToScanner = false;
     await closeSession();
   });
-  click("session-back", () =>
-    navigate(
-      session?.scanner && library.preferences.showWorkspace
-        ? "workspace"
-        : "recent",
-    ),
-  );
+  click("session-back", () => navigate("recent"));
   click("erase-results", () => {
     eraseSession(session!);
     render();
@@ -3100,9 +3068,8 @@ async function requestSessionClose(s: Session, confirmDiscard: boolean) {
       const choice = await actionDialog(
         "closeSourceTitle",
         "",
-        `<button value="no" autofocus>${esc(t("keep"))}</button>
-        <button value="discard" class="danger">${esc(t("closeWithoutSaving"))}</button>
-        <button value="text" class="primary">${esc(t("saveSections"))}</button>`,
+        `<div class="close-save-actions"><button value="text" class="primary">${esc(t("saveSections"))}</button></div>
+        <div class="close-exit-actions"><button value="no" class="quiet" autofocus>${esc(t("keep"))}</button><button value="discard" class="quiet danger">${esc(t("closeWithoutSaving"))}</button></div>`,
       );
       if (choice === "text") {
         if (!(await platform.exportTemplates(text, "veraflow-output.txt")))
@@ -3129,10 +3096,11 @@ async function saveBeforeClose(s: Session) {
   const choice = await actionDialog(
     "closeSourceTitle",
     `<p>${esc(t(parts ? "closeSourceHelp" : "closeSourceIncomplete"))}</p>`,
-    `<button value="no" autofocus>${esc(t("keep"))}</button>
-     <button value="discard" class="danger">${esc(t("closeWithoutSaving"))}</button>
-     <button value="text" ${parts ? "" : "disabled"}>${esc(t("saveSections"))}</button>
-     <button value="prefilled" class="primary">${esc(t("savePrefilled"))}</button>`,
+    `<div class="close-save-actions">
+       ${parts ? `<button value="text" class="primary">${esc(t("saveSections"))}</button>` : ""}
+       <button value="prefilled" class="${parts ? "" : "primary"}">${esc(t("savePrefilled"))}</button>
+     </div>
+     <div class="close-exit-actions"><button value="no" class="quiet" autofocus>${esc(t("keep"))}</button><button value="discard" class="quiet danger">${esc(t("closeWithoutSaving"))}</button></div>`,
   );
   if (choice === "discard") return true;
   if (choice === "text" && parts) {
@@ -3189,10 +3157,7 @@ async function closeSession() {
       returnToScanner = true;
       throw error;
     }
-  } else
-    await navigate(
-      wasScanner ? "workspace" : wasSource ? "recent" : "templates",
-    );
+  } else await navigate(wasScanner || wasSource ? "recent" : "templates");
 }
 async function confirmAction(
   key: Key,
@@ -3223,6 +3188,8 @@ async function actionDialog(title: Key, body: string, actions: string) {
   const prior = document.activeElement as HTMLElement | null;
   const dialog = document.createElement("dialog");
   dialog.setAttribute("aria-labelledby", "confirmation-title");
+  if (title === "closeSourceTitle")
+    dialog.classList.add("session-close-dialog");
   dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(title))}</h2>${body}<div class="actions">${actions}</div></form>`;
   document.body.append(dialog);
   dialog.showModal();
@@ -3409,7 +3376,6 @@ async function init() {
     layoutOverride === null
       ? library.preferences.focusedWorkflow === true
       : layoutOverride === "focused";
-  if (library.preferences.showWorkspace) view = "workspace";
   recentDocuments = await platform.recentDocuments().catch(() => []);
   if (library.templates[0]) selectTemplate(library.templates[0].id);
   render();
@@ -3448,6 +3414,7 @@ async function init() {
           await platform.quit();
         } else if (action === "update") await updateApp();
         else if (action === "open") await pickDocument();
+        else if (action === "folder") await pickTemplateFolder();
         else if (action === "outputs") await navigate("outputs");
         else if (action.startsWith("recent-"))
           await openDocument(
