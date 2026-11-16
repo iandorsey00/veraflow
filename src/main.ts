@@ -125,6 +125,8 @@ let focusedWorkflow = layoutOverride === "focused";
 let typingCheck = false;
 let groupSections = false;
 let pasteOptionsOpen = false;
+let sectionOrderOpen = false;
+let pasteOrder: number[] | null = null;
 let sectionTab = false;
 let deliveryMode: DeliveryMode = "step";
 let lastTemplate: { definition: Template; typing: boolean } | null = null;
@@ -1686,6 +1688,8 @@ async function launch(
   templateForm = form;
   groupSections = false;
   pasteOptionsOpen = false;
+  sectionOrderOpen = false;
+  pasteOrder = null;
   sectionTab = library.preferences.tabBetweenSections === true;
   deliveryMode =
     template.placeholderStyle === "source"
@@ -2030,18 +2034,41 @@ function deliveredSections(s: Session) {
           text: parts.map((part) => part.text).join("\n"),
         },
       ]
-    : parts;
+    : (pasteOrder?.map((index) => parts[index]) ?? parts);
+}
+// Keep exports in template order. Grouping still saves one block when explicitly selected.
+function exportSections(s: Session) {
+  return groupSections && s.prepared
+    ? deliveredSections(s)
+    : (s.prepared ?? prepareSections(s));
 }
 function sectionNavigation(
   s: Session,
   parts: NonNullable<Session["prepared"]>,
   index: number,
 ) {
-  if (index === parts.length - 1 || groupSections) return false;
+  if (index === parts.length - 1 || groupSections || pasteOrder) return false;
   const configured = parseSource(s.template.content).delivery.after.get(
     parts[index].id,
   );
   return configured ?? sectionTab;
+}
+function sectionOrderView(parts: NonNullable<Session["prepared"]>) {
+  return `<div id="section-order-panel" class="section-order-panel">
+    <p class="hint">${esc(t("sectionOrderHelp"))}</p>
+    <ol class="section-order-list" aria-label="${esc(t("sectionOrder"))}">
+      ${parts
+        .map(
+          (part, index) => `
+        <li><span>${esc(part.label)}</span>
+          <button id="section-order-${index}-up" data-order-index="${index}" data-order-move="-1" aria-label="${esc(t("moveUp") + " " + part.label)}" ${index === 0 ? "disabled" : ""}>↑</button>
+          <button id="section-order-${index}-down" data-order-index="${index}" data-order-move="1" aria-label="${esc(t("moveDown") + " " + part.label)}" ${index === parts.length - 1 ? "disabled" : ""}>↓</button>
+        </li>`,
+        )
+        .join("")}
+    </ol>
+    ${button("reset-section-order", "resetSectionOrder", "quiet", !pasteOrder)}
+  </div>`;
 }
 function sectionDeliveryView(s: Session) {
   const parts = deliveredSections(s),
@@ -2063,11 +2090,16 @@ function sectionDeliveryView(s: Session) {
     ${
       s.prepared!.length > 1
         ? `<details id="paste-options" ${pasteOptionsOpen ? "open" : ""}><summary>${esc(t("pasteOptions"))}</summary>
-      ${check("group-sections", "groupSections", groupSections)}${check("section-tab", "sectionTab", sectionTab)}
-      <label for="delivery-mode">${esc(t("deliveryMode"))}</label><select id="delivery-mode" ${groupSections ? "disabled" : ""}><option value="step" ${deliveryMode === "step" ? "selected" : ""}>${esc(t("deliveryStep"))}</option><option value="sequence" ${deliveryMode === "sequence" ? "selected" : ""}>${esc(t("deliverySequence"))}</option></select>
+      <button id="reorder-sections" aria-expanded="${sectionOrderOpen}" ${sectionOrderOpen ? 'aria-controls="section-order-panel"' : ""} ${groupSections ? "disabled" : ""}>${esc(t("reorderSections"))}</button>
+      ${sectionOrderOpen ? sectionOrderView(parts) : ""}
+      <fieldset class="section-delivery-settings" ${pasteOrder ? "disabled" : ""}>
+        ${check("group-sections", "groupSections", groupSections)}${check("section-tab", "sectionTab", !pasteOrder && sectionTab)}
+        <label for="delivery-mode">${esc(t("deliveryMode"))}</label><select id="delivery-mode" ${groupSections ? "disabled" : ""}><option value="step" ${pasteOrder || deliveryMode === "step" ? "selected" : ""}>${esc(t("deliveryStep"))}</option><option value="sequence" ${!pasteOrder && deliveryMode === "sequence" ? "selected" : ""}>${esc(t("deliverySequence"))}</option></select>
+      </fieldset>
     </details>`
         : ""
     }
+    ${pasteOrder ? `<p class="hint" role="status">${esc(t("manualSectionOrder"))}</p>` : ""}
     ${parts.length > 1 && !s.deliveryDone ? `<p class="hint">${esc(t("afterSection"))} ${esc(keys || t("noNavigation"))}</p>` : ""}
     <div class="toolbar delivery-exit">${button("section-edit", "editResponses", "quiet")}${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
   </main>`;
@@ -2336,9 +2368,41 @@ function bindSession() {
   });
   click("save-sections", async () => {
     const s = session!;
-    if (await saveSectionText(deliveredSections(s)))
+    if (await saveSectionText(exportSections(s)))
       await rememberOutput(s, sectionText(s.prepared!));
   });
+  click("reorder-sections", () => {
+    sectionOrderOpen = !sectionOrderOpen;
+    pasteOptionsOpen = true;
+    render();
+    focus("reorder-sections");
+  });
+  click("reset-section-order", () => {
+    pasteOrder = null;
+    session!.deliveryIndex = 0;
+    session!.deliveryDone = false;
+    render();
+    focus("reorder-sections");
+  });
+  root
+    .querySelectorAll<HTMLButtonElement>("[data-order-move]")
+    .forEach((item) => {
+      click(item.id, () => {
+        const s = session!;
+        const index = Number(item.dataset.orderIndex);
+        const offset = Number(item.dataset.orderMove);
+        const target = index + offset;
+        const length = s.prepared!.length;
+        const order = pasteOrder ?? s.prepared!.map((_, index) => index);
+        [order[index], order[target]] = [order[target], order[index]];
+        pasteOrder = order;
+        s.deliveryIndex = 0;
+        s.deliveryDone = false;
+        render();
+        const moveUp = offset < 0 ? target > 0 : target === length - 1;
+        focus(`section-order-${target}-${moveUp ? "up" : "down"}`);
+      });
+    });
   click("section-prev", () => perform("previous"));
   click("section-next", () => perform("next"));
   click("section-edit", async () => {
@@ -2352,6 +2416,7 @@ function bindSession() {
   });
   on("group-sections", "change", (event) => {
     groupSections = (event.target as HTMLInputElement).checked;
+    sectionOrderOpen = false;
     session!.deliveryIndex = 0;
     session!.deliveryDone = false;
     render();
@@ -2849,7 +2914,8 @@ async function perform(action: Action, global = false) {
       s.deliveryIndex = Math.min(index + 1, parts.length - 1);
       s.deliveryDone = false;
     } else if (action === "finish" && global && !s.deliveryDone) {
-      const sequence = deliveryMode === "sequence" && index < parts.length - 1;
+      const sequence =
+        !pasteOrder && deliveryMode === "sequence" && index < parts.length - 1;
       // Keep the whole sequence bound to its initial external destination.
       const target = sequence ? await platform.deliveryTarget() : undefined;
       const end = sequence ? parts.length : index + 1;
@@ -3093,7 +3159,7 @@ async function saveBeforeClose(s: Session) {
         '.template-form [data-form-row]:not([hidden]) [aria-invalid="true"]',
       )
     )
-      parts = s.prepared ? deliveredSections(s) : prepareSections(s);
+      parts = exportSections(s);
   } catch {
     // Unfinished responses can still be saved as an editable template.
   }

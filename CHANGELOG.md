@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.0
+
+- Reorder named output sections for the current session under **Paste options**. A custom order restarts at the first section and pastes one section at a time without navigation keys. Reset to recover the template order and previous paste settings.
+- Text exports and recent output keep the template order.
+
 ## 0.10.0
 
 - Open and search template folders from the launcher. Use ordinary files and subfolders to organize work.

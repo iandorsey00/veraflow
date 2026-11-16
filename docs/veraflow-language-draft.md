@@ -91,6 +91,12 @@ Try the [RMA template](../examples/source/rma.veraflow). Its Boolean controls th
 2. Focus the destination and press the output shortcut. The Windows default is **Ctrl+Alt+8**. VeraFlow pastes one section at a time. **Press Tab where the template has no keys** is opt-in. **Paste sections together** groups the sections with newline separators.
 3. A failed paste keeps the section selected. Check the destination before retrying, or use **Copy current section** and paste manually. Previous and next move within the prepared output. **Save output as text** saves plain text, with section labels when exporting several separate sections. **Edit responses** returns to the session. Prepared output stays in memory until you close, replace, or edit the session.
 
+### Change the paste order for a session
+
+Open **Paste options → Reorder sections…** on the output screen. Use the up and down buttons to match the destination's field order. Moving a section restarts at the first section. While the custom order is active, VeraFlow pastes one section per shortcut and sends no navigation keys. Put the cursor in each destination field before pasting.
+
+**Reset to template order** restores the original order and the paste settings you had before reordering. The override affects delivery and manual section navigation. Text exports, saved templates, and recent output retain the template order. The next session starts with template order.
+
 ### Keystrokes between sections
 
 Use the optional top-level `delivery` object. `mode` defaults to `"step"`. In step mode, one shortcut pastes the current section, issues its keys, and waits for the next shortcut. Set `"mode": "sequence"` to paste all remaining sections from the current position with one shortcut. **Paste options → Paste mode** overrides this preference for the current session.

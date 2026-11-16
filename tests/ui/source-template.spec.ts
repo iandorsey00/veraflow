@@ -330,9 +330,7 @@ test("canceling a save leaves the source session open", async ({ page }) => {
   await expect(page.locator("#nav-settings")).toBeVisible();
 });
 
-test("explicit navigation works in step and sequence mode and failure retains the pending section", async ({
-  page,
-}) => {
+async function mockSectionPaste(page: Page) {
   await page.route("**/src/platform.ts*", async (route) => {
     const response = await route.fetch();
     await route.fulfill({
@@ -350,6 +348,12 @@ test("explicit navigation works in step and sequence mode and failure retains th
       `,
     });
   });
+}
+
+test("explicit navigation works in step and sequence mode and failure retains the pending section", async ({
+  page,
+}) => {
+  await mockSectionPaste(page);
   await page.goto("/");
   await pickDocument(
     page,
@@ -390,6 +394,88 @@ test("explicit navigation works in step and sequence mode and failure retains th
       "same-target",
     ],
   ]);
+});
+
+test("keyboard section reordering uses single-step paste without keys and keeps exports in template order", async ({
+  page,
+}) => {
+  await mockSectionPaste(page);
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "step-tabs.veraflow",
+    (await fixture("step-tabs.veraflow")).toString(),
+  );
+  await page.locator("#finish").click();
+  await page.locator("#paste-options summary").click();
+  const mode = page.locator("#delivery-mode");
+  await mode.selectOption("sequence");
+  await page.locator("#section-tab").check();
+  await page.getByRole("button", { name: "Reorder sections…" }).press("Enter");
+  await page.getByRole("button", { name: "Move up Subject" }).press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Move down Subject" }),
+  ).toBeFocused();
+  const list = page.getByRole("list", { name: "Section paste order" });
+  await expect(list.locator("li > span")).toHaveText([
+    "Subject",
+    "Recipient",
+    "Body",
+  ]);
+  await expect(mode).toHaveValue("step");
+  await expect(mode).toBeDisabled();
+  await expect(page.locator("#section-tab")).toBeDisabled();
+  await expect(page.locator("#section-tab")).not.toBeChecked();
+  const output = page.locator(".output");
+  await expect(output).toHaveText("Booking VF-104");
+  await page.evaluate(() =>
+    (window as unknown as TestWindow).vfDispatch("finish"),
+  );
+  await expect(output).toHaveText("alex@example.test");
+  expect(
+    await page.evaluate(() => (window as unknown as TestWindow).vfPastes),
+  ).toEqual([["Booking VF-104", false, null]]);
+  await page.locator("#section-prev").click();
+  await expect(output).toHaveText("Booking VF-104");
+
+  const expected =
+    "Recipient\nalex@example.test\n\nSubject\nBooking VF-104\n\nBody\nHello Alex Example,\nYour booking is ready for review.";
+  const download = page.waitForEvent("download");
+  await page.locator("#save-sections").click();
+  expect(await readFile((await (await download).path())!, "utf8")).toBe(
+    expected,
+  );
+
+  await page.getByRole("button", { name: "Reset to template order" }).click();
+  await expect(list.locator("li > span")).toHaveText([
+    "Recipient",
+    "Subject",
+    "Body",
+  ]);
+  await expect(output).toHaveText("alex@example.test");
+  await expect(mode).toHaveValue("sequence");
+  await expect(mode).toBeEnabled();
+  await expect(page.locator("#section-tab")).toBeChecked();
+
+  await page.getByRole("button", { name: "Move up Subject" }).click();
+  await page.locator("#cancel-session").click();
+  const closeDownload = page.waitForEvent("download");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save output as text" })
+    .click();
+  expect(await readFile((await (await closeDownload).path())!, "utf8")).toBe(
+    expected,
+  );
+
+  await pickDocument(
+    page,
+    "step-tabs.veraflow",
+    (await fixture("step-tabs.veraflow")).toString(),
+  );
+  await page.locator("#finish").click();
+  await expect(output).toHaveText("alex@example.test");
+  await expect(mode).toHaveValue("step");
 });
 
 test("opens titled recent files and presents conditional choices before dependent fields", async ({

@@ -31,6 +31,13 @@ export const en = {
   folderReadFailed: "VeraFlow could not read this folder.",
   folderTooLarge: "This folder is too large. Choose a smaller folder.",
   pasteOptions: "Paste options",
+  reorderSections: "Reorder sections…",
+  sectionOrder: "Section paste order",
+  resetSectionOrder: "Reset to template order",
+  sectionOrderHelp:
+    "Moving a section restarts at the first section. Saved text keeps the template order.",
+  manualSectionOrder:
+    "Custom paste order. Place the cursor before each paste. VeraFlow pastes one section and sends no navigation keys.",
   outputHeading: "Output",
   recentTemplates: "Recently opened templates",
   recentEmpty: "Open a .veraflow or .vf file to start.",

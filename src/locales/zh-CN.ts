@@ -28,6 +28,13 @@ export const zh: Record<keyof typeof en, string> = {
   folderReadFailed: "无法读取此文件夹。",
   folderTooLarge: "文件夹过大。请选择较小的文件夹。",
   pasteOptions: "粘贴选项",
+  reorderSections: "调整区段顺序…",
+  sectionOrder: "区段粘贴顺序",
+  resetSectionOrder: "恢复模板顺序",
+  sectionOrderHelp:
+    "移动区段后将从第一个区段重新开始。保存的文本仍采用模板顺序。",
+  manualSectionOrder:
+    "已使用自定义粘贴顺序。每次粘贴前请先定位光标。VeraFlow 每次只粘贴一个区段，不发送导航按键。",
   outputHeading: "输出",
   recentTemplates: "最近打开的模板",
   recentEmpty: "打开 .veraflow 或 .vf 文件以开始。",

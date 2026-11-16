@@ -1,5 +1,9 @@
 # Release and rollback
 
+## 0.11.0 session paste order
+
+Proportional release cycle for a change to source output delivery in the frontend. The reorder setting applies only to the active session. The existing package signature, checksum, and feed checks still run. On Windows and macOS, try reordering a multi-section template with navigation keys configured, paste each section separately, and reset to confirm the original settings return. The file formats and stored preferences use the same schema as 0.10.0.
+
 ## 0.10.0 file-based workflows
 
 Full release cycle: this is the first public preview of source templates, prefilled files, CSV sessions, native folder browsing, and configurable paste delivery. The public tag runs both platform checks and gates all three packages on updater signature, authenticated-version, checksum, and feed verification.

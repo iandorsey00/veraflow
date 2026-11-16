@@ -4,7 +4,7 @@ VeraFlow is a local desktop app for capturing, checking, and reusing text on mac
 
 ## Install
 
-Get the [v0.10.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.10.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.11.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.11.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
 - **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
@@ -23,7 +23,7 @@ A template can be as simple as `Hello {{name}}`. The [source file guide](docs/ve
 
 1. Open a template as a fill-in form or in Scanner. Scanner can capture selected text from another app, use text you copied yourself, or accept manual typing and paste.
 2. When verification is enabled, select the original text again to compare it with the captured value. VeraFlow keeps both values visible if they differ and does not overwrite the capture. To check a value again, select it and use **Verify again…**.
-3. Review the live preview, then prepare the output. Copy or save it, or use the paste shortcut in the intended destination. **Paste options** shows the delivery mode; step-by-step is useful if you want to check the destination after each section. When closing, keep a prefilled copy to edit later, save completed output as text, or close without saving.
+3. Review the live preview, then prepare the output. Copy or save it, or use the paste shortcut in the intended destination. Use **Paste options → Reorder sections…** when the destination has a different field order. A custom order uses one section per shortcut and sends no navigation keys. When closing, keep a prefilled copy to edit later, save completed output as text, or close without saving.
 
 Default global shortcuts are Ctrl+Alt+1–8 on Windows and Cmd+Option+1–8 on macOS: capture, previous, next, clear, skip, verify, cancel, and output. Change them in Settings. In VeraFlow, Cmd/Ctrl+Enter submits manual entry, and Alt+Left/Right moves between fields. Some protected apps block synthetic input, so copy and paste manually if direct transfer fails. When a paste fails partway through, inspect the destination before resuming; the pending output stays available to copy.
 
