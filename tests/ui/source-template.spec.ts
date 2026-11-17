@@ -282,7 +282,9 @@ test("saves incomplete responses as a file and reopens an editable copy", async 
   const download = page.waitForEvent("download");
   await dialog.getByRole("button", { name: "Save prefilled template" }).click();
   const snapshot = await download;
-  expect(snapshot.suggestedFilename()).toBe("prefilled-template.veraflow");
+  expect(snapshot.suggestedFilename()).toMatch(
+    /^.+-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.veraflow$/,
+  );
   await pickDocument(
     page,
     snapshot.suggestedFilename(),
@@ -768,4 +770,60 @@ test("opens a nested template from a selected folder and keeps the folder after 
   } finally {
     await rm(folder, { recursive: true, force: true });
   }
+});
+
+test("prepared form output enters history and the close dialog resumes filled responses", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "inline-greeting.veraflow",
+    (await fixture("inline-greeting.veraflow")).toString(),
+  );
+  const fields = page.locator(".template-form [data-form-row]");
+  await expect(fields.first()).toContainText("formal");
+  await page.getByLabel("Name", { exact: true }).fill("Alex");
+  await page.locator("#finish").click();
+  await page.locator("#paste-options summary").click();
+  await page.locator("#group-sections").check();
+  await expect(page.locator(".output")).toHaveJSProperty(
+    "textContent",
+    "desk@example.com\n\nHello Alex, your order is ready.",
+  );
+  await page.locator("#cancel-session").click();
+  await page.getByRole("button", { name: "Return to filled form" }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Alex");
+  await page.locator("#cancel-session").click();
+  await page.getByRole("button", { name: "Close without saving" }).click();
+  await page.locator("#open-outputs").click();
+  await page.locator("#output-0").click();
+  await expect(page.locator(".history-output")).toContainText(
+    "Hello Alex, your order is ready.",
+  );
+});
+
+test("source Scanner uses choices directly rather than the clipboard", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const source = (await fixture("inline-greeting.veraflow"))
+    .toString()
+    .replace('"workflow": "form"', '"workflow": "scanner"')
+    .replace(', "default": false', "");
+  await pickDocument(page, "inline-greeting.veraflow", source);
+  await expect(page.locator("#scanner-control legend")).toHaveText("formal");
+  await expect(page.locator("#manual-entry")).toHaveCount(0);
+  const yes = page.getByRole("radio", { name: "Yes" });
+  await yes.check();
+  await yes.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Compare value" }),
+  ).toBeVisible();
+  await yes.check();
+  await yes.press("Enter");
+  await page.locator("#finish").click();
+  await expect(page.locator(".output")).toHaveText(
+    '"Joe Sample" <joe.sample@example.com>',
+  );
 });

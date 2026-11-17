@@ -110,7 +110,8 @@ let templateFolder: FolderListing | null = null;
 let recentDocuments: RecentDocument[] = [];
 let outputLabels: OutputLabel[] = [];
 let selectedOutput: { index: number; text: string } | null = null;
-let recordedOutputs = new WeakSet<Session>();
+// Track the latest text per session to avoid duplicates across prepare, copy, and export.
+let recordedOutputs = new WeakMap<Session, string>();
 const historyLimit = (p = library.preferences) =>
   p.outputHistoryLimit ?? defaultOutputHistoryLimit;
 let selected = "",
@@ -704,7 +705,7 @@ function bindOutputs() {
     )
       return;
     await platform.trimOutputs(0);
-    recordedOutputs = new WeakSet();
+    recordedOutputs = new WeakMap();
     outputLabels = [];
     selectedOutput = null;
     render();
@@ -1613,7 +1614,7 @@ function bindSettings() {
     await refreshTrayMenu();
     if (limit !== historyLimit(old)) {
       await platform.trimOutputs(limit);
-      if (!limit) recordedOutputs = new WeakSet();
+      if (!limit) recordedOutputs = new WeakMap();
     }
     notify("saved");
   });
@@ -1729,10 +1730,10 @@ async function launch(
 }
 async function rememberOutput(s: Session, text: string) {
   const limit = historyLimit();
-  if (!limit || recordedOutputs.has(s)) return;
+  if (!limit || recordedOutputs.get(s) === text) return;
   try {
     await platform.recordOutput(s.template.name, text, limit);
-    recordedOutputs.add(s);
+    recordedOutputs.set(s, text);
   } catch (error) {
     notify(
       (error instanceof Error ? error.message : String(error)) === "historyFull"
@@ -1891,7 +1892,9 @@ function fieldControl(
         : text,
     ]);
     const conditionalChoice =
-      options.length <= 5 && sourceConditionDrivers(s).includes(field.name);
+      options.length <= 5 &&
+      (sourceConditionDrivers(s).includes(field.name) ||
+        (s.template.placeholderStyle === "source" && id === "scanner-control"));
     if (definition.kind === "radio" || conditionalChoice) {
       if (
         conditionalChoice &&
@@ -1943,7 +1946,7 @@ function templateFormView(s: Session): string {
   const fields = s.fields
     .map((field, index) => ({ field, index }))
     .filter(({ field }) => active || fieldVisible(s, field.name));
-  // Dependencies precede their fields. Other selections follow the text fields.
+  // Put choices first and prioritize condition drivers within each group.
   const dependencies = new Set([
     ...sourceConditionDrivers(s),
     ...[...(s.controls?.values() ?? [])].flatMap((control) =>
@@ -1951,7 +1954,7 @@ function templateFormView(s: Session): string {
     ),
   ]);
   const rank = (name: string) =>
-    dependencies.has(name) ? 0 : s.controls?.get(name)?.options ? 2 : 1;
+    (s.controls?.get(name)?.options ? 0 : 2) + (dependencies.has(name) ? 0 : 1);
   fields.sort((a, b) => rank(a.field.name) - rank(b.field.name));
   const f = s.fields[s.active];
   return `<main class="capture-panel template-form ${focusedWorkflow ? "focused-session" : ""}">
@@ -2031,7 +2034,9 @@ function deliveredSections(s: Session) {
         {
           id: "group",
           label: t("allSections"),
-          text: parts.map((part) => part.text).join("\n"),
+          text: parts
+            .map((part) => part.text)
+            .join(parseSource(s.template.content).delivery.separator),
         },
       ]
     : (pasteOrder?.map((index) => parts[index]) ?? parts);
@@ -2133,8 +2138,16 @@ function freeScannerPreview(s: Session) {
   </aside>`;
 }
 
+function sourceScannerChoice(s: Session) {
+  return (
+    s.template.placeholderStyle === "source" &&
+    !!s.controls?.get(s.fields[s.active]?.name)?.options
+  );
+}
 function focusSourceScanner() {
   if (session?.mode === "ready") return "finish";
+  if (session && sourceScannerChoice(session))
+    return controlFocus("scanner-control");
   return !manualOpen && document.getElementById("scanner-control")
     ? controlFocus("scanner-control")
     : "manual-value";
@@ -2143,6 +2156,7 @@ function focusSourceScanner() {
 function sourceScannerView(s: Session) {
   const field = s.fields[s.active];
   const checking = s.mode === "verify";
+  const choice = sourceScannerChoice(s);
   const ready = s.mode === "ready";
   const active = activeSourceFields(s);
   const showPreview = !library.preferences.hideLivePreview;
@@ -2162,12 +2176,16 @@ function sourceScannerView(s: Session) {
             !ready && field
               ? `
             ${s.controls?.has(field.name) ? activeScannerControl(s, true) : ""}
-            <details id="manual-entry" ${manualOpen || !s.controls?.has(field.name) ? "open" : ""}>
+            ${
+              choice
+                ? ""
+                : `<details id="manual-entry" ${manualOpen || !s.controls?.has(field.name) ? "open" : ""}>
               <summary>${esc(t(s.controls?.has(field.name) ? "clipboard" : "manualEntry"))}</summary>
               <form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label>${manualValueEditor(s)}
               <div class="toolbar">${button("apply-value", checking ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>
-            </details>
-            <div class="toolbar scanner-navigation">${button("previous", "previous")}${mouseMode ? button("mouse-transfer", checking ? "compareSelection" : "transfer", "", !desktop) : ""}${button("next", "next")}</div>`
+            </details>`
+            }
+            <div class="toolbar scanner-navigation">${button("previous", "previous")}${!choice && mouseMode ? button("mouse-transfer", checking ? "compareSelection" : "transfer", "", !desktop) : ""}${button("next", "next")}</div>`
               : `<div class="toolbar">${button("finish", "prepareSections", "primary")}</div>`
           }
         </section>
@@ -2359,6 +2377,10 @@ function selectSessionField(index: number) {
   )
     manualOpen = true;
 }
+async function editSourceResponses(s: Session) {
+  await switchTemplateView(s.typing === true);
+  delete s.prepared;
+}
 function bindSession() {
   click("copy-section", async () => {
     const part = deliveredSections(session!)[session!.deliveryIndex ?? 0];
@@ -2405,11 +2427,7 @@ function bindSession() {
     });
   click("section-prev", () => perform("previous"));
   click("section-next", () => perform("next"));
-  click("section-edit", async () => {
-    await switchTemplateView(templateForm);
-    delete session!.prepared;
-    recordedOutputs.delete(session!);
-  });
+  click("section-edit", () => editSourceResponses(session!));
   on("paste-options", "toggle", (event) => {
     const options = event.target as HTMLDetailsElement;
     if (options.isConnected) pasteOptionsOpen = options.open;
@@ -2974,6 +2992,8 @@ async function perform(action: Action, global = false) {
   }
   switch (action) {
     case "capture":
+      if (sourceScannerChoice(s) && s.mode !== "ready")
+        throw Error("scannerChooseOption");
       if (s.mode === "verify")
         await accept(await platform.capture(preserveClipboard), true);
       else if (s.mode !== "ready")
@@ -2995,8 +3015,10 @@ async function perform(action: Action, global = false) {
         beginVerification(s);
         break;
       }
-      if (s.mode === "verify")
+      if (s.mode === "verify") {
+        if (sourceScannerChoice(s)) throw Error("scannerChooseOption");
         await accept(await platform.capture(preserveClipboard), true);
+      }
       return;
     case "previous":
       move(s, -1);
@@ -3063,6 +3085,7 @@ async function perform(action: Action, global = false) {
         message = "";
         render();
         focus("copy-section");
+        await rememberOutput(s, sectionText(parts));
         if (shortcutError) report(shortcutError);
         return;
       }
@@ -3150,6 +3173,17 @@ async function requestSessionClose(s: Session, confirmDiscard: boolean) {
   }
   await closeSession();
 }
+function prefilledFilename(title: string) {
+  const sanitized = title
+    .replace(/[^\p{L}\p{N} _-]/gu, "-")
+    .replace(/ +/g, "-");
+  const stem = Array.from(sanitized)
+    .slice(0, 60)
+    .join("")
+    .replace(/^[ _-]+|[ _-]+$/g, "");
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
+  return `${stem || "VeraFlow"}-${timestamp}Z.veraflow`;
+}
 // Text export requires valid, complete output. A prefilled file can preserve unfinished inputs.
 async function saveBeforeClose(s: Session) {
   let parts: Session["prepared"];
@@ -3170,9 +3204,10 @@ async function saveBeforeClose(s: Session) {
        ${parts ? `<button value="text" class="primary">${esc(t("saveSections"))}</button>` : ""}
        <button value="prefilled" class="${parts ? "" : "primary"}">${esc(t("savePrefilled"))}</button>
      </div>
-     <div class="close-exit-actions"><button value="no" class="quiet" autofocus>${esc(t("keep"))}</button><button value="discard" class="quiet danger">${esc(t("closeWithoutSaving"))}</button></div>`,
+     <div class="close-exit-actions">${s.prepared ? `<button value="edit" class="quiet">${esc(t(s.typing ? "returnToFilledForm" : "returnToFilledScanner"))}</button>` : ""}<button value="no" class="quiet" autofocus>${esc(t("keep"))}</button><button value="discard" class="quiet danger">${esc(t("closeWithoutSaving"))}</button></div>`,
   );
   if (choice === "discard") return true;
+  if (choice === "edit") await editSourceResponses(s);
   if (choice === "text" && parts) {
     const saved = await saveSectionText(parts);
     if (saved) await rememberOutput(s, sectionText(s.prepared ?? parts));
@@ -3190,7 +3225,10 @@ async function saveBeforeClose(s: Session) {
       s.typing ? "form" : "scanner",
       s.template.name.slice(0, 250).trim(),
     );
-    return platform.exportTemplates(content, "prefilled-template.veraflow");
+    return platform.exportTemplates(
+      content,
+      prefilledFilename(s.template.name),
+    );
   }
   return false;
 }

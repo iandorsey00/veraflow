@@ -267,3 +267,44 @@ test("source syntax errors identify malformed metadata and the opening line of a
     { line: 2, detail: /invalid JSON/ },
   );
 });
+
+test("multiline inline conditions interpolate selected branches and preserve literal values", () => {
+  const doc = template(
+    readFileSync(
+      new URL("../examples/source/inline-greeting.veraflow", import.meta.url),
+      "utf8",
+    ),
+  );
+  const parts = renderTemplateValues(
+    doc,
+    new Map([
+      ["formal", "true"],
+      ["Name", "Alex {{other}}"],
+    ]),
+  );
+  assert.deepEqual(
+    parts.map(({ text }) => text),
+    [
+      '"Joe Sample" <joe.sample@example.com>',
+      "Hello Alex {{other}}, your order is ready.",
+    ],
+  );
+  assert.equal(
+    renderTemplateValues(doc, new Map())[1].text,
+    "Hello, your order is ready.",
+  );
+  assert.equal(parseSource(doc.content).delivery.separator, "\n\n");
+
+  const escaped = template(String.raw`--- veraflow 2
+{}
+---
+{{when x is blank: 'It\'s \\{{literal}}' else: "{{missing}}"}}`);
+  assert.equal(
+    renderTemplateValues(escaped, new Map())[0].text,
+    "It's {{literal}}",
+  );
+  assert.throws(
+    () => renderTemplateValues(escaped, new Map([["x", "value"]])),
+    /missingValue/,
+  );
+});

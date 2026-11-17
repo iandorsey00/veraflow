@@ -13,16 +13,26 @@ type Section = { id: string; label: string; nodes: Node[] };
 export type SourceWorkflow = "form" | "scanner";
 export type SectionKey = "Tab" | "Shift+Tab";
 export type DeliveryMode = "step" | "sequence";
-type Delivery = { mode: DeliveryMode; after: Map<string, SectionKey[]> };
-const defaultDelivery: Delivery = { mode: "step", after: new Map() };
+type Delivery = {
+  mode: DeliveryMode;
+  after: Map<string, SectionKey[]>;
+  separator: string;
+};
+const defaultDelivery: Delivery = {
+  mode: "step",
+  after: new Map(),
+  separator: "\n",
+};
 function deliverySettings(raw: unknown): Delivery {
   if (raw === undefined) return defaultDelivery;
   const settings = object(raw);
   const extra = Object.keys(settings).find(
-    (key) => key !== "mode" && key !== "after",
+    (key) => !["mode", "after", "separator"].includes(key),
   );
   if (extra)
-    fail(`Unknown delivery property "${extra}". Use "mode" or "after".`);
+    fail(
+      `Unknown delivery property "${extra}". Use "mode", "after", or "separator".`,
+    );
   const mode = settings.mode === undefined ? "step" : settings.mode;
   if (mode !== "step" && mode !== "sequence")
     fail('delivery.mode must be "step" or "sequence".');
@@ -40,7 +50,13 @@ function deliverySettings(raw: unknown): Delivery {
       );
     after.set(section, keys);
   }
-  return { mode, after };
+  const separator =
+    settings.separator === undefined
+      ? defaultDelivery.separator
+      : string(settings.separator, "delivery.separator");
+  if (separator.length > 1024)
+    fail("delivery.separator must be at most 1,024 characters.");
+  return { mode, after, separator };
 }
 type Source = {
   title?: string;
@@ -53,16 +69,14 @@ type Source = {
   conditionDrivers: string[];
 };
 const id = /^[A-Za-z0-9_-]+$/;
-const quoted = '"(?:[^"\\\\]|\\\\.)*"';
-const inline = new RegExp(
-  `^when (.+?):\\s*(${quoted})(?:\\s+else:\\s*(${quoted}))?$`,
-  "u",
-);
+const doubleQuoted = String.raw`"(?:[^"\\\r\n]|\\[^\r\n])*"`;
+const singleQuoted = String.raw`'(?:[^'\\\r\n]|\\[^\r\n])*'`;
+const quoted = `(?:${doubleQuoted}|${singleQuoted})`;
+const conditional = String.raw`when\s+([^:{}]+?):\s*(${quoted})(?:\s+else\s*:\s*(${quoted}))?`;
 const sectionTag = new RegExp(
-  `^\\{\\{#section ([A-Za-z0-9_-]+) (${quoted})\\}\\}$`,
+  String.raw`^\{\{#section ([A-Za-z0-9_-]+) (${quoted})\}\}$`,
   "u",
 );
-const badName = /[<>{}\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 export class SourceSyntaxError extends Error {
   constructor(
     public detail: string,
@@ -306,6 +320,18 @@ function condition(
     );
   return { name, test: "boolean" };
 }
+function quotedText(source: string, label: string, line: number) {
+  // JSON escape rules also apply in single quotes, with an extra escape for apostrophes.
+  const json = source.startsWith("'")
+    ? '"' +
+      source
+        .slice(1, -1)
+        .replace(/\\.|"/g, (c) => (c === "\\'" ? "'" : c === '"' ? '\\"' : c)) +
+      '"'
+    : source;
+  return string(parseJSON(json, label, line));
+}
+
 function textNodes(
   text: string,
   advanced: boolean,
@@ -314,50 +340,70 @@ function textNodes(
   line = 1,
 ): Node[] {
   const nodes: Node[] = [];
-  const pattern = !advanced
-    ? /\\(?:\\|\{\{)|\{\{([^<>{}\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+)\}\}/gu
-    : /\\(?:\\|\{\{)|\{\{((?:[^"{}\r\n]|"(?:[^"\\\r\n]|\\[^\r\n])*")+)\}\}|\{\{([^{}\r\n]+)\}\}/gu;
+  const fieldPattern = String.raw`\{\{([^<>{}\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+)\}\}`;
+  const escaped = String.raw`\\(?:\\|\{\{)`;
+  const pattern = new RegExp(
+    advanced
+      ? String.raw`${escaped}|\{\{\s*(?:${conditional})\s*\}\}|${fieldPattern}`
+      : `${escaped}|${fieldPattern}`,
+    "gu",
+  );
   const addLiteral = (value: string) => {
-    if (advanced && value.includes("{{"))
+    const at = value.indexOf("{{");
+    if (advanced && at >= 0)
       fail(
-        "This placeholder or tag is incomplete. Close it with }} or escape the opening braces.",
-        line,
+        'Close the placeholder with }}. Inline conditions use {{when condition: "text" else: "other text"}}.',
+        line + lineBreaks(value.slice(0, at)),
       );
     nodes.push(value);
+    line += lineBreaks(value);
   };
   let end = 0;
   for (const match of text.matchAll(pattern)) {
     const at = match.index!;
     if (at > end) addLiteral(text.slice(end, at));
     end = at + match[0].length;
-    const name = (match[1] ?? match[2])?.trim();
-    if (name === undefined) nodes.push(match[0].slice(1));
-    else if (advanced && name.startsWith("when ")) {
-      const clause = inline.exec(name);
-      if (!clause)
+    if (advanced && match[1] !== undefined) {
+      // Parse placeholders in the branch. Values inserted later are never parsed again.
+      const branch = (raw: string) =>
+        textNodes(
+          quotedText(raw, "Conditional output", line),
+          false,
+          controls,
+          fields,
+          line,
+        );
+      nodes.push({
+        condition: condition(match[1], controls, fields, line),
+        yes: branch(match[2]),
+        no: match[3] ? branch(match[3]) : [],
+      });
+    } else {
+      const raw = match[advanced ? 4 : 1];
+      const name = raw?.trim();
+      if (name === undefined) nodes.push(match[0].slice(1));
+      else if (advanced && /^when(?:\s|$)/u.test(name))
         fail(
           'Use {{when condition: "text" else: "other text"}} for inline output.',
           line,
         );
-      nodes.push({
-        condition: condition(clause[1], controls, fields, line),
-        yes: [string(parseJSON(clause[2], "Conditional output", line))],
-        no: clause[3]
-          ? [string(parseJSON(clause[3], "Conditional output", line))]
-          : [],
-      });
-    } else if (advanced && /^(?:[#/]|else$)/.test(name))
-      fail(
-        `Unexpected {{${name}}}. Put block tags on their own lines and check their opening and closing tags.`,
-        line,
-      );
-    else if (name && !badName.test(match[1] ?? match[2])) {
-      fields.add(name);
-      nodes.push({ field: name });
-    } else nodes.push(match[0]);
+      else if (advanced && /^(?:[#/]|else$)/.test(name))
+        fail(
+          `Unexpected {{${name}}}. Put block tags on their own lines and check their opening and closing tags.`,
+          line,
+        );
+      else if (name) {
+        fields.add(name);
+        nodes.push({ field: name });
+      } else nodes.push(match[0]);
+    }
+    line += lineBreaks(match[0]);
   }
   if (end < text.length) addLiteral(text.slice(end));
   return nodes;
+}
+function lineBreaks(text: string) {
+  return text.match(/\r\n|\r|\n/g)?.length ?? 0;
 }
 // Block tags consume their entire line. Ordinary text keeps its original line ending.
 function blocks(
@@ -375,11 +421,26 @@ function blocks(
   }[] = [];
   let nodes = root;
   let number = startLine - 1;
+  // Buffer ordinary lines so an inline when can span lines without emitting them.
+  let pending: string[] = [];
+  const flush = () => {
+    const firstLine = number - pending.length;
+    for (const node of textNodes(
+      pending.join(""),
+      true,
+      controls,
+      fields,
+      firstLine,
+    ))
+      nodes.push(node);
+    pending = [];
+  };
   for (const line of text.match(/[^\r\n]*(?:\r\n|\n|\r|$)/g) ?? []) {
     number++;
     const tag = line.trim();
     const open = /^\{\{#when (.+)\}\}$/.exec(tag);
     if (open) {
+      flush();
       if (stack.length >= 16)
         fail("Conditions can be nested up to 16 levels.", number);
       const branch = {
@@ -391,6 +452,7 @@ function blocks(
       stack.push({ branch, parent: nodes, hasElse: false, line: number });
       nodes = branch.yes;
     } else if (tag === "{{else}}") {
+      flush();
       const top = stack.at(-1);
       if (!top || top.hasElse)
         fail(
@@ -402,13 +464,14 @@ function blocks(
       top.hasElse = true;
       nodes = top.branch.no;
     } else if (tag === "{{/when}}") {
+      flush();
       const top = stack.pop();
       if (!top) fail("{{/when}} needs a matching {{#when …}}.", number);
       nodes = top.parent;
-    } else
-      for (const node of textNodes(line, true, controls, fields, number))
-        nodes.push(node);
+    } else pending.push(line);
   }
+  number++;
+  flush();
   if (stack.length)
     fail(
       "This {{#when …}} is missing its closing {{/when}}.",
@@ -488,7 +551,7 @@ export function parseSource(text: string): Source {
           fail(`Section ID "${match[1]}" is duplicated.`, number);
         open = {
           id: match[1],
-          label: string(parseJSON(match[2], "Section title", number)),
+          label: quotedText(match[2], "Section title", number),
           text: [],
           line: number,
         };

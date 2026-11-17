@@ -1,5 +1,7 @@
 # VeraFlow source files and output sections
 
+English · [简体中文](veraflow-language-draft.zh-CN.md)
+
 Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a session. Install the desktop bundle first. If your system already uses another app for that extension, choose VeraFlow once in **Open With** and set it as the default if desired. You can also use **Open file…** on the **Recently opened templates** page. Recent templates are also available from the tray menu on Windows and the menu-bar menu on macOS. The desktop app stores up to 12 recent paths and titles locally. Reopening an entry reads the file from disk. **Clear recent templates** clears that list.
 
 **Settings → Legacy template library → Templates → Import template file** creates a library copy for editing. This picker also accepts `.txt`. **Export .veraflow** saves the definition. Responses stay separate.
@@ -67,9 +69,20 @@ Ticket {{ticket_id}}
 
 ### Conditions
 
-`{{when doa: "Review" else: "Dispatch"}}` chooses quoted literal text. Only a declared Boolean can be used as a bare condition. Use an explicit match for a selection, such as `route=review`. Use `attn is blank` or `attn is not blank` to test missing, empty, or whitespace-only text. Inline `else` is optional.
+Use `{{when condition: 'text' else: 'other text'}}` for a phrase within a line. Either single or double ASCII quotes can enclose a branch. Placeholders inside a branch are expanded only when that branch is selected. Spaces and line breaks outside the quotes, inside the statement, are formatting. Put `\n` inside a string when the output needs a line break. Omit `else` to emit nothing when the condition is false.
 
-For multiline text or a branch with placeholders, put the tags on their own lines:
+```text
+Hello{{when Name is not blank:
+  ' {{Name}}'
+}}, your order is ready.
+
+{{when doa: '"Joe Sample" <joe.sample@example.com>'
+  else: 'dispatch@example.com'}}
+```
+
+Only a declared Boolean can be used as a bare condition. Use `route=review` to match a stable option ID. Use `Name is blank` or `Name is not blank` to test missing, empty, or whitespace-only text. Strings support JSON escapes, plus `\'` inside single quotes. In a quoted branch, write `\\{{field}}` to display the placeholder literally. Values inserted by a placeholder stay literal even if they contain template markers. The JSON metadata header still uses double quotes.
+
+Use block tags when a branch spans multiple output lines. Put each `{{#when …}}`, `{{else}}`, and `{{/when}}` on a line of its own. VeraFlow consumes the tag lines and preserves the line breaks in the selected branch.
 
 ```text
 {{#when attn is not blank}}
@@ -77,18 +90,16 @@ Attn: {{attn}}
 {{/when}}
 ```
 
-When a condition reveals other fields, its controlling field appears before them in Fill form and Scanner. Short controlling choice lists show radio buttons you can change using the arrow keys. In Scanner, press Enter to apply the selection.
-
-An optional `{{else}}` line selects the other branch. Only the selected branch contributes text and requires its fields. Tag lines are consumed. Quoted inline output and substituted values are literal, with no second pass. Structural tags are reserved in advanced source. Existing inline form directives belong to the legacy template grammar.
+Fill form places choices above text fields. Fields that control a condition come first within each group. In Scanner, choose a Boolean or other option in VeraFlow and apply it. Short lists use radio buttons. When verification is required, choose the value again to compare it. Legacy template archives have a separate directive grammar.
 
 ### Sections and delivery
 
-Use `{{#section address "Address"}}` and `{{/section}}` on separate lines. A section has a unique ID, display label, and rendered text. Output follows source order. Keep section wrappers flat and place only whitespace between them. The wrapper lines and the line break immediately before each closing tag are structural. To preserve a trailing break, add a blank line before the close.
+Use `{{#section address "Address"}}` and `{{/section}}` on separate lines. A section has a unique ID, display label, and rendered text. Output follows source order. Once you use a section, put all output inside flat sections. Whitespace between sections is ignored. Text outside the sections is an error. The wrapper lines and the line break immediately before each closing tag are structural. To preserve a trailing break, add a blank line before the close.
 
 Try the [RMA template](../examples/source/rma.veraflow). Its Boolean controls the To and Subject text. An empty Attention field omits the entire attention line. A whole address captured as one field stays literal, including any existing `ATTN:` spelling.
 
 1. Fill the form and choose **Prepare output sections**. Widen the window to keep the preview beside the fields while scrolling. Scanner also moves its preview to the right in a wide window. **Settings → Hide live output preview** turns off live rendering in the form. Focused view adds progress to Fill form and retains the focused Scanner layout.
-2. Focus the destination and press the output shortcut. The Windows default is **Ctrl+Alt+8**. VeraFlow pastes one section at a time. **Press Tab where the template has no keys** is opt-in. **Paste sections together** groups the sections with newline separators.
+2. Focus the destination and press the output shortcut. The Windows default is **Ctrl+Alt+8**. VeraFlow pastes one section at a time. **Press Tab where the template has no keys** is opt-in. **Paste sections together** joins section text with one newline by default. To use a blank line or another separator, set `"delivery": {"separator": "\n\n"}` in the header. This separator applies to the grouped block, including when you save it as text.
 3. A failed paste keeps the section selected. Check the destination before retrying, or use **Copy current section** and paste manually. Previous and next move within the prepared output. **Save output as text** saves plain text, with section labels when exporting several separate sections. **Edit responses** returns to the session. Prepared output stays in memory until you close, replace, or edit the session.
 
 ### Change the paste order for a session
@@ -113,21 +124,21 @@ Use the optional top-level `delivery` object. `mode` defaults to `"step"`. In st
 }
 ```
 
-`after` maps section IDs to ordered lists of up to 16 `"Tab"` or `"Shift+Tab"` keys. An empty list explicitly skips navigation. Omitted entries send no keys unless the Tab fallback is enabled. Set the fallback for new sessions in **Settings → Press Tab where the template has no keys**, or change it for the current session on the delivery screen. The last section sends no navigation, and grouping sections pastes one block. These options affect desktop delivery only. They leave rendered and saved text unchanged.
+`after` maps section IDs to ordered lists of up to 16 `"Tab"` or `"Shift+Tab"` keys. An empty list explicitly skips navigation. Omitted entries send no keys unless the Tab fallback is enabled. Set the fallback for new sessions in **Settings → Press Tab where the template has no keys**, or change it for the current session on the delivery screen. The last section sends no navigation, and grouping sections pastes one block. Navigation keys and paste mode affect desktop delivery. A custom separator affects only grouped output.
 
 Try both modes with the [example files and local test form](../examples/source/README.md). In sequence mode, VeraFlow checks that the foreground window on Windows or application on macOS remains the same. If a paste or navigation step fails, the pending section stays selected. Inspect the destination before retrying.
 
 ## Save and reopen a session
 
-Choose **Close session** and select **Save prefilled template**, **Save output as text**, or **Close without saving**. **Keep working** and canceling the save picker leave your session open.
+Choose **Close session** and select **Save prefilled template**, **Save output as text**, or **Close without saving**. **Keep working** and canceling the save picker leave your session open. From prepared output, **Return to filled form** or **Return to filled Scanner** brings you back to your responses.
 
-A prefilled `.veraflow` copy opens in the workflow you used. It includes the template and the responses you entered, even if required fields remain unanswered. Responses are editable and any required verification starts fresh. The file contains your responses in plain text. Use **Open file…** or double-click it to resume. **Import template file** and standard template exports carry the reusable definition and omit the saved responses. **Save output as text** is available once the required fields and checks are complete and writes the rendered output.
+A prefilled `.veraflow` copy opens in the workflow you used. It includes the template and the responses you entered, even if required fields remain unanswered. Responses are editable and any required verification starts fresh. The suggested filename uses the template title and a UTC timestamp. The file contains your responses in plain text. Use **Open file…** or double-click it to resume. **Import template file** and standard template exports carry the reusable definition and omit the saved responses. **Save output as text** is available once the required fields and checks are complete and writes the rendered output.
 
 Prefilled files use a top-level `responses` object keyed by field ID. String values use the same representation as CSV cells, including stable option IDs and `"true"` or `"false"` for Booleans. A `null` entry stores an unanswered field and suppresses its template default. An empty string stores an explicit empty response. Missing keys fall back to field defaults. A plain template saved with responses uses `"syntax": "plain"` to preserve the original brace rules. The metadata carries no verification state.
 
 ## Recent outputs
 
-Find **Recent outputs** on the launcher or in the tray menu. The desktop app keeps five rendered template results locally by default after you copy, paste, or export them. Select an entry to copy it again or save it as text. A rendered result with several sections is saved as one history entry. The history skips unfinished inputs and Free Scanner field transfers.
+Find **Recent outputs** on the launcher or in the tray menu. The desktop app keeps five rendered template results locally by default as soon as you prepare source output. Legacy template results enter the list on copy, paste, or export. Recent outputs hold rendered text. Save a prefilled template to reopen the editable responses. Select an entry to copy it again or save it as text. A rendered result with several sections is saved as one history entry. The history skips unfinished inputs and Free Scanner field transfers.
 
 Set **Settings → Number of recent outputs to keep** from 0 to 20. Setting it to 0 clears the history and turns it off. **Clear output history** removes saved entries while keeping the current setting. Outputs are stored in plain text. The history has a 32 MiB storage limit and removes older entries first.
 

@@ -1,5 +1,7 @@
 # Test the VeraFlow source preview
 
+English · [简体中文](source-preview.zh-CN.md)
+
 Choose the `preview-source.*` build you want on [Releases](https://github.com/iandorsey00/veraflow/releases) and download its assets. The test app is called **VeraFlow Test**. It has a separate local library and upgrades through a new manual download. Quit any running VeraFlow instance before starting the test app so it releases the global shortcuts.
 
 - **Windows 11**. Download and run `VeraFlow-Test-windows-x64-setup.exe`, then open **VeraFlow Test** from Start. The installer may show an unsigned-publisher warning. In File Explorer, right-click a template or CSV and choose **Open with → VeraFlow Test**. To test double-click, pick VeraFlow Test as the default for `.veraflow` or `.vf`.
@@ -13,7 +15,7 @@ Compare downloads with `SHA256SUMS.txt` if you want to verify them. Windows uses
 2. Open `test-destination.html` in your browser. Use **Open folder…** in VeraFlow Test to browse the extracted examples, then choose `step-tabs.veraflow`. Choose **Prepare output sections**.
 3. Click **Recipient** in the browser and press **Ctrl+Alt+8** on Windows or **Cmd+Alt+8** on macOS. Recipient fills and focus moves two Tabs to Subject. Press the shortcut twice more to fill Subject and Body.
 4. Repeat with `full-sequence.veraflow`. One shortcut fills all three fields. Use **Paste options** on the delivery screen to override the template’s default.
-5. Try the CSV, address, and prefilled examples. Save a partially filled session, reopen it, and edit the responses.
+5. Try the inline greeting, CSV, address, and prefilled examples. Save a partially filled session, reopen it, and edit the responses.
 
 Check the destination after a partial paste or focus change before resuming. The app keeps the pending section available for manual copy or navigation.
 

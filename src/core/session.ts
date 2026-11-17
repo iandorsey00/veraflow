@@ -69,13 +69,11 @@ export function startSession(template: Template): Session {
       : undefined;
   const saved = source?.responses;
   const names = captureFieldNames(template);
-  // Capture the fields that control visibility before fields inside their branches.
-  const ordered = source
-    ? [
-        ...source.conditionDrivers,
-        ...names.filter((name) => !source.conditionDrivers.includes(name)),
-      ]
-    : names;
+  // Choices are entered first. Within each group, resolve conditions before dependent fields.
+  const drivers = new Set(source?.conditionDrivers);
+  const rank = (name: string) =>
+    (controls.get(name)?.options ? 0 : 2) + (drivers.has(name) ? 0 : 1);
+  const ordered = source ? names.sort((a, b) => rank(a) - rank(b)) : names;
   const fields: Session["fields"] = ordered.map((name) => {
     const value = saved?.has(name)
       ? saved.get(name)!

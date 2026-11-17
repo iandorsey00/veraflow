@@ -3,7 +3,7 @@
   "displayName": "VeraFlow",
   "description": "Language support for VeraFlow templates",
   "publisher": "iandorsey00",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -50,6 +50,7 @@
   },
   "files": [
     "LICENSE",
+    "README.zh-CN.md",
     "language-configuration.json",
     "snippets/**",
     "syntaxes/**"

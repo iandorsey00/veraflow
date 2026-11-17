@@ -31,9 +31,14 @@
     "description": "Render this block only when the condition holds"
   },
   "Inline conditional": {
-    "prefix": "vf-if",
-    "body": "{{when ${1:doa}: \"${2:Review}\" else: \"${3:Dispatch}\"}}$0",
-    "description": "Choose between two literal strings"
+    "prefix": "vf-inline-when",
+    "body": [
+      "{{when ${1:field} is not blank:",
+      "  ' {{$1}}'",
+      "  else: '${2:}'",
+      "}}$0"
+    ],
+    "description": "Render a conditional phrase without adding source line breaks"
   },
   "Section navigation": {
     "prefix": "vf-delivery",

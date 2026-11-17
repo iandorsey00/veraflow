@@ -8,6 +8,9 @@
       "include": "#escape"
     },
     {
+      "include": "#inlineWhen"
+    },
+    {
       "include": "#tag"
     },
     {
@@ -40,7 +43,7 @@
       "name": "constant.character.escape.veraflow"
     },
     "tag": {
-      "begin": "(\\{\\{)(#section|#when|/when|/section|when(?= )|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
+      "begin": "(\\{\\{)(#section|#when|/when|/section|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
       "end": "(\\}\\})|$",
       "beginCaptures": {
         "1": {
@@ -57,7 +60,10 @@
       },
       "patterns": [
         {
-          "include": "source.json#string"
+          "include": "#quotedDouble"
+        },
+        {
+          "include": "#quotedSingle"
         },
         {
           "match": "\\b(?:is not blank|is blank|else)(?=\\b)",
@@ -86,6 +92,71 @@
           "name": "punctuation.definition.template.end.veraflow"
         }
       }
+    },
+    "quotedDouble": {
+      "name": "string.quoted.double.veraflow",
+      "begin": "\"",
+      "end": "\"|$",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.veraflow"
+        },
+        {
+          "include": "#field"
+        }
+      ]
+    },
+    "quotedSingle": {
+      "name": "string.quoted.single.veraflow",
+      "begin": "'",
+      "end": "'|$",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.veraflow"
+        },
+        {
+          "include": "#field"
+        }
+      ]
+    },
+    "inlineWhen": {
+      "begin": "(\\{\\{)\\s*(when)(?=\\s)",
+      "end": "(\\}\\})",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.template.begin.veraflow"
+        },
+        "2": {
+          "name": "keyword.control.veraflow"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.template.end.veraflow"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#quotedDouble"
+        },
+        {
+          "include": "#quotedSingle"
+        },
+        {
+          "match": "\\b(?:is not blank|is blank|else)(?=\\b)",
+          "name": "keyword.control.veraflow"
+        },
+        {
+          "match": "[=:]",
+          "name": "keyword.operator.veraflow"
+        },
+        {
+          "match": "[A-Za-z0-9_-]+",
+          "name": "variable.other.veraflow"
+        }
+      ]
     }
   }
 }

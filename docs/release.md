@@ -1,5 +1,11 @@
 # Release and rollback
 
+Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
+
+## 0.12.0 template syntax and Chinese guides
+
+Full release cycle for parser semantics, native save and tray behavior, and an additional release asset. Check the inline greeting example, grouping, choice verification, output history, and the prefilled save dialog. Verify the new VSIX is installable and covered by the downloaded checksum list. Retain the pre-upgrade library backup when downgrading. Write new inline syntax and custom separators only in files intended for a compatible app.
+
 ## 0.11.0 session paste order
 
 Proportional release cycle for a change to source output delivery in the frontend. The reorder setting applies only to the active session. The existing package signature, checksum, and feed checks still run. On Windows and macOS, try reordering a multi-section template with navigation keys configured, paste each section separately, and reset to confirm the original settings return. The file formats and stored preferences use the same schema as 0.10.0.

@@ -1,0 +1,21 @@
+--- veraflow 2
+{
+  "title": "Inline greeting",
+  "workflow": "form",
+  "fields": {
+    "Name": { "type": "text", "optional": true },
+    "formal": { "type": "boolean", "default": false }
+  },
+  "delivery": { "separator": "\n\n" }
+}
+---
+{{#section recipient 'Recipient'}}
+{{when formal: '"Joe Sample" <joe.sample@example.com>'
+  else: 'desk@example.com'}}
+{{/section}}
+
+{{#section message 'Message'}}
+Hello{{when Name is not blank:
+  ' {{Name}}'
+}}, your order is ready.
+{{/section}}

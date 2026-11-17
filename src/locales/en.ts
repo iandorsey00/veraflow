@@ -72,6 +72,9 @@ export const en = {
   closeSourceIncomplete:
     "Save a prefilled template to continue later. Finish the required fields and checks to save the rendered text.",
   savePrefilled: "Save prefilled template",
+  returnToFilledForm: "Return to filled form",
+  returnToFilledScanner: "Return to filled Scanner",
+  scannerChooseOption: "Choose a value in VeraFlow for this field.",
   closeWithoutSaving: "Close without saving",
   sectionDeliveryHelp:
     "Focus the destination, then press the shortcut to paste. If paste fails, inspect the destination before retrying or use Copy current section.",

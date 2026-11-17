@@ -482,30 +482,13 @@ fn main() {
             set_tray_menu
         ])
         .setup(|app| {
-            let mut pixels = vec![0u8; 32 * 32 * 4];
-            for y in 0..32 {
-                for x in 0..32 {
-                    let mut coverage = 0;
-                    for sy in 0..4 {
-                        for sx in 0..4 {
-                            let px = x as f32 + (sx as f32 + 0.5) / 4.0;
-                            let py = y as f32 + (sy as f32 + 0.5) / 4.0;
-                            // A symmetric V with round stroke ends.
-                            let dx = (px - 16.0).abs();
-                            let t = ((dx * 8.0 + (24.0 - py) * 17.0) / 353.0).clamp(0.0, 1.0);
-                            if (dx - 8.0 * t).hypot(py - (24.0 - 17.0 * t)) <= 2.1 {
-                                coverage += 1;
-                            }
-                        }
-                    }
-                    let i = (y * 32 + x) * 4;
-                    pixels[i + 3] = (coverage * 255 / 16) as u8;
-                }
-            }
-            tauri::tray::TrayIconBuilder::with_id("main")
-                .icon(tauri::image::Image::new_owned(pixels, 32, 32))
-                .icon_as_template(true)
-                .tooltip("VeraFlow 核流")
+            let tray = tauri::tray::TrayIconBuilder::with_id("main");
+            let tray = if let Some(icon) = app.default_window_icon() {
+                tray.icon(icon.clone())
+            } else {
+                tray
+            };
+            tray.tooltip("VeraFlow 核流")
                 .on_menu_event(|app, event| {
                     let id = event.id.as_ref();
                     if let Some(w) = app.get_webview_window("main") {
@@ -592,6 +575,13 @@ async fn export_templates(
                 "veraflow-output.txt",
             ]
             .contains(&name.as_str())
+                || name.strip_suffix(".veraflow").is_some_and(|stem| {
+                    !stem.is_empty()
+                        && stem.len() <= 280
+                        && stem
+                            .chars()
+                            .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_'))
+                })
         })
         .unwrap_or_else(|| "veraflow-templates.json".into());
     let (label, ext) = match filename.rsplit('.').next() {

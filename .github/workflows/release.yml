@@ -100,6 +100,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y minisign
           node scripts/update-manifest.mjs release-assets
+      # Validate the desktop manifest before adding the VSIX, then checksum all assets.
+      - name: Package the VS Code extension
+        working-directory: editors/vscode
+        run: npx --yes @vscode/vsce@3.6.0 package --out ../../release-assets/VeraFlow_VSCode.vsix
       - name: Publish verified preview assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -107,7 +111,7 @@ jobs:
         run: |
           set -euo pipefail
           cd release-assets
-          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 9
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 10
           sha256sum VeraFlow_* latest.json > SHA256SUMS.txt
           sha256sum --check SHA256SUMS.txt
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

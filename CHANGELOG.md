@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0
+
+- Inline source conditions accept placeholders, single quotes, and line breaks between tokens. Grouped sections support a custom separator.
+- Fill form puts choices first. Scanner offers direct choice controls. Prepared source output enters recent history, and the close dialog can return to filled responses.
+- Prefilled files use the template title and UTC timestamp as the suggested name. The tray uses the standard app icon.
+- Added Simplified Chinese installation, language, example, and VS Code guides.
+- Public releases include the VS Code extension and verify its downloaded checksum.
+
 ## 0.11.0
 
 - Reorder named output sections for the current session under **Paste options**. A custom order restarts at the first section and pastes one section at a time without navigation keys. Reset to recover the template order and previous paste settings.

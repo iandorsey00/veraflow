@@ -68,6 +68,9 @@ export const zh: Record<keyof typeof en, string> = {
   closeSourceIncomplete:
     "保存预填模板以便稍后继续。完成必填字段和核对后，即可保存生成的文本。",
   savePrefilled: "保存预填模板",
+  returnToFilledForm: "返回已填写的表单",
+  returnToFilledScanner: "返回已填写的扫描器",
+  scannerChooseOption: "请在 VeraFlow 中选择此字段的值。",
   closeWithoutSaving: "不保存并关闭",
   sectionDeliveryHelp:
     "将焦点移到目标，然后按快捷键粘贴。如果粘贴失败，请检查目标后重试，或复制当前区段。",
