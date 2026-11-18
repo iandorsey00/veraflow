@@ -113,7 +113,7 @@ Choose **Resume task** to return. The active field, comparison mode, mismatch, c
 
 In **Templates**, choose **Scanner workflow** to capture and check values. Scanner verification starts its second pass when capture is complete. Once ready, choose **Copy result**, **Preview**, or **Prepare email output**.
 
-Email output shows the configured section order as a checklist. Place focus in the correct destination field. Use the configured output shortcut (**Ctrl+Alt+8** on Windows by default) once per section to request a paste and advance. Body has no trailing Tab. VeraFlow never sends the email.
+Email output shows the configured section order as a checklist. Place focus in the correct destination field. Use the configured output shortcut (**Ctrl+Alt+X** on Windows by default) once per section to request a paste and advance. Body has no trailing Tab. VeraFlow never sends the email.
 
 **Next section (manual)** and **Previous section (manual)** move only VeraFlow’s position. Use them to recover after inspecting or manually filling the destination. Each section records copied/requested/uncertain/manual status separately; none of these means the destination has been checked. Pause/resume preserves this checklist within the running app.
 

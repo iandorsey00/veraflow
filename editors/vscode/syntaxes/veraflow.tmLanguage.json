@@ -43,7 +43,7 @@
       "name": "constant.character.escape.veraflow"
     },
     "tag": {
-      "begin": "(\\{\\{)(#section|#when|/when|/section|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
+      "begin": "(\\{\\{)(#output|/output|#section|#when|/when|/section|else if|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
       "end": "(\\}\\})|$",
       "beginCaptures": {
         "1": {
@@ -66,7 +66,7 @@
           "include": "#quotedSingle"
         },
         {
-          "match": "\\b(?:is not blank|is blank|else)(?=\\b)",
+          "match": "\\b(?:is not blank|is blank|else if|else|not)(?=\\b)",
           "name": "keyword.control.veraflow"
         },
         {
@@ -145,7 +145,7 @@
           "include": "#quotedSingle"
         },
         {
-          "match": "\\b(?:is not blank|is blank|else)(?=\\b)",
+          "match": "\\b(?:is not blank|is blank|else if|else|not)(?=\\b)",
           "name": "keyword.control.veraflow"
         },
         {

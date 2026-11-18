@@ -16,3 +16,5 @@
 | `prefilled-incomplete.veraflow` | 打开含已有响应的模板。填写编号，保存预填模板，再打开它继续修改。                                                               |
 
 将 `test-destination.html` 作为本地网页打开。准备输出后，将光标放在起始字段中，再按 VeraFlow 窗口上显示的输出快捷键。测试页只包含本地输入框。
+
+试用[共享记录](shared-record.veraflow)，用同一组字段预览预约通知和制表符分隔的一行。保存 JSON 记录时也会包含内部备注。

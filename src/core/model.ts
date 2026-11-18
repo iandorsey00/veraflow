@@ -105,7 +105,7 @@ export const defaultPreferences: Preferences = {
     skip: "CommandOrControl+Alt+5",
     verify: "CommandOrControl+Alt+6",
     cancel: "CommandOrControl+Alt+7",
-    finish: "CommandOrControl+Alt+8",
+    finish: "CommandOrControl+Alt+X",
   },
 };
 export type Library = {
@@ -132,6 +132,8 @@ export type Session = {
   fields: Field[];
   active: number;
   mode: "capture" | "verify" | "ready" | "delivery" | "review" | "complete";
+  outputId?: string;
+  verificationOutputOnly?: boolean;
   deliveryIndex?: number;
   deliveryDone?: boolean;
   prepared?: { id: string; label: string; text: string }[];

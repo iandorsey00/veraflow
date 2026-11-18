@@ -13,8 +13,18 @@
 
 1. 解压测试发布页中的 `VeraFlow-examples.zip`，用 **打开文件夹…** 选择解压后的目录。
 2. 在浏览器打开 `test-destination.html`，在 VeraFlow Test 打开 `step-tabs.veraflow`，点击 **准备输出区段**。
-3. 在测试页中点击 Recipient。Windows 按 Ctrl+Alt+8，macOS 按 Cmd+Option+8。再按两次，分别填入主题和正文。尝试 `full-sequence.veraflow`，一次填完三个字段。
+3. 在测试页中点击 Recipient。按 VeraFlow 显示的输出快捷键。再按两次，分别填入主题和正文。尝试 `full-sequence.veraflow`，一次填完三个字段。
 4. 用[示例说明](../examples/source/README.zh-CN.md)试用 CSV、行内条件及预填模板。粘贴中途失败时，先检查目标应用，再重试。可手动复制当前区段。
 5. 下载 `VeraFlow-VSCode.vsix`，按 [VS Code 扩展指南](../editors/vscode/README.zh-CN.md)安装。
 
 源码构建需要 Node.js、Rust 和 Tauri 构建依赖。测试分支可用 `npm ci` 和 `npm run desktop -- --features test-build --config src-tauri/tauri.test.conf.json` 启动。测试版的具体功能随所选版本而异。
+
+在开发窗口中用 **打开文件…** 测试文件。若要测试 Finder 双击，请先退出 VeraFlow Test，再构建带文件关联的应用：
+
+```sh
+npm run desktop:build -- --bundles app --features test-build \
+  --config src-tauri/tauri.test.conf.json \
+  --config src-tauri/tauri.macos.test.conf.json
+```
+
+在 Finder 中右键点击模板，通过 **打开方式** 选择刚构建的 `src-tauri/target/release/bundle/macos/VeraFlow Test.app`。如需设为默认，可在 **显示简介 → 打开方式 → 全部更改…** 中选择新版本。

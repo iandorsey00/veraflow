@@ -13,7 +13,7 @@ Compare downloads with `SHA256SUMS.txt` if you want to verify them. Windows uses
 
 1. Extract `VeraFlow-examples.zip`. The [examples README](https://github.com/iandorsey00/veraflow/tree/codex/source-preview/examples/source#readme) lists the expected results.
 2. Open `test-destination.html` in your browser. Use **Open folder…** in VeraFlow Test to browse the extracted examples, then choose `step-tabs.veraflow`. Choose **Prepare output sections**.
-3. Click **Recipient** in the browser and press **Ctrl+Alt+8** on Windows or **Cmd+Alt+8** on macOS. Recipient fills and focus moves two Tabs to Subject. Press the shortcut twice more to fill Subject and Body.
+3. Click **Recipient** in the browser and press the output shortcut shown in VeraFlow. Recipient fills and focus moves two Tabs to Subject. Press the shortcut twice more to fill Subject and Body.
 4. Repeat with `full-sequence.veraflow`. One shortcut fills all three fields. Use **Paste options** on the delivery screen to override the template’s default.
 5. Try the inline greeting, CSV, address, and prefilled examples. Save a partially filled session, reopen it, and edit the responses.
 
@@ -27,6 +27,14 @@ Extension source lives in [editors/vscode](https://github.com/iandorsey00/verafl
 
 ## Run from source
 
-Check out [codex/source-preview](https://github.com/iandorsey00/veraflow/tree/codex/source-preview). With Node, Rust, and Tauri build prerequisites installed, run `npm ci` and `npm run desktop -- --features test-build --config src-tauri/tauri.test.conf.json`. On macOS you can also pass `--config src-tauri/tauri.macos.test.conf.json` when bundling an app for testing file associations. The desktop bundle is needed for Finder and Explorer integration. Browser-only preview is available with `npm run dev`.
+Check out [codex/source-preview](https://github.com/iandorsey00/veraflow/tree/codex/source-preview). With Node, Rust, and Tauri build prerequisites installed, run `npm ci` and `npm run desktop -- --features test-build --config src-tauri/tauri.test.conf.json`. Use **Open file…** in the dev window. For Finder double-click testing on macOS, quit VeraFlow Test and build a Finder app with the file association configuration.
+
+```sh
+npm run desktop:build -- --bundles app --features test-build \
+  --config src-tauri/tauri.test.conf.json \
+  --config src-tauri/tauri.macos.test.conf.json
+```
+
+Open `src-tauri/target/release/bundle/macos/VeraFlow Test.app`. In Finder, choose **Open With** on a template and select the newly built app. To make it the default, use **Get Info → Open with → Change All…**. If there are several copies of VeraFlow Test, select the new build by its path. Browser-only preview is available with `npm run dev`.
 
 For later test builds from this branch, see the [branch’s Check runs](https://github.com/iandorsey00/veraflow/actions/workflows/check.yml?query=branch%3Acodex%2Fsource-preview) and [Windows artifact instructions](https://github.com/iandorsey00/veraflow/blob/codex/source-preview/docs/windows-testing.md).

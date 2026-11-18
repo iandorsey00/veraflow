@@ -60,6 +60,18 @@ export const zh: Record<keyof typeof en, string> = {
   afterSection: "此节之后",
   noNavigation: "无按键",
   sectionTab: "模板未指定按键时按 Tab",
+  copyEntireOutput: "复制完整输出",
+  batchCompare: "比较来源文本…",
+  batchSource: "粘贴来源文本",
+  batchSourceLimit: "请输入不超过 65,536 个字符的来源文本。",
+  batchEvidenceHelp:
+    "请对照原文审阅结果。此操作不会将字段标记为已核对。每项先显示记录值，再显示来源候选值。",
+  batchAssociated: "带标签的值一致",
+  batchConflict: "带标签的值不一致",
+  batchAmbiguous: "有多个候选值",
+  batchFound: "找到值，但标签未匹配",
+  batchMissing: "未找到匹配的行",
+  saveRecord: "将记录保存为 JSON…",
   copySection: "复制当前区段",
   saveSections: "将输出保存为文本",
   closeSourceTitle: "关闭前保存？",
@@ -68,8 +80,8 @@ export const zh: Record<keyof typeof en, string> = {
   closeSourceIncomplete:
     "保存预填模板以便稍后继续。完成必填字段和核对后，即可保存生成的文本。",
   savePrefilled: "保存预填模板",
-  returnToFilledForm: "返回已填写的表单",
-  returnToFilledScanner: "返回已填写的扫描器",
+  returnToFilledForm: "返回表单",
+  returnToFilledScanner: "返回扫描器",
   scannerChooseOption: "请在 VeraFlow 中选择此字段的值。",
   closeWithoutSaving: "不保存并关闭",
   sectionDeliveryHelp:
@@ -404,7 +416,7 @@ export const zh: Record<keyof typeof en, string> = {
   shortcut: "快捷键",
   shortcuts: "全局快捷键",
   shortcutHelp:
-    "使用 CommandOrControl、Alt、Shift 和按键，例如 CommandOrControl+Shift+1。快捷键仅在会话期间生效。",
+    "请使用此处显示的按键名称，用 + 连接各键。快捷键仅在会话期间生效。留空可停用对应操作。",
   general: "常规",
   language: "语言",
   theme: "外观",
@@ -447,7 +459,7 @@ export const zh: Record<keyof typeof en, string> = {
   missingValue: "字段缺少值。",
   sourceFocus: "请先在其他应用中选择文本，再按全局快捷键。",
   accessibility:
-    "请在系统设置 → 隐私与安全性 → 辅助功能中启用 VeraFlow，然后重试。也可自行复制文本，再选择“使用剪贴板”。",
+    "请打开系统设置中的「隐私与安全性」，向下滚动至「辅助功能」。启用你当前启动的 VeraFlow 或 VeraFlow Test。若列表中没有该应用，请点按 + 添加。使用扫描器时，也可自行复制文本，再选择「使用剪贴板」。",
   clipboardUnsafe:
     "原剪贴板无法安全保留。可关闭“本次会话保留剪贴板”后重试，或自行复制来源文本并选择“使用剪贴板”。",
   copyTimeout:
@@ -461,8 +473,7 @@ export const zh: Record<keyof typeof en, string> = {
   storageFailed: "本地存储不可用。更改尚未保存，请检查磁盘权限后重试。",
   invalidLibrary:
     "无法读取已保存的模板库。请从备份恢复 library.json；原文件未被覆盖。",
-  shortcutFailed:
-    "快捷键无效、重复或已被其他应用占用，请选择其他组合。Cmd/Ctrl+Shift+N 可能被系统或其他应用占用，可尝试 Cmd/Ctrl+Alt+N。",
+  shortcutFailed: "快捷键无效、重复或已被其他应用占用，请选择其他组合。",
   desktopRequired: "请在桌面应用中使用此功能。",
   nameRequired: "请输入模板名称。",
   trayFailed: "无法更新菜单，请重试。",

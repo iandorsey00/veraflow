@@ -1,0 +1,21 @@
+--- veraflow 2
+{
+  "title": "Service visit",
+  "workflow": "form",
+  "fields": {
+    "Reference": {"type": "text"},
+    "Contact": {"type": "text"},
+    "confirmed": {"type": "boolean", "default": false},
+    "InternalNote": {"type": "textarea", "optional": true}
+  },
+  "filename": "{{workflow_name}}-{{field.Reference}}-{{timestamp}}"
+}
+---
+{{#output note 'Appointment note'}}
+Hello {{Contact}},
+Booking {{Reference}} is {{when confirmed: 'confirmed' else: 'pending'}}.
+{{/output}}
+
+{{#output row 'Spreadsheet row'}}
+{{Reference}}	{{Contact}}	{{when not confirmed: 'Pending' else: 'Confirmed'}}
+{{/output}}

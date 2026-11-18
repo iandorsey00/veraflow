@@ -6,7 +6,7 @@ VeraFlow is a local desktop app for capturing, checking, and reusing text on mac
 
 ## Install
 
-Get the [v0.12.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.12.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.13.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.13.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
 - **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
@@ -19,7 +19,7 @@ If an update is available, **Update app…** appears in the menu-bar or tray men
 - **Open file…** opens a template or a CSV directly. You can also double-click a template or use your file manager’s **Open With → VeraFlow**. In the CSV picker, search for a row and open it in Scanner or use it to fill a template.
 - **Free Scanner** captures and checks text without a template. Define one field per line or import Scanner JSON. Use **More tools** to export the field list or the captured values. Existing library templates and JSON exchange remain available under **Settings → Legacy template library**.
 
-A template can be as simple as `Hello {{name}}`. The [source file guide](docs/veraflow-language-draft.md) covers fill-in forms, conditional text, clipboard output, and paste sections. The [examples](examples/source/README.md) include an address, a sample CSV, and a page to test paste navigation. The [VS Code extension](editors/vscode/README.md) adds highlighting, folding, and snippets. The release page also includes `VeraFlow_VSCode.vsix`. The [portable specification](docs/portable-templates.md) includes a simpler template profile, fixtures, and an independent Python reader.
+A template can be as simple as `Hello {{name}}`. The [source file guide](docs/veraflow-language-draft.md) covers shared records, named outputs, source comparison, and paste sections. The [examples](examples/source/README.md) include an address, a sample CSV, and a page to test paste navigation. The [VS Code extension](editors/vscode/README.md) adds highlighting, folding, and snippets. The release page also includes `VeraFlow_VSCode.vsix`. The [portable specification](docs/portable-templates.md) includes a simpler template profile, fixtures, and an independent Python reader.
 
 ## Fill, verify, and transfer
 
@@ -27,7 +27,7 @@ A template can be as simple as `Hello {{name}}`. The [source file guide](docs/ve
 2. When verification is enabled, select the original text again to compare it with the captured value. VeraFlow keeps both values visible if they differ and does not overwrite the capture. To check a value again, select it and use **Verify again…**.
 3. Review the live preview, then prepare the output. Copy or save it, or use the paste shortcut in the intended destination. Use **Paste options → Reorder sections…** when the destination has a different field order. A custom order uses one section per shortcut and sends no navigation keys. When closing from output, you can return to your filled form or Scanner. Save a prefilled copy to resume after quitting. Prepared source output also appears in **Recent outputs** for copying.
 
-Default global shortcuts are Ctrl+Alt+1–8 on Windows and Cmd+Option+1–8 on macOS: capture, previous, next, clear, skip, verify, cancel, and output. Change them in Settings. In VeraFlow, Cmd/Ctrl+Enter submits manual entry, and Alt+Left/Right moves between fields. Some protected apps block synthetic input, so copy and paste manually if direct transfer fails. When a paste fails partway through, inspect the destination before resuming; the pending output stays available to copy.
+The default output shortcut is **Ctrl+Alt+X** on Windows and **Cmd+Opt+X** on macOS. The other actions use Ctrl+Alt+1–7 or Cmd+Opt+1–7. Existing shortcut preferences are kept on upgrade. Change them in Settings. In VeraFlow, Cmd/Ctrl+Enter submits manual entry, and Alt+Left/Right moves between fields. Some protected apps block synthetic input, so copy and paste manually if direct transfer fails. When a paste fails partway through, inspect the destination before resuming; the pending output stays available to copy.
 
 ## Local data and rollback
 

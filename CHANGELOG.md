@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0
+
+- Generate independent named outputs from one shared record, switch between them on the Output page, and save the raw field values as JSON.
+- Add Boolean negation, else-if branches, configurable filenames, and source text comparison with evidence.
+- Show platform-specific shortcuts. New installations default to Cmd+Opt+X on macOS and Ctrl+Alt+X on Windows for output.
+- Remember Form and Scanner window sizes and show available updates on the launcher.
+- Fix keyboard focus and field copying after returning to Form or Scanner. Add a visible Copy field button in Scanner.
+
 ## 0.12.0
 
 - Inline source conditions accept placeholders, single quotes, and line breaks between tokens. Grouped sections support a custom separator.

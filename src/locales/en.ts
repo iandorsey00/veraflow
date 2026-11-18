@@ -64,6 +64,18 @@ export const en = {
   afterSection: "After this section",
   noNavigation: "No keystrokes",
   sectionTab: "Press Tab where the template has no keys",
+  copyEntireOutput: "Copy entire output",
+  batchCompare: "Compare source text…",
+  batchSource: "Paste source text",
+  batchSourceLimit: "Enter up to 65,536 characters of source text.",
+  batchEvidenceHelp:
+    "Review this evidence against the original. This comparison does not mark fields verified. Each result shows the record value followed by any source candidates.",
+  batchAssociated: "Matching labeled value",
+  batchConflict: "Different labeled value",
+  batchAmbiguous: "Multiple candidates",
+  batchFound: "Value found without a matching label",
+  batchMissing: "No matching line",
+  saveRecord: "Save record as JSON…",
   copySection: "Copy current section",
   saveSections: "Save output as text",
   closeSourceTitle: "Save before closing?",
@@ -72,8 +84,8 @@ export const en = {
   closeSourceIncomplete:
     "Save a prefilled template to continue later. Finish the required fields and checks to save the rendered text.",
   savePrefilled: "Save prefilled template",
-  returnToFilledForm: "Return to filled form",
-  returnToFilledScanner: "Return to filled Scanner",
+  returnToFilledForm: "Return to Form",
+  returnToFilledScanner: "Return to Scanner",
   scannerChooseOption: "Choose a value in VeraFlow for this field.",
   closeWithoutSaving: "Close without saving",
   sectionDeliveryHelp:
@@ -433,7 +445,7 @@ export const en = {
   shortcut: "Shortcut",
   shortcuts: "Global shortcuts",
   shortcutHelp:
-    "Use CommandOrControl, Alt, Shift, and a key, for example CommandOrControl+Shift+1. Cmd/Ctrl+Shift+N may already be assigned by your system or another app; try CommandOrControl+Alt+N for letter bindings. Shortcuts are active only during a session. Leave a combination blank to disable that action.",
+    "Type the key names shown here, separated by +. Shortcuts are active only during a session. Leave a combination blank to disable that action.",
   general: "General",
   language: "Language",
   theme: "Appearance",
@@ -479,7 +491,7 @@ export const en = {
   sourceFocus:
     "Select text in another application before pressing the global shortcut.",
   accessibility:
-    "Enable VeraFlow in System Settings → Privacy & Security → Accessibility, then retry. You can also copy text yourself and choose Use clipboard.",
+    "Open Privacy & Security in System Settings and scroll down to Accessibility. Enable the app you launched, VeraFlow or VeraFlow Test. If it is missing, add it with +. For Scanner capture, you can also copy the text yourself and choose Use clipboard.",
   clipboardUnsafe:
     "The existing clipboard cannot be safely preserved. Turn off Preserve clipboard for this session and retry, or copy the source text yourself and choose Use clipboard.",
   copyTimeout:

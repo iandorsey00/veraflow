@@ -774,7 +774,9 @@ test("opens a nested template from a selected folder and keeps the folder after 
 
 test("prepared form output enters history and the close dialog resumes filled responses", async ({
   page,
+  context,
 }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
   await pickDocument(
     page,
@@ -792,8 +794,28 @@ test("prepared form output enters history and the close dialog resumes filled re
     "desk@example.com\n\nHello Alex, your order is ready.",
   );
   await page.locator("#cancel-session").click();
-  await page.getByRole("button", { name: "Return to filled form" }).click();
-  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Alex");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Return to Form" })
+    .click();
+  const name = page.getByLabel("Name", { exact: true });
+  await expect(name).toHaveValue("Alex");
+  await name.focus();
+  await name.evaluate((input: HTMLInputElement) =>
+    input.setSelectionRange(2, 2),
+  );
+  await name.press("ControlOrMeta+c");
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("Alex");
+  await expect(name).toBeFocused();
+  await name.evaluate((input: HTMLInputElement) =>
+    input.setSelectionRange(0, 2),
+  );
+  await name.press("ControlOrMeta+c");
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("Al");
   await page.locator("#cancel-session").click();
   await page.getByRole("button", { name: "Close without saving" }).click();
   await page.locator("#open-outputs").click();
@@ -805,7 +827,9 @@ test("prepared form output enters history and the close dialog resumes filled re
 
 test("source Scanner uses choices directly rather than the clipboard", async ({
   page,
+  context,
 }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
   const source = (await fixture("inline-greeting.veraflow"))
     .toString()
@@ -826,4 +850,67 @@ test("source Scanner uses choices directly rather than the clipboard", async ({
   await expect(page.locator(".output")).toHaveText(
     '"Joe Sample" <joe.sample@example.com>',
   );
+  await page.locator("#section-edit").click();
+  const field = page.getByRole("button", { name: /formal.*true/ });
+  await expect(field).toBeFocused();
+  await page.getByRole("button", { name: "Copy field", exact: true }).click();
+  const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+  await expect.poll(clipboard).toBe("true");
+
+  await page.evaluate(() => navigator.clipboard.writeText("sentinel"));
+  await page.locator("#pause-task").focus();
+  await field.click();
+  await expect(field).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+c");
+  await expect.poll(clipboard).toBe("true");
+});
+
+test("switching named outputs retains values and JSON saves the shared record", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "shared-record.veraflow",
+    (await fixture("shared-record.veraflow")).toString() +
+      '\n{{#output incomplete "Incomplete"}}\n{{Unfilled}}\n{{/output}}',
+  );
+  await page.getByLabel("Reference", { exact: true }).fill("VF-104");
+  await page.getByLabel("Contact", { exact: true }).fill("Alex");
+  await page
+    .getByLabel("InternalNote", { exact: true })
+    .fill("Private example");
+  await expect(page.locator("#form-output")).toContainText("Hello Alex");
+  await page.locator("#source-output").selectOption("row");
+  await expect(page.locator("#form-output pre")).toHaveJSProperty(
+    "textContent",
+    "VF-104\tAlex\tPending",
+  );
+  await expect(page.getByLabel("Contact", { exact: true })).toHaveValue("Alex");
+  const result = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save record as JSON…" }).click();
+  const record = await result;
+  expect(record.suggestedFilename()).toMatch(/^Service-visit-VF-104-.*\.json$/);
+  expect(
+    JSON.parse(await readFile((await record.path())!, "utf8")),
+  ).toMatchObject({
+    Reference: "VF-104",
+    Contact: "Alex",
+    InternalNote: "Private example",
+  });
+  await page.locator("#finish").click();
+  await expect(page.locator(".output")).toHaveJSProperty(
+    "textContent",
+    "VF-104\tAlex\tPending",
+  );
+  await page.locator("#source-output").selectOption("incomplete");
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator("#source-output")).toHaveValue("row");
+  await expect(page.locator(".output")).toHaveJSProperty(
+    "textContent",
+    "VF-104\tAlex\tPending",
+  );
+  await page.locator("#source-output").selectOption("note");
+  await expect(page.locator(".output")).toContainText("Hello Alex");
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });

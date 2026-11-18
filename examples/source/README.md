@@ -16,3 +16,5 @@ Use synthetic responses while testing. Open each example with VeraFlow Test or c
 | `prefilled-incomplete.veraflow` | Road freight and the notes reopen prefilled. Add a reference, save a prefilled copy, and reopen it to change the values. Save the completed output as text.                                                                                              |
 
 Open `test-destination.html` in your browser as a local page. Prepare the output in VeraFlow, select the first destination input, then use the output shortcut displayed by VeraFlow. The test page only contains local editable fields.
+
+Try [Shared record](shared-record.veraflow) to preview an appointment note and a tab-separated row from the same fields. Save the record as JSON to include its internal note.

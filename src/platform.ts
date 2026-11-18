@@ -23,6 +23,40 @@ export const buildCommit =
     .slice(0, 8) ?? "local";
 let previewLibrary: Library | null = null;
 let compactWindow = false;
+let formWindow = false;
+
+function savedWindowSize(mode: "scanner" | "form") {
+  try {
+    const size: unknown = JSON.parse(
+      localStorage.getItem(`veraflow.size.${mode}`) ?? "null",
+    );
+    if (
+      Array.isArray(size) &&
+      size.length === 2 &&
+      size.every(
+        (value) => Number.isFinite(value) && value >= 300 && value <= 8192,
+      )
+    )
+      return new LogicalSize(size[0], size[1]);
+  } catch {
+    // Window size is optional if local storage is unavailable.
+  }
+}
+async function rememberWindowSize(
+  w: ReturnType<typeof getCurrentWindow>,
+  mode: "scanner" | "form",
+) {
+  try {
+    const scale = await w.scaleFactor();
+    const size = await w.innerSize();
+    localStorage.setItem(
+      `veraflow.size.${mode}`,
+      JSON.stringify([size.width / scale, size.height / scale]),
+    );
+  } catch {
+    // Keep the normal window transition available if saving the size fails.
+  }
+}
 let normalBounds: {
   size: Awaited<ReturnType<ReturnType<typeof getCurrentWindow>["innerSize"]>>;
   position: Awaited<
@@ -319,10 +353,16 @@ export const platform = {
   async active(active: boolean) {
     if (desktop) await invoke("set_session_active", { active });
   },
-  async compact(compact: boolean, top: boolean) {
+  async compact(compact: boolean, top: boolean, form = false) {
     if (desktop) {
       const w = getCurrentWindow();
+      if (formWindow && !form) await rememberWindowSize(w, "form");
+      if (compactWindow && !compact) await rememberWindowSize(w, "scanner");
+      const formSize =
+        form && !formWindow ? savedWindowSize("form") : undefined;
       if (compact === compactWindow) {
+        if (formSize) await w.setSize(formSize);
+        formWindow = form;
         await w.setAlwaysOnTop(compact && top);
         return;
       }
@@ -334,11 +374,15 @@ export const platform = {
           size: await w.innerSize(),
           position: await w.outerPosition(),
         };
-        await w.setSize(new LogicalSize(360, 690));
+        await w.setSize(
+          savedWindowSize("scanner") ?? new LogicalSize(740, 690),
+        );
       } else if (!nativePlacement && normalBounds) {
         await w.setSize(normalBounds.size);
         await w.setPosition(normalBounds.position);
       }
+      if (formSize) await w.setSize(formSize);
+      formWindow = form;
       compactWindow = compact;
       await w.setAlwaysOnTop(compact && top);
       if (!compact) normalBounds = null;

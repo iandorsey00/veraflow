@@ -44,6 +44,15 @@ test("Typing workflow previews fields and can restart completed responses when r
   await expect(
     page.getByRole("radio", { name: "Joe", exact: true }),
   ).toBeChecked();
+  const reference = page.getByLabel("reference", { exact: true });
+  await reference.focus();
+  await reference.evaluate((input: HTMLInputElement) =>
+    input.setSelectionRange(0, 0),
+  );
+  await reference.press("ControlOrMeta+c");
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("AB-104");
 });
 
 test("Typing repeat verification is independent of Scanner and shares the fields", async ({

@@ -1,8 +1,9 @@
+import { filenamePatternError } from "./filenames";
 import { validControlValue, type Control } from "./form";
 
 type Condition = {
   name: string;
-  test: "boolean" | "blank" | "notBlank" | "equals";
+  test: "boolean" | "notBoolean" | "blank" | "notBlank" | "equals";
   value?: string;
 };
 type Node =
@@ -63,20 +64,85 @@ type Source = {
   workflow?: SourceWorkflow;
   responses: ReadonlyMap<string, string | null>;
   delivery: Delivery;
-  sections: Section[];
+  outputs: SourceOutput[];
+  recordOnlyFields: string[];
+  filename?: string;
   controls: Map<string, Control>;
   fields: string[];
   conditionDrivers: string[];
+};
+type SourceOutput = {
+  id: string;
+  label: string;
+  sections: Section[];
+  delivery: Delivery;
 };
 const id = /^[A-Za-z0-9_-]+$/;
 const doubleQuoted = String.raw`"(?:[^"\\\r\n]|\\[^\r\n])*"`;
 const singleQuoted = String.raw`'(?:[^'\\\r\n]|\\[^\r\n])*'`;
 const quoted = `(?:${doubleQuoted}|${singleQuoted})`;
-const conditional = String.raw`when\s+([^:{}]+?):\s*(${quoted})(?:\s+else\s*:\s*(${quoted}))?`;
-const sectionTag = new RegExp(
-  String.raw`^\{\{#section ([A-Za-z0-9_-]+) (${quoted})\}\}$`,
-  "u",
+const conditionText = String.raw`[^:{}]+?`;
+const clause = String.raw`(?:${conditionText}):\s*${quoted}`;
+const inlinePattern = String.raw`when\s+(${clause}(?:\s+else\s+if\s+${clause})*(?:\s+else\s*:\s*${quoted})?)`;
+const inlineClause = new RegExp(
+  String.raw`\s*(?:else\s+if\s+)?(${conditionText}):\s*(${quoted})`,
+  "uy",
 );
+const inlineElse = new RegExp(String.raw`\s+else\s*:\s*(${quoted})`, "uy");
+type Block = { id: string; label: string; text: string; line: number };
+function namedBlocks(
+  text: string,
+  kind: "output" | "section",
+  startLine: number,
+): Block[] | undefined {
+  const opening = new RegExp(
+    String.raw`^\{\{#${kind} ([A-Za-z0-9_-]+) (${quoted})\}\}$`,
+    "u",
+  );
+  const marker = new RegExp(String.raw`^\s*\{\{#${kind}\b`, "m");
+  if (!marker.test(text)) return;
+  const result: Block[] = [];
+  const ids = new Set<string>();
+  let current:
+    { id: string; label: string; lines: string[]; line: number } | undefined;
+  let number = startLine - 1;
+  for (const line of text.match(/[^\r\n]*(?:\r\n|\n|\r|$)/g) ?? []) {
+    number++;
+    const tag = line.trim();
+    if (!current) {
+      if (!tag) continue;
+      const match = opening.exec(tag);
+      if (!match)
+        fail(`Expected {{#${kind} id "Title"}} on its own line.`, number);
+      if (ids.has(match[1]))
+        fail(`Duplicate ${kind} ID "${match[1]}".`, number);
+      ids.add(match[1]);
+      current = {
+        id: match[1],
+        label: quotedText(match[2], `${kind} title`, number),
+        lines: [],
+        line: number,
+      };
+    } else if (tag === `{{/${kind}}}`) {
+      result.push({
+        id: current.id,
+        label: current.label,
+        text: current.lines.join("").replace(/(?:\r\n|\r|\n)$/, ""),
+        line: current.line + 1,
+      });
+      current = undefined;
+    } else {
+      if (tag.startsWith(`{{#${kind}`))
+        fail(
+          `Close "${current.id}" with {{/${kind}}} before opening another ${kind}.`,
+          number,
+        );
+      current.lines.push(line);
+    }
+  }
+  if (current) fail(`Missing {{/${kind}}} for "${current.id}".`, current.line);
+  return result;
+}
 export class SourceSyntaxError extends Error {
   constructor(
     public detail: string,
@@ -135,6 +201,8 @@ function metadata(text: string) {
         "responses",
         "syntax",
         "delivery",
+        "outputs",
+        "filename",
       ].includes(key),
   );
   if (unknown) fail(`Unknown header property "${unknown}".`);
@@ -285,10 +353,16 @@ function metadata(text: string) {
     syntax,
     responses,
     delivery: deliverySettings(header.delivery),
+    outputSettings:
+      header.outputs === undefined ? {} : object(header.outputs, '"outputs"'),
+    filename:
+      header.filename === undefined
+        ? undefined
+        : string(header.filename, '"filename"'),
   } satisfies Pick<
     Source,
-    "controls" | "title" | "workflow" | "responses" | "delivery"
-  > & { syntax?: "plain" };
+    "controls" | "title" | "workflow" | "responses" | "delivery" | "filename"
+  > & { syntax?: "plain"; outputSettings: Record<string, unknown> };
 }
 function condition(
   text: string,
@@ -297,7 +371,7 @@ function condition(
   line: number,
 ): Condition {
   const match =
-    /^([A-Za-z0-9_-]+)(?:\s*=\s*([A-Za-z0-9_-]+)| is (blank|not blank))?$/.exec(
+    /^(?:(not)\s+)?([A-Za-z0-9_-]+)(?:\s*=\s*([A-Za-z0-9_-]+)| is (blank|not blank))?$/.exec(
       text.trim(),
     );
   if (!match)
@@ -305,7 +379,9 @@ function condition(
       'Use a Boolean field, field=option_id, "is blank", or "is not blank" in this condition.',
       line,
     );
-  const [, name, value, blank] = match;
+  const [, negated, name, value, blank] = match;
+  if (negated && (value !== undefined || blank))
+    fail('Use "not" with a Boolean field by itself.', line);
   fields.add(name);
   if (blank) return { name, test: blank === "blank" ? "blank" : "notBlank" };
   if (value !== undefined) {
@@ -318,7 +394,7 @@ function condition(
       `Declare "${name}" as a Boolean field or add an explicit condition.`,
       line,
     );
-  return { name, test: "boolean" };
+  return { name, test: negated ? "notBoolean" : "boolean" };
 }
 function quotedText(source: string, label: string, line: number) {
   // JSON escape rules also apply in single quotes, with an extra escape for apostrophes.
@@ -344,7 +420,7 @@ function textNodes(
   const escaped = String.raw`\\(?:\\|\{\{)`;
   const pattern = new RegExp(
     advanced
-      ? String.raw`${escaped}|\{\{\s*(?:${conditional})\s*\}\}|${fieldPattern}`
+      ? String.raw`${escaped}|\{\{\s*(?:${inlinePattern})\s*\}\}|${fieldPattern}`
       : `${escaped}|${fieldPattern}`,
     "gu",
   );
@@ -373,13 +449,32 @@ function textNodes(
           fields,
           line,
         );
-      nodes.push({
-        condition: condition(match[1], controls, fields, line),
-        yes: branch(match[2]),
-        no: match[3] ? branch(match[3]) : [],
-      });
+      const clauses = match[1];
+      let offset = 0;
+      let destination = nodes;
+      let entry: RegExpExecArray | null;
+      let count = 0;
+      inlineClause.lastIndex = 0;
+      while ((entry = inlineClause.exec(clauses))) {
+        if (++count > 16) fail("Use up to 16 branches in a condition.", line);
+        const node = {
+          condition: condition(entry[1], controls, fields, line),
+          yes: branch(entry[2]),
+          no: [] as Node[],
+        };
+        destination.push(node);
+        destination = node.no;
+        offset = inlineClause.lastIndex;
+        if (offset === clauses.length) break;
+        inlineElse.lastIndex = offset;
+        const otherwise = inlineElse.exec(clauses);
+        if (otherwise) {
+          destination.push(...branch(otherwise[1]));
+          break;
+        }
+      }
     } else {
-      const raw = match[advanced ? 4 : 1];
+      const raw = match[advanced ? 2 : 1];
       const name = raw?.trim();
       if (name === undefined) nodes.push(match[0].slice(1));
       else if (advanced && /^when(?:\s|$)/u.test(name))
@@ -387,7 +482,7 @@ function textNodes(
           'Use {{when condition: "text" else: "other text"}} for inline output.',
           line,
         );
-      else if (advanced && /^(?:[#/]|else$)/.test(name))
+      else if (advanced && /^(?:[#/]|else(?:\s|$))/.test(name))
         fail(
           `Unexpected {{${name}}}. Put block tags on their own lines and check their opening and closing tags.`,
           line,
@@ -417,6 +512,7 @@ function blocks(
     branch: Extract<Node, { condition: Condition }>;
     parent: Node[];
     hasElse: boolean;
+    clauses: number;
     line: number;
   }[] = [];
   let nodes = root;
@@ -449,7 +545,28 @@ function blocks(
         no: [],
       };
       nodes.push(branch);
-      stack.push({ branch, parent: nodes, hasElse: false, line: number });
+      stack.push({
+        branch,
+        parent: nodes,
+        hasElse: false,
+        clauses: 1,
+        line: number,
+      });
+      nodes = branch.yes;
+    } else if (/^\{\{else if .+\}\}$/.test(tag)) {
+      flush();
+      const top = stack.at(-1);
+      if (!top || top.hasElse)
+        fail("{{else if …}} needs an open condition before {{else}}.", number);
+      if (++top.clauses > 16)
+        fail("Use up to 16 branches in a condition.", number);
+      const branch = {
+        condition: condition(tag.slice(10, -2), controls, fields, number),
+        yes: [],
+        no: [],
+      };
+      top.branch.no.push(branch);
+      top.branch = branch;
       nodes = branch.yes;
     } else if (tag === "{{else}}") {
       flush();
@@ -519,7 +636,16 @@ export function parseSource(text: string): Source {
         : 'Use "--- veraflow 2" as the first line for a metadata header.',
       1,
     );
-  const { controls, title, workflow, syntax, responses, delivery } = header
+  const {
+    controls,
+    title,
+    workflow,
+    syntax,
+    responses,
+    delivery,
+    outputSettings,
+    filename,
+  } = header
     ? metadata(header[1])
     : {
         controls: new Map<string, Control>(),
@@ -527,69 +653,73 @@ export function parseSource(text: string): Source {
         workflow: undefined,
         syntax: undefined,
         delivery: defaultDelivery,
+        outputSettings: {},
+        filename: undefined,
         responses: new Map<string, string | null>(),
       };
   // Prefilled plain files have a metadata header but still use the plain grammar.
   const advanced = !!header && syntax !== "plain";
-  const fields = new Set(controls.keys());
+  const referenced = new Set<string>();
   const body = header ? source.slice(header[0].length) : source;
-  const sections: Section[] = [];
-  const bodyLine = 1 + (header?.[0].match(/\n/g)?.length ?? 0);
-  if (advanced && /^\s*\{\{#section\b/m.test(body)) {
-    let open:
-      { id: string; label: string; text: string[]; line: number } | undefined;
-    let number = bodyLine - 1;
-    for (const line of body.match(/[^\r\n]*(?:\r\n|\n|\r|$)/g) ?? []) {
-      number++;
-      const tag = line.trim();
-      if (!open) {
-        if (!tag) continue;
-        const match = sectionTag.exec(tag);
-        if (!match)
-          fail('Expected {{#section id "Title"}} on its own line.', number);
-        if (sections.some((section) => section.id === match[1]))
-          fail(`Section ID "${match[1]}" is duplicated.`, number);
-        open = {
-          id: match[1],
-          label: quotedText(match[2], "Section title", number),
-          text: [],
-          line: number,
-        };
-      } else if (tag === "{{/section}}") {
-        const content = open.text.join("").replace(/(?:\r\n|\r|\n)$/, "");
-        sections.push({
-          id: open.id,
-          label: open.label,
-          nodes: blocks(content, controls, fields, open.line + 1),
-        });
-        open = undefined;
-      } else {
-        if (tag.startsWith("{{#section"))
-          fail(
-            `Section "${open.id}" is missing {{/section}} before this section.`,
-            number,
-          );
-        open.text.push(line);
-      }
-    }
-    if (open) fail(`Section "${open.id}" is missing {{/section}}.`, open.line);
-  } else
-    sections.push({
-      id: "body",
-      label: "Body",
+  const bodyLine = 1 + lineBreaks(header?.[0] ?? "");
+  const named = advanced ? namedBlocks(body, "output", bodyLine) : undefined;
+  const definitions = named ?? [
+    { id: "main", label: title ?? "Output", text: body, line: bodyLine },
+  ];
+  const outputs = definitions.map((definition) => {
+    const entries = (advanced
+      ? namedBlocks(definition.text, "section", definition.line)
+      : undefined) ?? [
+      {
+        id: "body",
+        label: "Body",
+        text: definition.text,
+        line: definition.line,
+      },
+    ];
+    const sections = entries.map(({ id, label, text, line }) => ({
+      id,
+      label,
       nodes: advanced
-        ? blocks(body, controls, fields, bodyLine)
-        : textNodes(body, false, controls, fields),
-    });
-  if (!sections.length || sections.length > 100 || fields.size > 1000)
+        ? blocks(text, controls, referenced, line)
+        : textNodes(text, false, controls, referenced, line),
+    }));
+    const hasSettings = Object.hasOwn(outputSettings, definition.id);
+    const outputDelivery = hasSettings
+      ? deliverySettings(outputSettings[definition.id])
+      : delivery;
+    for (const [sectionId, keys] of outputDelivery.after) {
+      const index = sections.findIndex((section) => section.id === sectionId);
+      if (index < 0)
+        fail(
+          `delivery.after refers to unknown section "${sectionId}" in output "${definition.id}".`,
+        );
+      if (index === sections.length - 1 && keys.length)
+        fail(`The last section "${sectionId}" cannot have navigation keys.`);
+    }
+    return {
+      id: definition.id,
+      label: definition.label,
+      sections,
+      delivery: outputDelivery,
+    };
+  });
+  for (const name of Object.keys(outputSettings))
+    if (!outputs.some((output) => output.id === name))
+      fail(`Settings refer to unknown output "${name}".`);
+  const fields = new Set([...controls.keys(), ...referenced]);
+  if (
+    outputs.reduce((count, output) => count + output.sections.length, 0) >
+      100 ||
+    fields.size > 1000
+  )
     fail("A source file supports up to 100 sections and 1,000 fields.");
-  for (const [sectionId, keys] of delivery.after) {
-    const index = sections.findIndex((section) => section.id === sectionId);
-    if (index < 0)
-      fail(`delivery.after refers to unknown section "${sectionId}".`);
-    if (index === sections.length - 1 && keys.length)
-      fail(`The last section "${sectionId}" cannot have navigation keys.`);
-  }
+  const filenameError =
+    filename === undefined ? undefined : filenamePatternError(filename, fields);
+  if (filenameError) fail(filenameError);
+  const recordOnlyFields = [...controls.keys()].filter(
+    (name) => !referenced.has(name),
+  );
   for (const [name, value] of responses) {
     if (!fields.has(name))
       fail(`A saved response refers to unknown field "${name}".`);
@@ -603,10 +733,14 @@ export function parseSource(text: string): Source {
       fail(`The saved response for "${name}" does not match its field rules.`);
   }
   const parsed = {
-    sections,
+    outputs,
+    recordOnlyFields,
+    filename,
     controls,
     fields: [...fields],
-    conditionDrivers: conditionFields(sections),
+    conditionDrivers: conditionFields(
+      outputs.flatMap((output) => output.sections),
+    ),
     title,
     workflow,
     responses,
@@ -668,6 +802,7 @@ export function sourceParts(
   source: Source,
   values: ReadonlyMap<string, string>,
   used?: Set<string>,
+  outputId?: string,
 ) {
   let length = 0;
   const part = (text: string, missing = false) => {
@@ -694,11 +829,14 @@ export function sourceParts(
       const { name, test, value } = node.condition;
       used?.add(name);
       const actual = values.get(name);
-      if (actual === undefined && (test === "boolean" || test === "equals"))
+      if (
+        (actual === undefined || actual === "") &&
+        (test === "boolean" || test === "notBoolean" || test === "equals")
+      )
         return used ? [] : [part(`{{${name}}}`, true)];
       const match =
-        test === "boolean"
-          ? actual === "true"
+        test === "boolean" || test === "notBoolean"
+          ? actual === (test === "boolean" ? "true" : "false")
           : test === "equals"
             ? actual === value
             : test === "blank"
@@ -706,9 +844,22 @@ export function sourceParts(
               : !!actual?.trim();
       return parts(match ? node.yes : node.no);
     });
-  return source.sections.map((section) => ({
+  const sections =
+    outputId === undefined && used
+      ? source.outputs.flatMap((output) => output.sections)
+      : sourceOutput(source, outputId).sections;
+  return sections.map((section) => ({
     id: section.id,
     label: section.label,
     parts: parts(section.nodes),
   }));
+}
+
+export function sourceOutput(source: Source, id?: string) {
+  const output =
+    id === undefined
+      ? source.outputs[0]
+      : source.outputs.find((output) => output.id === id);
+  if (!output) throw Error("invalidSource");
+  return output;
 }

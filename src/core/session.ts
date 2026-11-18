@@ -15,8 +15,22 @@ export function verificationRequired(s: Session) {
 }
 export function activeSourceFields(s: Session): Set<string> | undefined {
   if (s.template.placeholderStyle !== "source") return;
+  const parsed = parseSource(s.template.content);
+  const active = new Set(parsed.recordOnlyFields);
+  sourceParts(parsed, sessionValues(s), active);
+  return active;
+}
+function selectedOutputFields(s: Session) {
+  if (s.template.placeholderStyle !== "source") return;
+  const parsed = parseSource(s.template.content);
+  if (parsed.outputs.length === 1) return activeSourceFields(s);
   const active = new Set<string>();
-  sourceParts(parseSource(s.template.content), sessionValues(s), active);
+  sourceParts(
+    parsed,
+    sessionValues(s),
+    active,
+    s.outputId ?? parsed.outputs[0].id,
+  );
   return active;
 }
 export function fieldVisible(
@@ -194,14 +208,16 @@ function findNext(
   }
   return -1;
 }
-export function beginVerification(s: Session): void {
+export function beginVerification(s: Session, outputOnly = false) {
   editable(s);
-  const active = activeSourceFields(s);
+  const active = outputOnly ? selectedOutputFields(s) : activeSourceFields(s);
   if (s.fields.some((field) => needsCapture(s, field, active)))
     throw new Error("incomplete");
   const index = s.fields.findIndex((field) => needsCheck(s, field, active));
+  s.verificationOutputOnly = outputOnly;
   s.mode = index === -1 ? "ready" : "verify";
   if (index !== -1) s.active = index;
+  return index !== -1;
 }
 /** Recheck original values without replacing them or changing unrelated fields. */
 export function beginReverification(s: Session, all = false): void {
@@ -222,6 +238,7 @@ export function beginReverification(s: Session, all = false): void {
     s.fields[index].status = "captured";
     delete s.fields[index].candidate;
   }
+  s.verificationOutputOnly = false;
   s.active = indices[0];
   s.mode = "verify";
 }
@@ -245,7 +262,9 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   delete field.checkedByTyping;
   delete field.candidate;
   if (s.typing) field.checkedByTyping = true;
-  const active = activeSourceFields(s);
+  const active = s.verificationOutputOnly
+    ? selectedOutputFields(s)
+    : activeSourceFields(s);
   if (
     !s.fields.some(
       (f) => needsCheck(s, f, active) || needsCapture(s, f, active),
@@ -265,7 +284,7 @@ function validateOutput(s: Session) {
     s.fields.some((f) => needsCapture(s, f))
   )
     throw Error("incomplete");
-  const active = activeSourceFields(s);
+  const active = selectedOutputFields(s);
   if (verificationRequired(s) && s.fields.some((f) => needsCheck(s, f, active)))
     throw Error("unverified");
 }
@@ -274,11 +293,15 @@ function renderParts(
   template: Template,
   values: ReadonlyMap<string, string>,
   controls: NonNullable<Session["controls"]>,
+  outputId?: string,
 ) {
   if (template.placeholderStyle === "source")
-    return sourceParts(parseSource(template.content), values).map(
-      ({ id, label, parts }) => ({ key: id, label, parts }),
-    );
+    return sourceParts(
+      parseSource(template.content),
+      values,
+      undefined,
+      outputId,
+    ).map(({ id, label, parts }) => ({ key: id, label, parts }));
   return emailSections(template).map((part) => ({
     key: part.key,
     parts: outputParts(
@@ -295,6 +318,7 @@ function renderParts(
 export function renderTemplateValues(
   template: Template,
   input: ReadonlyMap<string, string>,
+  outputId?: string,
 ) {
   const controls = templateControls(template);
   const values = new Map(input);
@@ -314,7 +338,7 @@ export function renderTemplateValues(
     }
   }
   if (template.placeholderStyle === "source")
-    return checkedSource(template, values);
+    return checkedSource(template, values, outputId);
   const rendered = checkedParts(template, values, controls);
   return template.email?.enabled ? checkedEmail(template, rendered) : rendered;
 }
@@ -372,18 +396,20 @@ export function previewSections(template: Template, s?: Session) {
       else if (control.optional) values.set(name, "");
     }
   }
-  return renderParts(template, values, controls);
+  return renderParts(template, values, controls, s?.outputId);
 }
 
 function checkedSource(
   template: Template,
   values: ReadonlyMap<string, string>,
+  outputId?: string,
 ) {
   const parsed = parseSource(template.content);
   // Validate fields visited by the selected branches. Hidden values can remain in the session.
   const used = new Set<string>();
-  sourceParts(parsed, values, used);
-  const parts = sourceParts(parsed, values);
+  const id = outputId ?? parsed.outputs[0].id;
+  sourceParts(parsed, values, used, id);
+  const parts = sourceParts(parsed, values, undefined, id);
   for (const name of used) {
     const control = parsed.controls.get(name),
       value = values.get(name);
@@ -413,7 +439,7 @@ function checkedSource(
 }
 export function prepareSections(s: Session) {
   validateOutput(s);
-  return checkedSource(s.template, sessionValues(s));
+  return checkedSource(s.template, sessionValues(s), s.outputId);
 }
 export function renderSession(s: Session): string {
   if (s.template.placeholderStyle === "source")

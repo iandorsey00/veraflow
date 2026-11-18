@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.13.0 shared records and named outputs
+
+Full release cycle for changes to the template parser, record exports, and native window behavior. Check that switching outputs preserves filled fields, incomplete outputs leave the previous output available, and Copy field works after returning to Scanner. Verify the configured output shortcut and Finder or Explorer file opening on the packaged app. The release workflow verifies the three update packages and the VSIX checksums before publishing and updating the feed.
+
+Before downgrading, keep a copy of your library and source files. Older releases may reject files that use named outputs, filename patterns, or the new conditional syntax.
+
 ## 0.12.0 template syntax and Chinese guides
 
 Full release cycle for parser semantics, native save and tray behavior, and an additional release asset. Check the inline greeting example, grouping, choice verification, output history, and the prefilled save dialog. Verify the new VSIX is installable and covered by the downloaded checksum list. Retain the pre-upgrade library backup when downgrading. Write new inline syntax and custom separators only in files intended for a compatible app.

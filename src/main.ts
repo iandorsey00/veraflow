@@ -1,9 +1,17 @@
+import { compareSourceText } from "./core/batch";
+import {
+  recordValues,
+  selectedSourceOutput,
+  sourceFilename,
+} from "./core/source-record";
+import { shortcutAccelerator, shortcutLabel } from "./core/shortcuts";
 import { textLayoutError } from "./core/form";
 import {
   parseSource,
   SourceSyntaxError,
   prefillSource,
   sourceDefinitionText,
+  sourceOutput,
   type DeliveryMode,
 } from "./core/source";
 import { parseCSV, csvTable } from "./core/csv";
@@ -142,6 +150,9 @@ let retainedScanner: Session | null = null;
 let returnToScanner = false;
 let scannerOutput: "copy" | "paste" | "tab" = "copy";
 
+const macKeyboard = /Mac/i.test(navigator.platform);
+const keyLabel = (binding: string) => shortcutLabel(binding, macKeyboard);
+
 function privateWork() {
   return (
     !!document.querySelector("dialog[open]") ||
@@ -241,7 +252,7 @@ function errorText(error: unknown) {
 function report(error: unknown) {
   message =
     error instanceof ShortcutBindingError
-      ? `${t("shortcutFailed")} ${t(error.action === "cancel" ? "cancelSession" : error.action)}: ${error.shortcut}`
+      ? `${t("shortcutFailed")} ${t(error.action === "cancel" ? "cancelSession" : error.action)}: ${keyLabel(error.shortcut)}`
       : error instanceof EmailHeaderError
         ? `${t(error.section)}: ${t("emailHeaderInvalid")}`
         : errorText(error);
@@ -568,12 +579,12 @@ function scannerControls(secondaryOnly = false): string {
     <div class="scanner-bottom-actions"><div class="toolbar">
       ${secondaryOnly ? "" : (s.mode === "verify" ? "" : button("verify-start", "verifyStart")) + button("scanner-copy", "copyField", "primary") + button("scanner-paste", "pasteToApp", "", !desktop)}
     </div><div class="toolbar">${button("scanner-capture-mode", "scannerNewValue")}${button("scanner-rename", "renameField")}</div></div>
-    <${secondaryOnly ? "div" : "details"} id="scanner-more" class="scanner-template-panel" ${scannerMoreOpen ? "open" : ""}>${secondaryOnly ? "" : `<summary>${esc(t("scannerMore"))}</summary>`}<h2>${esc(t("scannerTemplate"))}</h2><label for="scanner-output-template">${esc(t("scannerTemplate"))}</label><textarea id="scanner-output-template" rows="3">${esc(s.scannerOutputTemplate ?? "")}</textarea><div id="scanner-template-match" class="template-match" aria-live="polite"></div><div class="toolbar">${button("scanner-add-missing", "addMissing")}${button("scanner-copy-template", "copyTemplate")}</div><h2>${esc(t("scannerOutput"))}</h2><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd> ${esc(t("mousePasteHelp"))}</p><h2>${esc(t("useTemplate"))}</h2><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}<h2>JSON</h2><div class="toolbar">${button("scanner-import", "importScanner")}${button("scanner-export-fields", "exportScannerFields")}${button("scanner-export-values", "exportScannerValues")}</div><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", s.fields[s.active]?.value === null)}${button("skip", "skip")}${button("scanner-remove", "removeField", "quiet danger", s.fields.length === 1)}</div></${secondaryOnly ? "div" : "details"}>
+    <${secondaryOnly ? "div" : "details"} id="scanner-more" class="scanner-template-panel" ${scannerMoreOpen ? "open" : ""}>${secondaryOnly ? "" : `<summary>${esc(t("scannerMore"))}</summary>`}<h2>${esc(t("scannerTemplate"))}</h2><label for="scanner-output-template">${esc(t("scannerTemplate"))}</label><textarea id="scanner-output-template" rows="3">${esc(s.scannerOutputTemplate ?? "")}</textarea><div id="scanner-template-match" class="template-match" aria-live="polite"></div><div class="toolbar">${button("scanner-add-missing", "addMissing")}${button("scanner-copy-template", "copyTemplate")}</div><h2>${esc(t("scannerOutput"))}</h2><label for="scanner-output">${esc(t("scannerOutput"))}</label><select id="scanner-output"><option value="copy" ${scannerOutput === "copy" ? "selected" : ""}>${esc(t("copyField"))}</option><option value="paste" ${scannerOutput === "paste" ? "selected" : ""}>${esc(t("pasteField"))}</option><option value="tab" ${scannerOutput === "tab" ? "selected" : ""}>${esc(t("pasteTab"))}</option></select><p class="hint">${esc(t("scannerFocusHelp"))} <kbd>${esc(keyLabel(library.preferences.shortcuts.finish))}</kbd> ${esc(t("mousePasteHelp"))}</p><h2>${esc(t("useTemplate"))}</h2><label for="scanner-template">${esc(t("templates"))}</label><select id="scanner-template">${library.templates.map((tpl) => `<option value="${esc(tpl.id)}">${esc(tpl.name)}</option>`).join("")}</select>${check("scanner-keep", "keepScanner", false)}<p class="hint">${esc(t("scannerMatchHelp"))}</p>${button("scanner-apply", "useTemplate", "", !library.templates.length)}<h2>JSON</h2><div class="toolbar">${button("scanner-import", "importScanner")}${button("scanner-export-fields", "exportScannerFields")}${button("scanner-export-values", "exportScannerValues")}</div><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", s.fields[s.active]?.value === null)}${button("skip", "skip")}${button("scanner-remove", "removeField", "quiet danger", s.fields.length === 1)}</div></${secondaryOnly ? "div" : "details"}>
   </section>`;
 }
 
 function recentView() {
-  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentTemplates"))}</h1><div class="toolbar">${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-document", "openDocument", "primary")}</div></div>
+  return `<main class="settings recent-documents"><div class="section-head"><div class="toolbar">${availableUpdate && !testBuild ? button("update-recent", "updateApp", "primary") : ""}<h1>${esc(t("recentTemplates"))}</h1></div><div class="toolbar">${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-document", "openDocument", "primary")}</div></div>
     ${templateFolderView()}
     ${recentDocuments.length ? `<ul class="recent-list">${recentDocuments.map((item, index) => `<li><button class="template-item" data-recent="${index}"><strong>${esc(item.title)}</strong><span>${esc(item.file)}</span></button></li>`).join("")}</ul>${button("clear-recent", "clearRecent", "quiet")}` : `<p>${esc(t("recentEmpty"))}</p>`}
     ${!session && lastTemplate ? sessionRecovery() : ""}</main>`;
@@ -605,6 +616,7 @@ async function pickTemplateFolder() {
   focus(folder.files.length ? "folder-search" : "open-folder");
 }
 function bindRecent() {
+  click("update-recent", updateApp);
   click("open-folder", pickTemplateFolder);
   click("refresh-folder", async () => {
     templateFolder = await platform.refreshTemplateFolder();
@@ -1446,6 +1458,7 @@ async function navigate(next: typeof view) {
       !templateFormActive() &&
       !["review", "complete"].includes(session?.mode ?? ""),
     library.preferences.alwaysOnTop,
+    next === "session" && templateFormActive(),
   );
   render();
   if (next === "session")
@@ -1465,7 +1478,7 @@ function settingsView(): string {
   return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><details class="legacy-library"><summary>${esc(t("legacyLibrary"))}</summary><p>${esc(t("legacyLibraryHelp"))}</p>${button("open-legacy-library", "templates")}</details><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("tabBetweenSections", "sectionTab", p.tabBetweenSections ?? false)}<label for="outputHistoryLimit">${esc(t("outputHistoryLimit"))}</label><input id="outputHistoryLimit" type="number" min="0" max="${maxOutputHistoryLimit}" step="1" value="${historyLimit(p)}" aria-describedby="output-history-help"><p id="output-history-help" class="hint">${esc(t("outputHistoryHelp"))}</p></section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("clipboardDefaultHelp"))}</p><p class="hint">${esc(t("quitPrivacy"))}</p></section>
-  <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, p.shortcuts[action], 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
+  <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, keyLabel(p.shortcuts[action]), 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
 }
 function refreshTrayMenu() {
   return platform.trayMenu(library.preferences.language, !!availableUpdate);
@@ -1473,7 +1486,9 @@ function refreshTrayMenu() {
 async function checkAvailableUpdate() {
   if (updateCheck) return updateCheck;
   updateCheck = (async () => {
+    const hadUpdate = !!availableUpdate;
     availableUpdate = await platform.checkUpdate();
+    if (view === "recent" && !busy && hadUpdate !== !!availableUpdate) render();
     await refreshTrayMenu().catch(() => {});
     return availableUpdate;
   })();
@@ -1569,7 +1584,9 @@ function bindSettings() {
   bindComparison("default", p.comparison);
   for (const action of actions)
     on("key-" + action, "input", (e) => {
-      p.shortcuts[action] = (e.target as HTMLInputElement).value.trim();
+      p.shortcuts[action] = shortcutAccelerator(
+        (e.target as HTMLInputElement).value,
+      );
       dirty = true;
     });
   on("outputHistoryLimit", "input", (event) => {
@@ -1683,7 +1700,7 @@ async function launch(
   const shortcutError = await configureSessionShortcuts(!form);
   await platform.mouseSource(false);
   await platform.active(true);
-  await platform.compact(!form, library.preferences.alwaysOnTop);
+  await platform.compact(!form, library.preferences.alwaysOnTop, form);
   if (session) eraseSession(session);
   session = nextSession;
   templateForm = form;
@@ -1694,7 +1711,7 @@ async function launch(
   sectionTab = library.preferences.tabBetweenSections === true;
   deliveryMode =
     template.placeholderStyle === "source"
-      ? parseSource(template.content).delivery.mode
+      ? sourceOutput(parseSource(template.content)).delivery.mode
       : "step";
   typingCheck = false;
   if (template.id !== "scanner")
@@ -1730,10 +1747,20 @@ async function launch(
 }
 async function rememberOutput(s: Session, text: string) {
   const limit = historyLimit();
-  if (!limit || recordedOutputs.get(s) === text) return;
+  if (!limit) return;
+  const output =
+    s.template.placeholderStyle === "source" &&
+    parseSource(s.template.content).outputs.length > 1
+      ? selectedSourceOutput(s)
+      : undefined;
+  const signature = output ? `${output.id}\0${text}` : text;
+  if (recordedOutputs.get(s) === signature) return;
   try {
-    await platform.recordOutput(s.template.name, text, limit);
-    recordedOutputs.set(s, text);
+    const title = output
+      ? `${s.template.name} · ${output.label}`
+      : s.template.name;
+    await platform.recordOutput(title, text, limit);
+    recordedOutputs.set(s, signature);
   } catch (error) {
     notify(
       (error instanceof Error ? error.message : String(error)) === "historyFull"
@@ -1815,7 +1842,7 @@ function focusedSessionView(s: Session): string {
     ${f?.removeBlankLines ? `<p class="hint">${esc(t("blankLinesRemoved"))}</p>` : ""}
     ${f?.status === "mismatch" ? mismatchView(f.value!, f.candidate!) : ""}
     ${configured ? activeScannerControl(s) : ""}
-    ${!ready && (!s.scanner || progress.checking || f?.value === null) ? `<p class="hint"><kbd>${esc(p.shortcuts[progress.checking ? "verify" : "capture"])}</kbd> ${esc(t(progress.checking ? "compareSelection" : "captureSelected"))}</p>` : ""}
+    ${!ready && (!s.scanner || progress.checking || f?.value === null) ? `<p class="hint"><kbd>${esc(keyLabel(p.shortcuts[progress.checking ? "verify" : "capture"]))}</kbd> ${esc(t(progress.checking ? "compareSelection" : "captureSelected"))}</p>` : ""}
     ${
       !ready
         ? `<div class="toolbar task-primary">${mouseMode && (progress.checking || f?.value === null) ? button("mouse-transfer", progress.checking ? "compareSelection" : "captureSelected", "primary", !desktop) : ""}${s.scanner && f?.value !== null && !progress.checking ? button("verify-start", "checkField", selectedMatched || !s.template.verificationEnabled ? "" : "primary") : ""}${s.scanner && f?.value !== null && !progress.checking ? button("scanner-copy", "copyField", selectedMatched || !s.template.verificationEnabled ? "primary" : "", !selectedMatched && s.template.verificationEnabled) + button("scanner-paste", "pasteToApp", "", !desktop || (!selectedMatched && s.template.verificationEnabled)) : ""}</div>
@@ -1829,7 +1856,7 @@ function focusedSessionView(s: Session): string {
     ${s.fields.some((field) => field.value !== null) ? `<div class="reverification"><h3>${esc(t("verifyAgain"))}</h3><div class="toolbar">${button("reverify-field", "reverifyField", "", !f || f.value === null)}${button("reverify-all", "reverifyAll")}</div></div>` : ""}
     ${s.scanner ? `<p class="vera-id">${esc(s.scannerId)}</p><p class="hint">${esc(t("scannerTemporary"))}</p>` : ""}
     </details>
-    <details id="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary>${check("mouse-mode", "mouseMode", mouseMode)}${check("preserve-clipboard", "preserveClipboard", preserveClipboard)}<p class="hint">${esc(t("preserveClipboardHelp"))}</p><p class="hint">${esc(t("mouseHelp"))}</p><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
+    <details id="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary>${check("mouse-mode", "mouseMode", mouseMode)}${check("preserve-clipboard", "preserveClipboard", preserveClipboard)}<p class="hint">${esc(t("preserveClipboardHelp"))}</p><p class="hint">${esc(t("mouseHelp"))}</p><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(keyLabel(p.shortcuts[a]))}</kbd></dd>`).join("")}</dl></details>
     ${
       preview
         ? `<pre class="output">${esc(
@@ -1843,6 +1870,14 @@ function focusedSessionView(s: Session): string {
     }
     ${!library.preferences.hideLivePreview && !s.scanner && !preview ? outputPreview(s.template, s) : ""}
     <details class="focus-guide"><summary>${esc(t("quickGuide"))}</summary><ol><li>${esc(t("guideCapture"))}</li><li>${esc(t("guideCheck"))}</li><li>${esc(t("guideCopy"))}</li><li>${esc(t("guidePause"))}</li></ol></details><div class="actions">${button("cancel-session", s.scanner ? "endScanner" : s.template.placeholderStyle === "source" ? "closeSession" : "cancelSession", "quiet danger")}</div>${s.scanner ? `</div>${!p.hideLivePreview ? freeScannerPreview(s) : ""}</div>` : ""}</main>`;
+}
+
+function outputSelector(s: Session) {
+  if (s.template.placeholderStyle !== "source") return "";
+  const source = parseSource(s.template.content);
+  if (source.outputs.length < 2) return "";
+  const selected = s.outputId ?? source.outputs[0].id;
+  return `<label for="source-output">${esc(t("outputHeading"))}</label><select id="source-output">${source.outputs.map((output) => `<option value="${esc(output.id)}" ${output.id === selected ? "selected" : ""}>${esc(output.label)}</option>`).join("")}</select>`;
 }
 
 function outputPreview(template: Template, s?: Session): string {
@@ -1959,7 +1994,8 @@ function templateFormView(s: Session): string {
   const f = s.fields[s.active];
   return `<main class="capture-panel template-form ${focusedWorkflow ? "focused-session" : ""}">
     <h1>${esc(s.template.name)}</h1>
-    <div class="task-toolbar">${button("switch-scanner", "openInScanner")}${button("pause-task", "pauseTask")}</div>
+    ${typingCheck ? "" : outputSelector(s)}
+    <div class="task-toolbar">${!typingCheck && s.template.placeholderStyle === "source" ? button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") : ""}${button("switch-scanner", "openInScanner")}${button("pause-task", "pauseTask")}</div>
     ${focusedWorkflow ? `<p class="task-progress">${esc(progressText(s))}</p>` : ""}
     ${
       typingCheck && f
@@ -1987,7 +2023,7 @@ function templateFormView(s: Session): string {
 
 async function switchTemplateView(form: boolean) {
   const s = session!;
-  await platform.compact(!form, library.preferences.alwaysOnTop);
+  await platform.compact(!form, library.preferences.alwaysOnTop, form);
   const shortcutError = await configureSessionShortcuts(!form);
   prepareWorkflow(s, form);
   typingCheck = false;
@@ -1997,8 +2033,12 @@ async function switchTemplateView(form: boolean) {
   preview = false;
   message = "";
   render();
-  focus(form ? controlFocus(`form-field-${s.active}`) : "switch-form");
-  if (!form && !s.fields[s.active]) focus("finish");
+  if (form) focus(controlFocus(`form-field-${s.active}`));
+  else if (!s.fields[s.active]) focus("finish");
+  else if (s.fields[s.active].value !== null) focus(`field-${s.active}`);
+  else if (s.template.placeholderStyle === "source")
+    focus(focusSourceScanner());
+  else focus("switch-form");
   if (shortcutError) report(shortcutError);
 }
 function sessionRecovery(s?: Session) {
@@ -2036,7 +2076,7 @@ function deliveredSections(s: Session) {
           label: t("allSections"),
           text: parts
             .map((part) => part.text)
-            .join(parseSource(s.template.content).delivery.separator),
+            .join(selectedSourceOutput(s).delivery.separator),
         },
       ]
     : (pasteOrder?.map((index) => parts[index]) ?? parts);
@@ -2053,7 +2093,7 @@ function sectionNavigation(
   index: number,
 ) {
   if (index === parts.length - 1 || groupSections || pasteOrder) return false;
-  const configured = parseSource(s.template.content).delivery.after.get(
+  const configured = selectedSourceOutput(s).delivery.after.get(
     parts[index].id,
   );
   return configured ?? sectionTab;
@@ -2086,10 +2126,10 @@ function sectionDeliveryView(s: Session) {
         : ""
       : navigation.join(" → ");
   return `<main class="capture-panel delivery-panel">
-    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1><p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
+    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${outputSelector(s)}<p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
     <pre class="output delivery-text" tabindex="0">${esc(parts[index].text)}</pre>
-    <div class="toolbar delivery-primary">${button("copy-section", "copySection", "primary")}${button("save-sections", "saveSections", "quiet")}</div>
-    <p class="hint">${esc(t("sectionDeliveryHelp"))} <kbd>${esc(library.preferences.shortcuts.finish)}</kbd></p>
+    <div class="toolbar delivery-primary">${button("copy-section", "copySection", "primary")}${s.prepared!.length > 1 && !groupSections ? button("copy-output", "copyEntireOutput") : ""}${button("save-sections", "saveSections", "quiet")}</div>
+    <p class="hint">${esc(t("sectionDeliveryHelp"))} <kbd>${esc(keyLabel(library.preferences.shortcuts.finish))}</kbd></p>
     ${lastStep ? lastStepView() : ""}
     ${parts.length > 1 ? `<div class="toolbar delivery-navigation">${button("section-prev", "emailManualBack", "", index === 0 && !s.deliveryDone)}${button("section-next", "emailManualNext", "", index === parts.length - 1)}</div>` : ""}
     ${
@@ -2106,7 +2146,7 @@ function sectionDeliveryView(s: Session) {
     }
     ${pasteOrder ? `<p class="hint" role="status">${esc(t("manualSectionOrder"))}</p>` : ""}
     ${parts.length > 1 && !s.deliveryDone ? `<p class="hint">${esc(t("afterSection"))} ${esc(keys || t("noNavigation"))}</p>` : ""}
-    <div class="toolbar delivery-exit">${button("section-edit", "editResponses", "quiet")}${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
+    <div class="toolbar delivery-exit">${button("section-edit", s.typing ? "returnToFilledForm" : "returnToFilledScanner", "quiet")}${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
   </main>`;
 }
 function emailDeliveryView(s: Session) {
@@ -2120,7 +2160,7 @@ function emailDeliveryView(s: Session) {
     <div class="toolbar delivery-navigation">${button("email-back", "emailManualBack", "", index === 0)}${button("email-next", "emailManualNext", "", !!s.deliveryDone)}</div>
     ${s.deliveryDone ? `<p role="status">${esc(t("emailBodyPasted"))}</p>` : ""}
     ${focusedWorkflow ? lastStepView() + `<ol class="email-checklist" aria-label="${esc(t("emailOrder"))}">${parts.map((part, i) => `<li ${index === i ? 'aria-current="step"' : ""}><strong>${esc(t(part.key))}</strong> · ${esc(t(emailSteps.get(part.key) ?? "transferPending"))}</li>`).join("")}</ol>` : ""}
-    <details><summary>${esc(t("pasteOptions"))}</summary><p>${esc(t("emailDeliveryHelp"))}</p><p><kbd>${esc(shortcuts.finish)}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(shortcuts.previous)}</kbd> ${esc(t("emailGoBack"))}</p><p>${esc(t("emailBackHelp"))}</p></details>
+    <details><summary>${esc(t("pasteOptions"))}</summary><p>${esc(t("emailDeliveryHelp"))}</p><p><kbd>${esc(keyLabel(shortcuts.finish))}</kbd> ${esc(t("emailPasteNext"))}</p><p><kbd>${esc(keyLabel(shortcuts.previous))}</kbd> ${esc(t("emailGoBack"))}</p><p>${esc(t("emailBackHelp"))}</p></details>
     <div class="toolbar delivery-exit">${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "cancelSession", "quiet")}</div>
   </main>`;
 }
@@ -2148,6 +2188,10 @@ function focusSourceScanner() {
   if (session?.mode === "ready") return "finish";
   if (session && sourceScannerChoice(session))
     return controlFocus("scanner-control");
+  if (!document.querySelector("#manual-entry[open]"))
+    return document.getElementById("scanner-control")
+      ? controlFocus("scanner-control")
+      : "mouse-transfer";
   return !manualOpen && document.getElementById("scanner-control")
     ? controlFocus("scanner-control")
     : "manual-value";
@@ -2166,6 +2210,7 @@ function sourceScannerView(s: Session) {
     <header class="scanner-header">
       <h1>${esc(s.template.name)}</h1>
       <p class="task-progress" role="status">${esc(progressText(s))}</p>
+      ${checking ? "" : outputSelector(s)}
     </header>
     <div class="scanner-layout ${showPreview ? "" : "without-preview"}">
       <div class="scanner-work">
@@ -2179,18 +2224,21 @@ function sourceScannerView(s: Session) {
             ${
               choice
                 ? ""
-                : `<details id="manual-entry" ${manualOpen || !s.controls?.has(field.name) ? "open" : ""}>
+                : `<details id="manual-entry" ${manualOpen || ((!desktop || !mouseMode) && !s.controls?.has(field.name)) ? "open" : ""}>
               <summary>${esc(t(s.controls?.has(field.name) ? "clipboard" : "manualEntry"))}</summary>
               <form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label>${manualValueEditor(s)}
               <div class="toolbar">${button("apply-value", checking ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>
             </details>`
             }
-            <div class="toolbar scanner-navigation">${button("previous", "previous")}${!choice && mouseMode ? button("mouse-transfer", checking ? "compareSelection" : "transfer", "", !desktop) : ""}${button("next", "next")}</div>`
+            <div class="toolbar scanner-navigation">${!choice && mouseMode ? button("mouse-transfer", checking ? "compareSelection" : "transfer", "primary", !desktop) : ""}${button("previous", "previous")}${button("next", "next")}</div>`
               : `<div class="toolbar">${button("finish", "prepareSections", "primary")}</div>`
           }
         </section>
         <section class="scanner-fields" aria-labelledby="scanner-fields-heading">
-          <h2 id="scanner-fields-heading">${esc(t("fields"))}</h2>
+          <div class="scanner-fields-heading">
+            <h2 id="scanner-fields-heading">${esc(t("fields"))}</h2>
+            ${field?.value != null ? button("source-copy-field", "copyField", "quiet") : ""}
+          </div>
           <ol class="capture-fields" aria-label="${esc(t("fields"))}">
             ${s.fields
               .map((entry, index) =>
@@ -2216,6 +2264,8 @@ function sourceScannerView(s: Session) {
           <div class="toolbar">${check("mouse-mode", "mouseMode", mouseMode)}${check("preserve-clipboard", "preserveClipboard", preserveClipboard)}</div>
         </details>
         <div class="toolbar scanner-session-actions">
+          ${!ready && !checking && parseSource(s.template.content).outputs.length > 1 ? button("finish", "prepareSections") : ""}
+          ${button("batch-compare", "batchCompare", "quiet")}${button("save-record", "saveRecord", "quiet")}
           ${button("switch-form", "fillForm", "quiet")}
           ${button("pause-task", "pauseTask", "quiet")}
           ${button("cancel-session", "closeSession", "quiet")}
@@ -2274,7 +2324,7 @@ function sessionView(): string {
   ${f && s.controls?.has(f.name) ? activeScannerControl(s) : ""}
   ${s.mode !== "ready" && f ? `<details id="manual-entry" ${manualOpen ? "open" : ""}><summary>${esc(t("manualEntry"))}</summary><form id="manual-form"><label for="manual-value">${esc(t("manual"))}</label>${manualValueEditor(s)}<div class="toolbar">${button("apply-value", mode === "verify" ? "compare" : "apply", "primary")}${button("use-clipboard", "clipboard")}</div></form>${!s.scanner ? `<p class="hint">${esc(t("clipboardHelp"))}</p>` : ""}</details>` : ""}
   ${mouseMode ? `<div class="toolbar">${button("mouse-back", "previous")}${button("mouse-transfer", "transfer", "primary", s.mode === "ready")}${button("mouse-forward", "next")}</div>` : ""}
-  <details id="session-options" class="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(p.shortcuts[mode])}</kbd>
+  <details id="session-options" class="session-options" ${sessionOptionsOpen ? "open" : ""}><summary>${esc(t("sessionOptions"))}</summary><p class="hint">${esc(t(mode === "verify" ? "verifyHelp" : "captureHelp"))}</p><kbd>${esc(keyLabel(p.shortcuts[mode]))}</kbd>
   ${s.mode !== "ready" ? check("preserve-clipboard", "preserveClipboard", preserveClipboard) + `<p class="hint">${esc(t("preserveClipboardHelp"))}</p>` : ""}
   ${check("mouse-mode", "mouseMode", mouseMode)}<p class="hint">${esc(t("mouseHelp"))}</p></details>
   ${s.scanner ? `<div class="section-head scanner-field-heading"><h2>${esc(t("scannerFields"))}</h2><div class="toolbar">${button("scanner-add", "addField")}<button id="scanner-reorder" aria-pressed="${scannerReordering}">${esc(t(scannerReordering ? "doneReordering" : "reorderFields"))}</button></div></div><p class="hint">${esc(t("scannerFieldsHelp"))}</p>` : ""}
@@ -2287,7 +2337,7 @@ function sessionView(): string {
   ${!s.scanner ? `<div class="toolbar navigation">${button("previous", "previous")}${button("next", "next")}${button("clear", "clear")}${button("clean-lines", "removeBlankLines", "", !f || f.value === null)}${button("skip", "skip")}</div>` : ""}
   ${s.scanner ? scannerControls() : s.mode === "ready" ? `<div class="actions">${button("preview", "preview")}${button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>` : `<div class="actions">${button("verify-start", "verifyStart")}${!s.template.verificationEnabled ? button("finish", s.template.email?.enabled ? "emailPrepare" : "finish", "primary") : ""}</div>`}
   ${preview ? `<pre class="output">${esc(rendered)}</pre>` : !library.preferences.hideLivePreview && !s.scanner ? outputPreview(s.template, s) : ""}
-  <details><summary>${esc(t("help"))}</summary><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(p.shortcuts[a])}</kbd></dd>`).join("")}</dl></details>
+  <details><summary>${esc(t("help"))}</summary><dl class="shortcut-list">${actions.map((a) => `<dt>${esc(t(a === "cancel" ? "cancelSession" : a))}</dt><dd><kbd>${esc(keyLabel(p.shortcuts[a]))}</kbd></dd>`).join("")}</dl></details>
   <div class="actions">${button("cancel-session", s.scanner ? "endScanner" : "cancelSession", "quiet danger")}</div>${s.scanner ? `</div>${!p.hideLivePreview ? freeScannerPreview(s) : ""}</div>` : ""}</main>`;
 }
 function mismatchView(a: string, b: string): string {
@@ -2368,7 +2418,11 @@ function selectSessionField(index: number) {
   if (keepChecking) reverification ??= "field";
   else {
     reverification = null;
-    if (s.scanner) s.mode = "capture";
+    if (
+      s.scanner ||
+      (s.template.placeholderStyle === "source" && s.mode === "ready")
+    )
+      s.mode = "capture";
   }
   if (
     focusedWorkflow &&
@@ -2381,7 +2435,108 @@ async function editSourceResponses(s: Session) {
   await switchTemplateView(s.typing === true);
   delete s.prepared;
 }
+async function batchCompare(s: Session) {
+  const active = activeSourceFields(s);
+  const entries = s.fields.flatMap((field) =>
+    fieldVisible(s, field.name, active) && field.value?.trim()
+      ? [
+          {
+            name: field.name,
+            label: fieldLabel(s, field.name),
+            value: field.value,
+          },
+        ]
+      : [],
+  );
+  if (!entries.length) throw Error("noValue");
+  const input = await formDialog(
+    t("batchCompare"),
+    [{ key: "source", label: t("batchSource"), lines: true }],
+    t("compare"),
+    t("keep"),
+    ({ source }) =>
+      !source.trim() || source.length > 65536 ? t("batchSourceLimit") : null,
+  );
+  if (!input) return;
+  const results = compareSourceText(
+    entries,
+    input.source,
+    s.template.comparison,
+  );
+  await actionDialog(
+    "batchCompare",
+    `<p class="hint">${esc(t("batchEvidenceHelp"))}</p><details><summary>${esc(t("batchSource"))}</summary><pre class="output">${esc(input.source)}</pre></details><dl>${results
+      .map(
+        ({ label, value, status, evidence }) =>
+          `<dt>${esc(label)} · ${esc(t(status))}</dt><dd><pre>${esc([value, ...evidence.slice(0, 3)].map((text) => text.slice(0, 500)).join("\n"))}</pre></dd>`,
+      )
+      .join("")}</dl>`,
+    `<button value="done" autofocus>${esc(t("keep"))}</button>`,
+  );
+}
+
 function bindSession() {
+  click("source-copy-field", () =>
+    copySelectedField(session!, session!.active),
+  );
+  click("batch-compare", () => batchCompare(session!));
+  click("save-record", async () => {
+    const s = session!;
+    const values = Object.fromEntries(recordValues(s));
+    await platform.exportTemplates(
+      JSON.stringify(values, null, 2) + "\n",
+      sourceFilename(s, "json"),
+    );
+  });
+  on("source-output", "change", (event) => {
+    const select = event.target as HTMLSelectElement;
+    const s = session!;
+    const outputId = select.value;
+    if (busy) {
+      select.value = selectedSourceOutput(s).id;
+      return;
+    }
+    void run(async () => {
+      const output = selectedSourceOutput({ ...s, outputId });
+      // Validate the new output before replacing the currently prepared text.
+      const prepared =
+        s.mode === "delivery" ? prepareSections({ ...s, outputId }) : undefined;
+      s.outputId = outputId;
+      groupSections = false;
+      pasteOrder = null;
+      sectionOrderOpen = false;
+      sectionTab = library.preferences.tabBetweenSections === true;
+      deliveryMode = output.delivery.mode;
+      if (prepared) {
+        s.prepared = prepared;
+        s.deliveryIndex = 0;
+        s.deliveryDone = false;
+        lastStep = null;
+        message = "";
+        render();
+        focus("source-output");
+        await rememberOutput(s, sectionText(prepared));
+        return;
+      }
+      const panel = document.getElementById("form-output");
+      if (panel) {
+        if (!panel.hidden) panel.innerHTML = outputPreview(s.template, s);
+      } else {
+        render();
+        focus("source-output");
+      }
+    });
+  });
+  click("copy-output", async () => {
+    const s = session!;
+    const text = s
+      .prepared!.map((part) => part.text)
+      .join(selectedSourceOutput(s).delivery.separator);
+    await copyTask(text, selectedSourceOutput(s).label);
+    notify("copied");
+    await rememberOutput(s, sectionText(s.prepared!));
+  });
+
   click("copy-section", async () => {
     const part = deliveredSections(session!)[session!.deliveryIndex ?? 0];
     await copyTask(part.text, part.label);
@@ -2390,7 +2545,7 @@ function bindSession() {
   });
   click("save-sections", async () => {
     const s = session!;
-    if (await saveSectionText(exportSections(s)))
+    if (await saveSectionText(s, exportSections(s)))
       await rememberOutput(s, sectionText(s.prepared!));
   });
   click("reorder-sections", () => {
@@ -2776,11 +2931,8 @@ function bindSession() {
           selectSessionField(Number(el.dataset.field));
           preview = false;
           render();
-          root
-            .querySelector<HTMLButtonElement>(
-              `[data-field="${session!.active}"]`,
-            )
-            ?.focus();
+          // run() keeps the app inert until the handler finishes.
+          focus(`field-${session!.active}`);
         })),
   );
   on("session-options", "toggle", (e) => {
@@ -3050,13 +3202,18 @@ async function perform(action: Action, global = false) {
         )
       )
         throw Error("invalidControlValue");
-      if (templateFormActive() && verificationRequired(s)) {
-        beginVerification(s);
-        if (s.mode === "verify") {
-          typingCheck = true;
+      if (
+        (templateFormActive() ||
+          (s.template.placeholderStyle === "source" && s.mode !== "verify")) &&
+        verificationRequired(s)
+      ) {
+        if (beginVerification(s, s.template.placeholderStyle === "source")) {
+          typingCheck = templateFormActive();
           message = "";
           render();
-          focus(controlFocus("typing-check"));
+          focus(
+            typingCheck ? controlFocus("typing-check") : focusSourceScanner(),
+          );
           return;
         }
       }
@@ -3136,8 +3293,12 @@ function emailOutputText(s: Session) {
     .map((part) => `${t(part.key)}\n${part.text}`)
     .join("\n\n");
 }
-function saveSectionText(parts: NonNullable<Session["prepared"]>) {
-  return platform.exportTemplates(sectionText(parts), "veraflow-output.txt");
+function saveSectionText(s: Session, parts: NonNullable<Session["prepared"]>) {
+  const name =
+    parseSource(s.template.content).filename === undefined
+      ? "veraflow-output.txt"
+      : sourceFilename(s, "txt");
+  return platform.exportTemplates(sectionText(parts), name);
 }
 async function requestSessionClose(s: Session, confirmDiscard: boolean) {
   if (s.template.placeholderStyle === "source") {
@@ -3173,17 +3334,6 @@ async function requestSessionClose(s: Session, confirmDiscard: boolean) {
   }
   await closeSession();
 }
-function prefilledFilename(title: string) {
-  const sanitized = title
-    .replace(/[^\p{L}\p{N} _-]/gu, "-")
-    .replace(/ +/g, "-");
-  const stem = Array.from(sanitized)
-    .slice(0, 60)
-    .join("")
-    .replace(/^[ _-]+|[ _-]+$/g, "");
-  const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
-  return `${stem || "VeraFlow"}-${timestamp}Z.veraflow`;
-}
 // Text export requires valid, complete output. A prefilled file can preserve unfinished inputs.
 async function saveBeforeClose(s: Session) {
   let parts: Session["prepared"];
@@ -3209,26 +3359,18 @@ async function saveBeforeClose(s: Session) {
   if (choice === "discard") return true;
   if (choice === "edit") await editSourceResponses(s);
   if (choice === "text" && parts) {
-    const saved = await saveSectionText(parts);
+    const saved = await saveSectionText(s, parts);
     if (saved) await rememberOutput(s, sectionText(s.prepared ?? parts));
     return saved;
   }
   if (choice === "prefilled") {
     const content = prefillSource(
       s.template.content,
-      new Map(
-        s.fields.map((field) => [
-          field.name,
-          field.status === "skipped" ? "" : field.value,
-        ]),
-      ),
+      recordValues(s),
       s.typing ? "form" : "scanner",
       s.template.name.slice(0, 250).trim(),
     );
-    return platform.exportTemplates(
-      content,
-      prefilledFilename(s.template.name),
-    );
+    return platform.exportTemplates(content, sourceFilename(s, "veraflow"));
   }
   return false;
 }
@@ -3320,6 +3462,84 @@ root.addEventListener("input", () => {
 root.addEventListener("change", () => {
   if (view !== "session") void platform.active(true).catch(report);
 });
+function templateFieldClipboard(s: Session, index: number) {
+  const field = s.fields[index];
+  if (field?.value == null) throw Error("noValue");
+  if (verificationRequired(s) && field.status !== "verified")
+    throw Error("unverified");
+  return field.value;
+}
+function fieldToCopy(target: HTMLElement) {
+  if (
+    view !== "session" ||
+    !session ||
+    paused ||
+    typingCheck ||
+    busy ||
+    document.querySelector("dialog[open]") ||
+    !["capture", "verify", "ready"].includes(session.mode) ||
+    window.getSelection()?.toString()
+  )
+    return;
+  if (
+    (target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement) &&
+    target.selectionStart !== target.selectionEnd
+  )
+    return;
+  const button = target.closest<HTMLElement>("button[data-field]");
+  if (button) return Number(button.dataset.field);
+  const row = target.closest<HTMLElement>(".template-form [data-form-row]");
+  if (row) {
+    const index = Number(row.dataset.formRow);
+    if (
+      !target.matches('[aria-invalid="true"]') &&
+      session.fields[index]?.value !== null
+    )
+      return index;
+  }
+}
+
+function copyFieldValue(s: Session, index: number) {
+  return s.scanner
+    ? scannerValue({ ...s, active: index })
+    : templateFieldClipboard(s, index);
+}
+function showFieldCopied(s: Session, index: number) {
+  lastStep = { key: "stepCopied", name: s.fields[index].name };
+  message = t("copied");
+  failure = false;
+  const notice = document.getElementById("notice")!;
+  notice.hidden = false;
+  notice.className = "notice success";
+  notice.setAttribute("role", "status");
+  notice.textContent = message;
+}
+
+async function copySelectedField(s: Session, index: number) {
+  await platform.copy(copyFieldValue(s, index));
+  showFieldCopied(s, index);
+}
+
+// A native Edit > Copy command may reach the webview as a copy event.
+window.addEventListener("copy", (event) => {
+  if (!event.clipboardData) return;
+  const target =
+    event.target instanceof HTMLElement && event.target !== document.body
+      ? event.target
+      : document.activeElement;
+  if (!(target instanceof HTMLElement)) return;
+  const index = fieldToCopy(target);
+  if (index === undefined) return;
+  event.preventDefault();
+  try {
+    const s = session!;
+    event.clipboardData.setData("text/plain", copyFieldValue(s, index));
+    showFieldCopied(s, index);
+  } catch (error) {
+    report(error);
+  }
+});
 // Native paste events supply plain text directly, without clipboard-read permission.
 window.addEventListener("paste", (event) => {
   if (
@@ -3375,29 +3595,27 @@ window.addEventListener("keydown", (event) => {
     document.querySelector("dialog[open]")
   )
     return;
-  if (view === "session" && templateFormActive()) return;
-  if (view === "session" && session?.scanner) {
-    const target = event.target as HTMLElement;
-    const fieldButton = target.closest<HTMLButtonElement>("[data-field]");
-    if (
-      fieldButton &&
-      (event.ctrlKey || event.metaKey) &&
-      !event.altKey &&
-      !event.shiftKey &&
-      event.key.toLowerCase() === "c" &&
-      !window.getSelection()?.toString()
-    ) {
+  if (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === "c" &&
+    event.target instanceof HTMLElement
+  ) {
+    const index = fieldToCopy(event.target);
+    if (index !== undefined) {
       event.preventDefault();
-      void run(async () => {
-        const index = Number(fieldButton.dataset.field);
-        await copyTask(
-          scannerValue({ ...session!, active: index }),
-          session!.fields[index].name,
-        );
-        notify("copied");
-      });
+      void run(() => copySelectedField(session!, index));
       return;
     }
+  }
+  if (view === "session" && templateFormActive()) return;
+  if (
+    view === "session" &&
+    (session?.scanner || session?.template.placeholderStyle === "source")
+  ) {
+    const target = event.target as HTMLElement;
+    const fieldButton = target.closest<HTMLButtonElement>("[data-field]");
     if (
       fieldButton &&
       event.key === "Tab" &&

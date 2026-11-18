@@ -6,7 +6,7 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地文本工具。用普通�
 
 ## 安装
 
-从 [v0.12.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.12.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
+从 [v0.13.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.13.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
 
 - **macOS 12 或更新版本**：Apple 芯片选 `macos-arm64.zip`，Intel 芯片选 `macos-x64.zip`。解压后将 VeraFlow.app 移到「应用程序」。预览版尚无 Developer ID 签名和 Apple 公证。如果系统拦截且你信任下载来源，可在「隐私与安全性」中为该应用选择「仍要打开」。跨应用采集和粘贴需要「辅助功能」权限。
 - **Windows**：运行 `windows-x64-setup.exe`。Windows 可能提示发布者未知。如果系统缺少 WebView2，安装程序可能会安装它。
@@ -19,7 +19,7 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地文本工具。用普通�
 - **打开文件夹…** 查找该文件夹及子文件夹中的模板。文件夹由 Finder 或文件资源管理器管理。外部改动后点击 **刷新**。
 - **自由扫描器** 适合没有模板的任务。每行定义一个字段，或导入扫描器 JSON。在 **更多工具** 中可导出字段或字段及其值。旧版模板可从 **设置 → 旧版模板库** 打开。
 
-最简单的模板只需写 `你好，{{姓名}}！`。条件、选项和粘贴区段的语法见[模板语言指南](docs/veraflow-language-draft.zh-CN.md)。可以先试用[示例文件](examples/source/README.zh-CN.md)，再安装[适用于 VS Code 的扩展](editors/vscode/README.zh-CN.md)。兼容旧版归档时，可参阅[便携模板规则](docs/portable-templates.zh-CN.md)。
+最简单的模板只需写 `你好，{{姓名}}！`。共享记录、命名输出、来源比较和粘贴区段的用法见[模板语言指南](docs/veraflow-language-draft.zh-CN.md)。可以先试用[示例文件](examples/source/README.zh-CN.md)，再安装[适用于 VS Code 的扩展](editors/vscode/README.zh-CN.md)。兼容旧版归档时，可参阅[便携模板规则](docs/portable-templates.zh-CN.md)。
 
 ## 填写、核对和输出
 
@@ -28,7 +28,7 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地文本工具。用普通�
 3. 查看实时预览，点击 **准备输出区段**。你可以复制当前区段、保存文本，或按窗口显示的快捷键粘贴。**粘贴选项 → 调整区段顺序…** 只调整本次会话的粘贴顺序。自定义顺序每次只粘贴一个区段，也不会发送 Tab 等导航按键。
 4. **最近的输出** 保存已准备好的结果，方便重新复制。要继续修改字段，关闭前可返回已填写的表单或扫描器，也可以 **保存预填模板**，以后重新打开。
 
-Windows 默认全局快捷键为 Ctrl+Alt+1–8，macOS 为 Cmd+Option+1–8，依次对应采集、上一字段、下一字段、清空、跳过、核对、取消和输出。可在设置中修改。部分受保护的应用会拦截模拟按键，此时可手动复制和粘贴。
+Windows 默认输出快捷键为 **Ctrl+Alt+X**，macOS 为 **Cmd+Opt+X**。其他操作使用 Ctrl+Alt+1–7 或 Cmd+Opt+1–7。升级时会保留已有的快捷键设置。可在设置中修改。部分受保护的应用会拦截模拟按键，此时可手动复制和粘贴。
 
 ## 本地数据与源码
 

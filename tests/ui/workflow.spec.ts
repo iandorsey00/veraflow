@@ -279,7 +279,7 @@ test("shortcut registration failure still opens a usable session", async ({
     page.getByRole("button", { name: "Cancel session", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/A shortcut is invalid/)).toContainText(
-    "CommandOrControl+Alt+1",
+    /Ctrl\+Alt\+1|Cmd\+Opt\+1/,
   );
   await page.getByText("Enter value manually", { exact: true }).click();
   await page.getByLabel("Paste or type a value").fill("Synthetic value");

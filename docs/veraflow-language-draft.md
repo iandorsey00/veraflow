@@ -99,8 +99,8 @@ Use `{{#section address "Address"}}` and `{{/section}}` on separate lines. A sec
 Try the [RMA template](../examples/source/rma.veraflow). Its Boolean controls the To and Subject text. An empty Attention field omits the entire attention line. A whole address captured as one field stays literal, including any existing `ATTN:` spelling.
 
 1. Fill the form and choose **Prepare output sections**. Widen the window to keep the preview beside the fields while scrolling. Scanner also moves its preview to the right in a wide window. **Settings → Hide live output preview** turns off live rendering in the form. Focused view adds progress to Fill form and retains the focused Scanner layout.
-2. Focus the destination and press the output shortcut. The Windows default is **Ctrl+Alt+8**. VeraFlow pastes one section at a time. **Press Tab where the template has no keys** is opt-in. **Paste sections together** joins section text with one newline by default. To use a blank line or another separator, set `"delivery": {"separator": "\n\n"}` in the header. This separator applies to the grouped block, including when you save it as text.
-3. A failed paste keeps the section selected. Check the destination before retrying, or use **Copy current section** and paste manually. Previous and next move within the prepared output. **Save output as text** saves plain text, with section labels when exporting several separate sections. **Edit responses** returns to the session. Prepared output stays in memory until you close, replace, or edit the session.
+2. Focus the destination and press the output shortcut. The Windows default is **Ctrl+Alt+X**. VeraFlow pastes one section at a time. **Press Tab where the template has no keys** is opt-in. **Paste sections together** joins section text with one newline by default. To use a blank line or another separator, set `"delivery": {"separator": "\n\n"}` in the header. This separator applies to the grouped block, including when you save it as text.
+3. A failed paste keeps the section selected. Check the destination before retrying, or use **Copy current section** and paste manually. Previous and next move within the prepared output. **Save output as text** saves plain text, with section labels when exporting several separate sections. **Return to Form** or **Return to Scanner** takes you back to your filled responses. Prepared output stays in memory until you close, replace, or edit the session.
 
 ### Change the paste order for a session
 
@@ -130,7 +130,7 @@ Try both modes with the [example files and local test form](../examples/source/R
 
 ## Save and reopen a session
 
-Choose **Close session** and select **Save prefilled template**, **Save output as text**, or **Close without saving**. **Keep working** and canceling the save picker leave your session open. From prepared output, **Return to filled form** or **Return to filled Scanner** brings you back to your responses.
+Choose **Close session** and select **Save prefilled template**, **Save output as text**, or **Close without saving**. **Keep working** and canceling the save picker leave your session open. From prepared output, **Return to Form** or **Return to Scanner** brings you back to your responses.
 
 A prefilled `.veraflow` copy opens in the workflow you used. It includes the template and the responses you entered, even if required fields remain unanswered. Responses are editable and any required verification starts fresh. The suggested filename uses the template title and a UTC timestamp. The file contains your responses in plain text. Use **Open file…** or double-click it to resume. **Import template file** and standard template exports carry the reusable definition and omit the saved responses. **Save output as text** is available once the required fields and checks are complete and writes the rendered output.
 
@@ -153,3 +153,19 @@ Existing Email Mode templates retain their separate workflow and email-specific 
 ## VS Code
 
 The [VeraFlow extension](../editors/vscode/README.md) adds highlighting, folding, paired brackets, and snippets to both file extensions. Type `vf-` in the editor to find snippets for a header, field reference, output section, or conditional.
+
+## One record with multiple outputs
+
+Place each independent output between `{{#output id "Label"}}` and `{{/output}}` on their own lines. Use unique output IDs and put all rendered text inside the blocks. Each output can contain ordinary text or its own `section` blocks. Declare shared fields once in the header. A declared field can exist solely in the record.
+
+Choose an output in the form or Scanner to preview and prepare it. Changing the selection keeps the record and shows just the chosen output. In the output view, copy one paste section or use **Copy entire output**. Switch outputs directly on the Output screen. Switching starts at the first section. If an output has missing or unverified fields, VeraFlow keeps the current output available and shows an error. Use literal tabs in a body to make a row that can be pasted into a spreadsheet. Keep each value on one line when the destination treats a newline as a new row. See the [shared-record example](../examples/source/shared-record.veraflow).
+
+An optional `"outputs"` object keys delivery settings by output ID. Each value takes the same properties as `"delivery"`. Outputs without an entry use the top-level delivery settings. Section IDs and navigation apply within one output.
+
+Use **Save record as JSON…** to store field IDs with their raw values. Unanswered values are `null`. **Save prefilled template** saves the source and values together for reopening. The optional header property `"filename"` sets the suggested filename stem for saves. It can use `{{timestamp}}`, `{{template_name}}`, `{{workflow_name}}`, `{{output_name}}`, and `{{field.Reference}}`. An unanswered field inserts nothing. The app sanitizes the stem, adds the extension, and lets you choose whether to replace an existing file in the native save dialog.
+
+## Conditions and source evidence
+
+Use `not ready` with a declared Boolean to test explicitly for false. An unanswered Boolean stays unresolved. Add `else if` before the final `else` to test alternatives in order. For a block use `{{else if review}}` on its own line. For inline output write `{{when not ready: 'Hold' else if review: 'Review' else: 'Ready'}}`.
+
+**Compare source text…** in a form or Scanner compares filled fields with a pasted block. It checks lines such as `Reference: VF-104` against the field ID or label. A whole matching line without a label is weaker evidence. Multiple candidates, conflicts, and missing lines are reported separately. Batch comparison leaves verification status unchanged. Use the individual source check to verify a field. A requested paste is separate from proof of accurate transfer or completion in the destination app.

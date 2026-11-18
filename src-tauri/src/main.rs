@@ -575,8 +575,9 @@ async fn export_templates(
                 "veraflow-output.txt",
             ]
             .contains(&name.as_str())
-                || name.strip_suffix(".veraflow").is_some_and(|stem| {
-                    !stem.is_empty()
+                || name.rsplit_once('.').is_some_and(|(stem, extension)| {
+                    matches!(extension, "veraflow" | "json" | "txt")
+                        && !stem.is_empty()
                         && stem.len() <= 280
                         && stem
                             .chars()

@@ -308,3 +308,83 @@ test("multiline inline conditions interpolate selected branches and preserve lit
     /missingValue/,
   );
 });
+
+test("named outputs render independently from one record", () => {
+  const content = readFileSync(
+    new URL("../examples/source/shared-record.veraflow", import.meta.url),
+    "utf8",
+  );
+  const doc = template(content);
+  const record = new Map([
+    ["Reference", "A-01"],
+    ["Contact", "Alex"],
+  ]);
+  assert.deepEqual(
+    parseSource(content).outputs.map(({ id }) => id),
+    ["note", "row"],
+  );
+  assert.ok(activeSourceFields(startSession(doc))?.has("InternalNote"));
+  assert.equal(
+    renderTemplateValues(doc, record, "row")[0].text,
+    "A-01\tAlex\tPending",
+  );
+  assert.equal(
+    renderTemplateValues(doc, record, "note")[0].text,
+    "Hello Alex,\nBooking A-01 is pending.",
+  );
+  const partial = template(`--- veraflow 2
+{}
+---
+{{#output a "A"}}
+{{value}}
+{{/output}}
+{{#output b "B"}}
+{{other}}
+{{/output}}`);
+  assert.equal(
+    renderTemplateValues(partial, new Map([["other", "present"]]), "b")[0].text,
+    "present",
+  );
+  assert.throws(
+    () => renderTemplateValues(partial, new Map(), "b"),
+    /missingValue/,
+  );
+});
+
+test("else if short-circuits branches and not only matches a false Boolean", () => {
+  const header =
+    '--- veraflow 2\n{"fields":{"ready":{"type":"boolean"},"review":{"type":"boolean"}}}\n---\n';
+  const source = template(
+    header +
+      "{{when not ready: 'Hold' else if review: 'Review' else: 'Ready'}}\n{{#when not ready}}\nHold\n{{else if review}}\nReview\n{{else}}\nReady\n{{/when}}",
+  );
+  assert.equal(
+    renderTemplateValues(source, new Map([["ready", "false"]]))[0].text,
+    "Hold\nHold\n",
+  );
+  assert.equal(
+    renderTemplateValues(
+      source,
+      new Map([
+        ["ready", "true"],
+        ["review", "true"],
+      ]),
+    )[0].text,
+    "Review\nReview\n",
+  );
+  assert.equal(
+    renderTemplateValues(
+      source,
+      new Map([
+        ["ready", "true"],
+        ["review", "false"],
+      ]),
+    )[0].text,
+    "Ready\nReady\n",
+  );
+  assert.throws(() => renderTemplateValues(source, new Map()), /missingValue/);
+  assert.throws(
+    () => parseSource(header + "{{when not unknown: 'x'}}"),
+    /invalidSource/,
+  );
+});
