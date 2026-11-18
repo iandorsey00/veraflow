@@ -1,0 +1,17 @@
+--- veraflow 2
+{
+  "title": "Linked service visits",
+  "workflow": "csv",
+  "csv": {
+    "file": "linked-records.csv",
+    "rowLabel": "{{Reference}} · {{Contact}} · {{\"Location {code}\"}}"
+  }
+}
+---
+{{#output note "Appointment note"}}
+Hello {{Contact}}, your visit {{Reference}} is at {{"Location {code}"}}.
+{{/output}}
+
+{{#output row "Spreadsheet row"}}
+{{Reference}}	{{Contact}}	{{"Location {code}"}}
+{{/output}}

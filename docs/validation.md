@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.14.0 release preparation
+
+Passed 82 TypeScript unit tests, 87 browser tests, 19 Rust tests, nine portable rendering fixtures, and the macOS native text conversion check. Version consistency, isolated test-build configuration, formatting, and Clippy checks passed. Native tests cover rejection of linked CSV paths outside the opened template’s directory, including symlinks. Packaged Finder and File Explorer checks remain pending.
+
+`npm audit --omit=dev` reported zero vulnerabilities. The full npm audit reports [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) in Vite’s development dependency tree. No fixed Picomatch version was published at review time. VeraFlow does not pass CSV or template data to Vite’s glob matcher. `cargo audit` found zero vulnerability-class advisories and 12 informational warnings, including the Linux GLib unsoundness warning.
+
 ## Checked in this workspace
 
 - TypeScript strict checks and optimized Vite production build.

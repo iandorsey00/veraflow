@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0
+
+- Link a CSV in a source template and open directly to Output. Format row labels with CSV column placeholders.
+- Cycle through named outputs in Form, Scanner, and CSV mode. The CSV row arrows move across outputs at row boundaries.
+- Support CSV files up to 64 MiB and 100,000 data rows. Preserve exact, unique column names and support quoted field references in advanced templates.
+
 ## 0.13.0
 
 - Generate independent named outputs from one shared record, switch between them on the Output page, and save the raw field values as JSON.

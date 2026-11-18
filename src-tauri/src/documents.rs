@@ -13,6 +13,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 const MAX_BYTES: u64 = 16 * 1024 * 1024;
+pub const MAX_CSV_BYTES: u64 = 64 * 1024 * 1024;
 const RECENT_LIMIT: usize = 12;
 static NEXT_TOKEN: AtomicU32 = AtomicU32::new(1);
 #[derive(Default)]
@@ -40,18 +41,23 @@ fn format(path: &Path) -> Option<&'static str> {
 fn read(path: PathBuf) -> Option<Document> {
     let format = format(&path)?;
     let file_name = path.file_name()?.to_string_lossy();
+    let limit = if format == "csv" {
+        MAX_CSV_BYTES
+    } else {
+        MAX_BYTES
+    };
     let content = (|| {
         if !path.is_file() {
             return None;
         }
         let file = File::open(&path).ok()?;
         let metadata = file.metadata().ok()?;
-        if !metadata.is_file() || metadata.len() > MAX_BYTES {
+        if !metadata.is_file() || metadata.len() > limit {
             return None;
         }
         let mut text = String::new();
-        let size = file.take(MAX_BYTES + 1).read_to_string(&mut text).ok()? as u64;
-        (size <= MAX_BYTES).then_some(text)
+        let size = file.take(limit + 1).read_to_string(&mut text).ok()? as u64;
+        (size <= limit).then_some(text)
     })();
     Some(Document {
         name: file_name.into_owned(),
@@ -72,6 +78,98 @@ fn open(app: &tauri::AppHandle, path: PathBuf) -> Option<Document> {
         document.recent_token = Some(token);
     }
     Some(document)
+}
+
+fn declared_csv(content: &str) -> Option<String> {
+    let mut lines = content.trim_start_matches('\u{feff}').lines();
+    if lines.next()? != "--- veraflow 2" {
+        return None;
+    }
+    let mut metadata = String::new();
+    for line in lines {
+        if line == "---" {
+            let header: serde_json::Value = serde_json::from_str(&metadata).ok()?;
+            if header["workflow"].as_str() != Some("csv") {
+                return None;
+            }
+            return header["csv"]["file"].as_str().map(str::to_owned);
+        }
+        metadata.push_str(line);
+        metadata.push('\n');
+    }
+    None
+}
+
+// Resolve only a relative CSV link from a template the user opened. Check containment
+// after resolving links so a template cannot read an unrelated directory.
+fn linked_csv_path(template: &Path, relative: &str) -> Result<PathBuf, String> {
+    if relative.len() > 4096
+        || relative.contains([':', '\\'])
+        || relative
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+        || format(Path::new(relative)) != Some("csv")
+    {
+        return Err("csvLinkUnavailable".into());
+    }
+    let root = template
+        .parent()
+        .ok_or("csvLinkUnavailable")?
+        .canonicalize()
+        .map_err(|_| "csvLinkUnavailable")?;
+    let target = root
+        .join(relative)
+        .canonicalize()
+        .map_err(|_| "csvLinkUnavailable")?;
+    if !target.starts_with(&root) || format(&target) != Some("csv") || !target.is_file() {
+        return Err("csvLinkUnavailable".into());
+    }
+    Ok(target)
+}
+
+#[tauri::command]
+pub async fn read_linked_csv(
+    app: tauri::AppHandle,
+    token: u32,
+    relative: String,
+) -> Result<String, String> {
+    let template = app
+        .state::<IssuedDocuments>()
+        .0
+        .lock()
+        .map_err(|_| "csvLinkUnavailable")?
+        .iter()
+        .find(|(id, _)| *id == token)
+        .map(|(_, path)| path.clone())
+        .ok_or("csvLinkUnavailable")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let source = read(template.clone())
+            .and_then(|document| document.content)
+            .ok_or("csvLinkUnavailable")?;
+        if declared_csv(&source).as_deref() != Some(relative.as_str()) {
+            return Err("csvLinkUnavailable".into());
+        }
+        let path = linked_csv_path(&template, &relative)?;
+        let file = File::open(path).map_err(|_| "csvLinkUnavailable")?;
+        let metadata = file.metadata().map_err(|_| "csvLinkUnavailable")?;
+        if !metadata.is_file() {
+            return Err("csvLinkUnavailable".into());
+        }
+        if metadata.len() > MAX_CSV_BYTES {
+            return Err("csvTooLarge".into());
+        }
+        let mut content = String::new();
+        let bytes = file
+            .take(MAX_CSV_BYTES + 1)
+            .read_to_string(&mut content)
+            .map_err(|_| "invalidCSV")? as u64;
+        if bytes > MAX_CSV_BYTES {
+            return Err("csvTooLarge".into());
+        }
+        Ok(content)
+    })
+    .await
+    .map_err(|_| "csvLinkUnavailable".to_string())?
 }
 
 #[derive(Serialize, Deserialize)]
@@ -268,6 +366,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn linked_csv_restricts_paths_to_the_opened_template_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let folder = temp.path().join("templates");
+        std::fs::create_dir_all(folder.join("data")).unwrap();
+        let template = folder.join("example.vf");
+        let inside = folder.join("data/rows.csv");
+        let outside = temp.path().join("outside.csv");
+        std::fs::write(&inside, "Name\nAlex").unwrap();
+        std::fs::write(&outside, "Name\nDrew").unwrap();
+        assert_eq!(
+            linked_csv_path(&template, "data/rows.csv").unwrap(),
+            inside.canonicalize().unwrap()
+        );
+        assert!(linked_csv_path(&template, "../outside.csv").is_err());
+        assert!(linked_csv_path(&template, outside.to_str().unwrap()).is_err());
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(outside, folder.join("link.csv")).unwrap();
+            assert!(linked_csv_path(&template, "link.csv").is_err());
+        }
+        assert_eq!(declared_csv("--- veraflow 2\r\n{\"workflow\":\"csv\",\"csv\":{\"file\":\"data/rows.csv\"}}\r\n---\r\nBody").as_deref(), Some("data/rows.csv"));
+    }
+
+    #[test]
     fn reads_only_supported_utf8_documents() {
         let dir = tempfile::tempdir().unwrap();
         let template = dir.path().join("return label.VF");
@@ -283,7 +405,7 @@ mod tests {
         let large = dir.path().join("large.csv");
         File::create(&large)
             .unwrap()
-            .set_len(MAX_BYTES + 1)
+            .set_len(MAX_CSV_BYTES + 1)
             .unwrap();
         assert!(read(large).unwrap().content.is_none());
     }

@@ -18,7 +18,7 @@ Hello {{name}},
 
 Start with the exact first line `--- veraflow 2`, followed by a JSON object and a line containing only `---`. Use LF or CRLF header lines. This is a source-language version, separate from the JSON exchange envelope version. An unsupported explicit version yields an error.
 
-Set the optional top-level `"workflow"` property to `"form"` for **Fill form** or `"scanner"` for **Scanner**. If the property is absent, opening the file prompts for a workflow. Both workflows have a button to switch modes with values intact. This property affects how VeraFlow opens a file. Renderers can ignore it.
+Set the optional top-level `"workflow"` property to `"form"` for **Fill form**, `"scanner"` for **Scanner**, or `"csv"` for [linked CSV](#linked-csv). If the property is absent, opening the file prompts for a workflow. Form and Scanner have a button to switch modes with values intact. This property controls how VeraFlow obtains input. Renderers that already have values can ignore it.
 
 ```text
 --- veraflow 2
@@ -29,7 +29,7 @@ Hello {{name}},
 
 Set `title` to a readable name for the session and Recent list. It takes up to 250 characters on one line. Files without a title use the filename. When a template fails to open, the notice identifies the invalid setting or reports a source line for malformed JSON and block tags.
 
-Declare fields under `fields`. Declarations emit no text. A field ID in the header or a condition uses ASCII letters, digits, hyphens, and underscores. Plain references also accept the names described by the plain brace rules. Undeclared references are inferred as text fields.
+Declare fields under `fields`. Declarations emit no text. Field names are case-sensitive and can contain spaces, Unicode, and punctuation. For names with braces or other characters that would be interpreted as syntax, use a JSON-quoted reference such as `{{"Location {code}"}}`. Conditions accept quoted field names too, as in `{{when "Location {code}" is not blank: 'Ready'}}`. Undeclared references are inferred as text fields.
 
 | Field property    | Meaning                                                                                                                                                                               |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -145,6 +145,28 @@ Set **Settings → Number of recent outputs to keep** from 0 to 20. Setting it t
 ## CSV and existing libraries
 
 Open a comma-separated UTF-8 file with headers and pick a row. Choose a template from the library or open a source template from disk. Columns match field IDs exactly. Try the [RMA CSV](../examples/source/rma.csv). The selected row supplies responses for this session.
+
+### Linked CSV
+
+Add `workflow` and `csv` to the template’s JSON header to open directly on the Output page. VeraFlow reads the CSV next to the template or in one of its subfolders. Use `/` between path components on every platform.
+
+```veraflow
+--- veraflow 2
+{
+  "title": "Service visits",
+  "workflow": "csv",
+  "csv": {
+    "file": "data/visits.csv",
+    "rowLabel": "{{Reference}} · {{Contact name}}"
+  }
+}
+---
+Hello {{Contact name}}, your reference is {{Reference}}.
+```
+
+The CSV uses UTF-8 and nonblank, unique column headers. Headers match field names exactly, including case and spaces. An empty cell supplies an empty string. A field with no matching column uses the template’s default if it has one. The optional `rowLabel` uses literal text and placeholders for CSV columns. Every label starts with the row number. Without `rowLabel`, VeraFlow summarizes the first few cells. The CSV limit is 64 MiB and 100,000 data rows. The row dropdown groups large files into pages of 500 rows.
+
+Use the **Row** dropdown above **Output** to select any combination. The row arrows move through rows for the current output and cross into the next or previous output at the ends. The output arrows keep the current row. Use Tab to focus the selectors or buttons, then use the dropdown’s native keyboard controls or press Enter or Space on an arrow button. In Form and Scanner, the output selector has the same output arrows when multiple outputs exist. Try the [linked template](../examples/source/linked-records.veraflow) with its [companion CSV](../examples/source/linked-records.csv).
 
 Use **Open folder…** to browse and search a directory of `.veraflow` and `.vf` files, including subfolders. Relative paths distinguish templates with the same name. Put CSV files alongside templates if useful, then open them with **Open file…**. Use **Refresh folder** to pick up changes made outside VeraFlow.
 

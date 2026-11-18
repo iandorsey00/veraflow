@@ -1121,12 +1121,6 @@ dialog textarea {
   max-width: 1060px;
 }
 
-.template-form > #source-output,
-.delivery-panel #source-output {
-  display: block;
-  margin-block-end: 0.75rem;
-}
-
 .template-form-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1446,4 +1440,20 @@ input.toggle-switch:checked::before {
   align-items: center;
   gap: 0.4rem;
   overflow-wrap: anywhere;
+}
+
+.session-picker {
+  margin-block-end: 0.75rem;
+}
+
+.picker-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.picker-controls select {
+  min-width: 0;
+  margin: 0;
 }

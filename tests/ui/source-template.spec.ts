@@ -147,11 +147,20 @@ test("opens a source document in its declared mode and can switch modes", async 
   await pickDocument(
     page,
     "Greeting.veraflow",
-    '--- veraflow 2\n{"workflow":"form"}\n---\nHello {{name}}',
+    '--- veraflow 2\n{"workflow":"form"}\n---\n{{#output greeting "Greeting"}}\nHello {{name}}\n{{/output}}\n{{#output farewell "Farewell"}}\nBye {{name}}\n{{/output}}',
   );
   await page.getByLabel("name", { exact: true }).fill("Alex Example");
+  const output = page.getByLabel("Output", { exact: true });
+  await page
+    .getByRole("button", { name: "Next output", exact: true })
+    .press("Enter");
+  await expect(output).toHaveValue("farewell");
   await page.locator("#switch-scanner").click();
   await expect(page.locator(".capture-field")).toContainText("Alex Example");
+  await page
+    .getByRole("button", { name: "Previous output", exact: true })
+    .click();
+  await expect(output).toHaveValue("greeting");
   await page.locator("#switch-form").click();
   await expect(page.getByLabel("name", { exact: true })).toHaveValue(
     "Alex Example",
@@ -913,4 +922,57 @@ test("switching named outputs retains values and JSON saves the shared record", 
   await page.locator("#source-output").selectOption("note");
   await expect(page.locator(".output")).toContainText("Hello Alex");
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("linked CSV opens at output and walks row-output pairs in both directions", async ({
+  page,
+}) => {
+  const folder = await mkdtemp(join(tmpdir(), "veraflow-linked-csv-"));
+  try {
+    const source = (await fixture("linked-records.veraflow")).toString();
+    await writeFile(join(folder, "linked-records.veraflow"), source);
+    await writeFile(
+      join(folder, "linked-records.csv"),
+      await fixture("linked-records.csv"),
+    );
+    await page.goto("/");
+    const chooser = page.waitForEvent("filechooser");
+    await page.locator("#open-folder").click();
+    await (await chooser).setFiles(folder);
+    await page
+      .getByRole("button", { name: "linked-records.veraflow", exact: true })
+      .click();
+
+    const row = page.getByLabel("CSV row", { exact: true });
+    const output = page.getByLabel("Output", { exact: true });
+    const result = page.locator(".output");
+    await expect(row.locator("option:checked")).toHaveText(
+      "1 · VF-104 · Alex · North",
+    );
+    await expect(result).toHaveText(
+      "Hello Alex, your visit VF-104 is at North.",
+    );
+    await expect(page.locator("#section-edit")).toHaveCount(0);
+
+    const next = page.getByRole("button", { name: "Next row", exact: true });
+    await next.click();
+    await expect(row).toHaveValue("1");
+    await expect(result).toContainText("Hello Drew");
+    await next.click();
+    await expect(row).toHaveValue("0");
+    await expect(output).toHaveValue("row");
+    await expect(result).toHaveJSProperty("textContent", "VF-104\tAlex\tNorth");
+    await page
+      .getByRole("button", { name: "Previous row", exact: true })
+      .click();
+    await expect(row).toHaveValue("1");
+    await expect(output).toHaveValue("note");
+    await page
+      .getByRole("button", { name: "Next output", exact: true })
+      .click();
+    await expect(row).toHaveValue("1");
+    await expect(result).toHaveJSProperty("textContent", "VF-105\tDrew\tSouth");
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
 });

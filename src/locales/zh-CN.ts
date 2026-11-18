@@ -87,6 +87,18 @@ export const zh: Record<keyof typeof en, string> = {
   sectionDeliveryHelp:
     "将焦点移到目标，然后按快捷键粘贴。如果粘贴失败，请检查目标后重试，或复制当前区段。",
   sourceCSV: "从 CSV 填写…",
+  csvTooLarge: "CSV 文件超过 64 MiB。",
+  csvTooManyRows: "CSV 超过 100,000 行数据。",
+  csvHeaders: "CSV 列名不得为空或重复。",
+  csvNoRows: "此 CSV 中没有数据行。",
+  csvLinkUnavailable: "无法读取关联的 CSV。请检查相对于模板的路径。",
+  csvPickLinked: "选择关联的 CSV",
+  previousCSVRow: "上一行",
+  nextCSVRow: "下一行",
+  previousCSVRows: "较早的行…",
+  nextCSVRows: "较后的行…",
+  previousOutput: "上一个输出",
+  nextNamedOutput: "下一个输出",
   csvRow: "CSV 行",
 
   scannerWorkflow: "扫描器工作流",

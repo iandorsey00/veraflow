@@ -1,11 +1,19 @@
 import { fieldNames, veraId, type DataTable } from "./workspace";
 // CSV is text only: formulas, links and macros are never evaluated.
-export function parseCSV(source: string, delimiter?: string): string[][] {
+export const maxCSVBytes = 64 * 1024 * 1024;
+export const maxCSVRows = 100_000;
+
+export function parseCSV(
+  source: string,
+  delimiter?: string,
+  keepEmptyRows = false,
+): string[][] {
   if (
-    new TextEncoder().encode(source).length > 16 * 1024 * 1024 ||
-    source.includes("\0")
+    source.length > maxCSVBytes ||
+    new TextEncoder().encode(source).length > maxCSVBytes
   )
-    throw Error("invalidCSV");
+    throw Error("csvTooLarge");
+  if (source.includes("\0")) throw Error("invalidCSV");
   source = source.replace(/^\uFEFF/, "");
   // Guess from the first logical record, ignoring separators inside quoted cells.
   if (!delimiter) {
@@ -46,9 +54,11 @@ export function parseCSV(source: string, delimiter?: string): string[][] {
     closed = false;
   };
   const line = () => {
+    const explicitRecord = row.length > 0 || closed;
     cell();
-    if (row.some((v) => v !== "")) rows.push(row);
-    if (rows.length > 10001) throw Error("invalidCSV");
+    if (row.some((v) => v !== "") || (keepEmptyRows && explicitRecord))
+      rows.push(row);
+    if (rows.length > maxCSVRows + 1) throw Error("csvTooManyRows");
     row = [];
   };
   for (let i = 0; i < source.length; i++) {
@@ -157,4 +167,23 @@ export function csvTable(
       values: Object.fromEntries(fields.map((n, i) => [n, values[i]])),
     })),
   };
+}
+
+export type CSVRecords = { headers: string[]; rows: string[][] };
+
+export function csvRecords(source: string): CSVRecords {
+  const [headers, ...rows] = parseCSV(source, undefined, true);
+  if (
+    headers.some((name) => !name.trim()) ||
+    new Set(headers).size !== headers.length
+  )
+    throw Error("csvHeaders");
+  if (!rows.length) throw Error("csvNoRows");
+  return { headers, rows };
+}
+
+export function csvRecord(data: CSVRecords, index: number) {
+  return new Map(
+    data.headers.map((name, column) => [name, data.rows[index][column]]),
+  );
 }

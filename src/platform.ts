@@ -1,3 +1,4 @@
+import { maxCSVBytes } from "./core/csv";
 import type { SectionKey } from "./core/source";
 import { invoke, isTauri, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -94,7 +95,7 @@ async function browserDocument(
     name: file.name,
     format: csv ? "csv" : "source",
     content:
-      file.size > 16 * 1024 * 1024
+      file.size > (csv ? maxCSVBytes : 16 * 1024 * 1024)
         ? null
         : new TextDecoder("utf-8", { fatal: true }).decode(
             await file.arrayBuffer(),
@@ -103,7 +104,11 @@ async function browserDocument(
   };
 }
 export type FolderListing = { name: string; files: string[] };
-let browserFolder: { listing: FolderListing; templates: File[] } | null = null;
+let browserFolder: {
+  listing: FolderListing;
+  templates: File[];
+  csvFiles: Map<string, File>;
+} | null = null;
 export type OpenDocument = {
   name: string;
   format: "source" | "csv";
@@ -111,6 +116,27 @@ export type OpenDocument = {
   recentToken?: number | null;
 };
 export const platform = {
+  async readLinkedCSV(
+    token: number | null | undefined,
+    relative: string,
+  ): Promise<string | null> {
+    if (desktop && token != null)
+      return invoke("read_linked_csv", { token, relative });
+    const template = token == null ? undefined : browserTokens.get(token);
+    const path = template?.webkitRelativePath;
+    const csv = path
+      ? browserFolder?.csvFiles.get(
+          path.slice(0, path.lastIndexOf("/") + 1) + relative,
+        )
+      : undefined;
+    if (csv) {
+      if (csv.size > maxCSVBytes) throw Error("csvTooLarge");
+      return new TextDecoder("utf-8", { fatal: true }).decode(
+        await csv.arrayBuffer(),
+      );
+    }
+    return null;
+  },
   async documentEvents(ready: () => void) {
     if (!desktop) return;
     // Subscribe before draining the queue so startup and later file opens use the same path.
@@ -193,7 +219,15 @@ export const platform = {
             file.webkitRelativePath.split("/").slice(1).join("/"),
           ),
         };
-        browserFolder = { listing, templates };
+        browserFolder = {
+          listing,
+          templates,
+          csvFiles: new Map(
+            files
+              .filter((file) => /\.csv$/i.test(file.name))
+              .map((file) => [file.webkitRelativePath, file]),
+          ),
+        };
         resolve(listing);
       };
       input.click();
@@ -284,7 +318,7 @@ export const platform = {
         csv: format === "csv",
         source: format === "source",
       });
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept =
@@ -296,9 +330,22 @@ export const platform = {
       input.oncancel = () => resolve(null);
       input.onchange = async () => {
         const file = input.files?.[0];
-        resolve(
-          file ? (file.size > 16 * 1024 * 1024 ? "" : await file.text()) : null,
-        );
+        if (!file) return resolve(null);
+        if (file.size > (format === "csv" ? maxCSVBytes : 16 * 1024 * 1024))
+          return reject(
+            Error(format === "csv" ? "csvTooLarge" : "invalidImport"),
+          );
+        try {
+          resolve(
+            format === "csv"
+              ? new TextDecoder("utf-8", { fatal: true }).decode(
+                  await file.arrayBuffer(),
+                )
+              : await file.text(),
+          );
+        } catch {
+          reject(Error(format === "csv" ? "invalidCSV" : "invalidImport"));
+        }
       };
       input.click();
     });

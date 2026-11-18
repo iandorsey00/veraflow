@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.14.0 linked CSV and output navigation
+
+Full release cycle for the new CSV workflow, source parser changes, and native linked-file reads. Open the [linked CSV example](../examples/source/linked-records.veraflow) with its companion CSV from Finder and Windows File Explorer. Check the row labels, boundary navigation in both directions, and copy/paste after switching rows. Move the CSV away to confirm VeraFlow reports the missing link. The existing release workflow checks both platforms and validates signatures and checksums before publishing installers and the update feed.
+
+Keep the template and CSV together when moving them. To downgrade, close VeraFlow and reinstall [0.13.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.13.0). Keep any 0.14.0 templates separately because 0.13.0 cannot open CSV-linked headers or interpret quoted field names as references.
+
 ## 0.13.0 shared records and named outputs
 
 Full release cycle for changes to the template parser, record exports, and native window behavior. Check that switching outputs preserves filled fields, incomplete outputs leave the previous output available, and Copy field works after returning to Scanner. Verify the configured output shortcut and Finder or Explorer file opening on the packaged app. The release workflow verifies the three update packages and the VSIX checksums before publishing and updating the feed.

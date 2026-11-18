@@ -91,6 +91,19 @@ export const en = {
   sectionDeliveryHelp:
     "Focus the destination, then press the shortcut to paste. If paste fails, inspect the destination before retrying or use Copy current section.",
   sourceCSV: "Fill from CSV…",
+  csvTooLarge: "The CSV exceeds 64 MiB.",
+  csvTooManyRows: "The CSV has more than 100,000 data rows.",
+  csvHeaders: "CSV column names must be nonblank and unique.",
+  csvNoRows: "This CSV has no data rows.",
+  csvLinkUnavailable:
+    "The linked CSV is unavailable. Check the file path relative to the template.",
+  csvPickLinked: "Choose the linked CSV",
+  previousCSVRow: "Previous row",
+  nextCSVRow: "Next row",
+  previousCSVRows: "Earlier rows…",
+  nextCSVRows: "Later rows…",
+  previousOutput: "Previous output",
+  nextNamedOutput: "Next output",
   csvRow: "CSV row",
 
   scannerWorkflow: "Scanner workflow",

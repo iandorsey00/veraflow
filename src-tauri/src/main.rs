@@ -449,6 +449,7 @@ fn main() {
         ))
         .invoke_handler(tauri::generate_handler![
             documents::take_document,
+            documents::read_linked_csv,
             documents::pick_document,
             documents::pick_template_folder,
             documents::open_folder_template,
@@ -618,10 +619,12 @@ async fn import_templates(
     csv: Option<bool>,
     source: Option<bool>,
 ) -> Result<Option<String>, String> {
+    use std::io::Read;
     use tauri_plugin_dialog::DialogExt;
+    let is_csv = csv.unwrap_or(false) && !source.unwrap_or(false);
     let (label, extensions): (&str, &[&str]) = if source.unwrap_or(false) {
         ("VeraFlow template", &["veraflow", "vf", "txt"])
-    } else if csv.unwrap_or(false) {
+    } else if is_csv {
         ("CSV", &["csv"])
     } else {
         ("JSON", &["json"])
@@ -636,12 +639,41 @@ async fn import_templates(
             return Ok(None);
         };
         let path = file.into_path().map_err(|_| "storageFailed")?;
-        if std::fs::metadata(&path).map_err(|_| "storageFailed")?.len() > 16 * 1024 * 1024 {
-            return Err("invalidImport".into());
+        let limit = if is_csv {
+            documents::MAX_CSV_BYTES
+        } else {
+            16 * 1024 * 1024
+        };
+        let too_large = if is_csv {
+            "csvTooLarge"
+        } else {
+            "invalidImport"
+        };
+        let invalid = if is_csv {
+            "invalidCSV"
+        } else {
+            "invalidImport"
+        };
+        if !path.is_file() {
+            return Err(invalid.into());
         }
-        std::fs::read_to_string(path)
-            .map(Some)
-            .map_err(|_| "invalidImport".into())
+        let input = std::fs::File::open(path).map_err(|_| "storageFailed")?;
+        let metadata = input.metadata().map_err(|_| "storageFailed")?;
+        if !metadata.is_file() {
+            return Err(invalid.into());
+        }
+        if metadata.len() > limit {
+            return Err(too_large.into());
+        }
+        let mut content = String::new();
+        let read = input
+            .take(limit + 1)
+            .read_to_string(&mut content)
+            .map_err(|_| invalid)? as u64;
+        if read > limit {
+            return Err(too_large.into());
+        }
+        Ok(Some(content))
     })
     .await
     .map_err(|_| "storageFailed".to_string())?

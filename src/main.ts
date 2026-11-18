@@ -14,7 +14,7 @@ import {
   sourceOutput,
   type DeliveryMode,
 } from "./core/source";
-import { parseCSV, csvTable } from "./core/csv";
+import { csvRecords, csvRecord, type CSVRecords } from "./core/csv";
 import { sessionProgress } from "./core/progress";
 import { bindReorder } from "./reorder";
 import { formDialog, type Input } from "./form-dialog";
@@ -25,8 +25,6 @@ import {
   exportScanner,
   importScanner,
   scannerTemplateParts,
-  type DataTable,
-  type DataRow,
 } from "./core/workspace";
 import { version as appVersion } from "../package.json";
 import {
@@ -933,53 +931,107 @@ function documentTemplate(file: OpenDocument) {
     .trim();
   return sourceDefinition(file.content, name || t("sourceTemplate"));
 }
-function csvRows(content: string) {
-  const data = csvTable(parseCSV(content), true, "CSV");
-  if (!data.rows.length) throw Error("invalidCSV");
-  return data;
-}
-function csvRowPicker(data: DataTable): Input {
+function csvRowPicker(data: CSVRecords): Input {
   return {
     key: "row",
     label: t("csvRow"),
     options: data.rows.map((row, i) => ({
       value: String(i),
-      label: `${i + 1} · ${data.fields
+      label: `${i + 1} · ${row
         .slice(0, 3)
-        .map((key) => row.values[key].slice(0, 40))
+        .map((value) => value.slice(0, 40))
         .join(" · ")}`,
     })),
     searchOptions: {
       label: t("searchCSVRows"),
       previous: t("previous"),
       next: t("next"),
-      match: (id, query) => {
-        if (String(Number(id) + 1) === query) return true;
-        const values = Object.values(data.rows[Number(id)].values);
-        return values.some((value) =>
+      match: (id, query) =>
+        String(Number(id) + 1) === query ||
+        data.rows[Number(id)].some((value) =>
           value.toLocaleLowerCase().includes(query),
-        );
-      },
+        ),
       details: (id) =>
-        data.fields.map((key) => [key, data.rows[Number(id)].values[key]]),
+        data.headers.map((key, column) => [key, data.rows[Number(id)][column]]),
     },
   };
 }
-function csvSeed(template: Template, row: DataRow) {
+function csvSeed(template: Template, row: ReadonlyMap<string, string>) {
   const seed = startSession(template);
-  seed.fields = Object.entries(row.values).map(([name, value]) => ({
+  seed.fields = Array.from(row, ([name, value]) => ({
     name,
     value,
     status: "captured",
   }));
   return seed;
 }
+type CSVSession = {
+  data: CSVRecords;
+  row: number;
+  error?: string;
+};
+const csvSessions = new WeakMap<Session, CSVSession>();
+const csvPageSize = 500;
+
+function prepareCSVRow(s: Session, csv: CSVSession) {
+  const values = csvRecord(csv.data, csv.row);
+  const fields = startSession(s.template).fields.map((field) =>
+    values.has(field.name)
+      ? {
+          ...field,
+          value: values.get(field.name)!,
+          status: "captured" as const,
+        }
+      : field,
+  );
+  s.fields = fields;
+  csv.error = undefined;
+  try {
+    s.prepared = prepareSections(s);
+  } catch (error) {
+    s.prepared = [];
+    csv.error = errorText(error);
+  }
+  s.deliveryIndex = 0;
+  s.deliveryDone = false;
+}
+
+async function openLinkedCSV(
+  template: Template,
+  file?: OpenDocument,
+): Promise<boolean> {
+  const csv = parseSource(template.content).csv!;
+  let content = await platform.readLinkedCSV(file?.recentToken, csv.file);
+  if (content === null) {
+    if (!(await confirmAction("csvPickLinked", csv.file, t("openDocument"))))
+      return false;
+    content = await platform.importTemplates("csv");
+  }
+  if (content === null) return false;
+  const data = csvRecords(content);
+  return launch(
+    { ...template, verificationEnabled: false, typingVerification: false },
+    undefined,
+    false,
+    false,
+    undefined,
+    undefined,
+    { data, row: 0 },
+  );
+}
+
 async function openDocumentTemplate(
   template: Template,
-  row?: DataRow,
+  row?: ReadonlyMap<string, string>,
   file?: OpenDocument,
 ) {
   let workflow = parseSource(template.content).workflow;
+  if (!(await abandonDraft())) return;
+  if (workflow === "csv") {
+    if (await openLinkedCSV(template, file))
+      await rememberOpenedTemplate(template, file);
+    return;
+  }
   if (!workflow) {
     const choice = await formDialog(
       template.name,
@@ -1001,7 +1053,6 @@ async function openDocumentTemplate(
     if (!choice) return;
     workflow = choice.workflow === "form" ? "form" : "scanner";
   }
-  if (!(await abandonDraft())) return;
   const opened = await launch(
     template,
     undefined,
@@ -1010,7 +1061,10 @@ async function openDocumentTemplate(
     undefined,
     row ? csvSeed(template, row) : undefined,
   );
-  if (opened && file?.recentToken != null) {
+  if (opened) await rememberOpenedTemplate(template, file);
+}
+async function rememberOpenedTemplate(template: Template, file?: OpenDocument) {
+  if (file?.recentToken != null) {
     await platform.rememberDocument(file.recentToken, template.name);
     recentDocuments = await platform.recentDocuments();
     await refreshTrayMenu().catch(() => {});
@@ -1022,7 +1076,7 @@ async function openDocument(file: OpenDocument) {
     await openDocumentTemplate(documentTemplate(file), undefined, file);
     return;
   }
-  const data = csvRows(file.content);
+  const data = csvRecords(file.content);
   const templates = library.templates.filter(
     (template) => template.placeholderStyle === "source",
   );
@@ -1044,7 +1098,7 @@ async function openDocument(file: OpenDocument) {
     t("cancel"),
   );
   if (!choice) return;
-  const row = data.rows[Number(choice.row)];
+  const row = csvRecord(data, Number(choice.row));
   if (choice.template === "file") {
     const source = await platform.pickDocument(true);
     if (source)
@@ -1056,7 +1110,7 @@ async function openDocument(file: OpenDocument) {
     const scanner = startScanner(
       library.preferences,
       file.name,
-      data.fields[0],
+      data.headers[0],
     );
     scanner.fields = csvSeed(scanner.template, row).fields;
     if (
@@ -1107,7 +1161,7 @@ function bindLibrary() {
   click("source-csv", async () => {
     const csv = await platform.importTemplates("csv");
     if (csv === null) return;
-    const data = csvRows(csv);
+    const data = csvRecords(csv);
     const result = await formDialog(
       t("sourceCSV"),
       [csvRowPicker(data)],
@@ -1121,7 +1175,7 @@ function bindLibrary() {
       false,
       true,
       undefined,
-      csvSeed(draft!, data.rows[Number(result.row)]),
+      csvSeed(draft!, csvRecord(data, Number(result.row))),
     );
   });
   root.oninput = refreshTemplatePreview;
@@ -1663,7 +1717,14 @@ async function launch(
   form = false,
   reuse?: Session,
   seed?: Session,
-) {
+  linkedCSV?: CSVSession,
+): Promise<boolean> {
+  if (
+    !linkedCSV &&
+    template.placeholderStyle === "source" &&
+    parseSource(template.content).csv
+  )
+    return openLinkedCSV(template);
   if (
     ((session && session.mode !== "complete") || retainedScanner) &&
     !scannerSource &&
@@ -1696,7 +1757,11 @@ async function launch(
       removeBlankLines: field.removeBlankLines,
     }));
   }
-  if (form || reuse) prepareWorkflow(nextSession, form);
+  if (linkedCSV) {
+    csvSessions.set(nextSession, linkedCSV);
+    nextSession.mode = "delivery";
+    prepareCSVRow(nextSession, linkedCSV);
+  } else if (form || reuse) prepareWorkflow(nextSession, form);
   const shortcutError = await configureSessionShortcuts(!form);
   await platform.mouseSource(false);
   await platform.active(true);
@@ -1714,7 +1779,8 @@ async function launch(
       ? sourceOutput(parseSource(template.content)).delivery.mode
       : "step";
   typingCheck = false;
-  if (template.id !== "scanner")
+  if (linkedCSV) lastTemplate = null;
+  else if (template.id !== "scanner")
     lastTemplate = { definition: nextSession.template, typing: form };
   paused = false;
   taskGeneration++;
@@ -1741,7 +1807,8 @@ async function launch(
         ? focusSourceScanner()
         : `field-${session.active}`,
   );
-  if (!session.fields.length) focus("finish");
+  if (linkedCSV) focus("csv-row");
+  else if (!session.fields.length) focus("finish");
   if (shortcutError) report(shortcutError);
   return true;
 }
@@ -1872,12 +1939,77 @@ function focusedSessionView(s: Session): string {
     <details class="focus-guide"><summary>${esc(t("quickGuide"))}</summary><ol><li>${esc(t("guideCapture"))}</li><li>${esc(t("guideCheck"))}</li><li>${esc(t("guideCopy"))}</li><li>${esc(t("guidePause"))}</li></ol></details><div class="actions">${button("cancel-session", s.scanner ? "endScanner" : s.template.placeholderStyle === "source" ? "closeSession" : "cancelSession", "quiet danger")}</div>${s.scanner ? `</div>${!p.hideLivePreview ? freeScannerPreview(s) : ""}</div>` : ""}</main>`;
 }
 
+function picker(
+  id: string,
+  label: Key,
+  options: string,
+  previous: Key,
+  next: Key,
+  arrows: boolean,
+) {
+  return `<div class="session-picker"><label for="${id}">${esc(t(label))}</label><div class="picker-controls">
+    <select id="${id}">${options}</select>
+    ${arrows ? `<button id="${id}-previous" aria-label="${esc(t(previous))}">←</button><button id="${id}-next" aria-label="${esc(t(next))}">→</button>` : ""}
+  </div></div>`;
+}
+
 function outputSelector(s: Session) {
   if (s.template.placeholderStyle !== "source") return "";
   const source = parseSource(s.template.content);
-  if (source.outputs.length < 2) return "";
+  if (source.outputs.length < 2 && !csvSessions.has(s)) return "";
   const selected = s.outputId ?? source.outputs[0].id;
-  return `<label for="source-output">${esc(t("outputHeading"))}</label><select id="source-output">${source.outputs.map((output) => `<option value="${esc(output.id)}" ${output.id === selected ? "selected" : ""}>${esc(output.label)}</option>`).join("")}</select>`;
+  const options = source.outputs
+    .map(
+      (output) =>
+        `<option value="${esc(output.id)}" ${output.id === selected ? "selected" : ""}>${esc(output.label)}</option>`,
+    )
+    .join("");
+  return picker(
+    "source-output",
+    "outputHeading",
+    options,
+    "previousOutput",
+    "nextNamedOutput",
+    source.outputs.length > 1,
+  );
+}
+
+function csvSelector(s: Session, csv: CSVSession) {
+  const source = parseSource(s.template.content);
+  const start = Math.floor(csv.row / csvPageSize) * csvPageSize;
+  const end = Math.min(start + csvPageSize, csv.data.rows.length);
+  const options = [];
+  if (start)
+    options.push(
+      `<option value="${start - 1}">${esc(t("previousCSVRows"))}</option>`,
+    );
+  for (let index = start; index < end; index++) {
+    const values = csv.data.rows[index];
+    const label = (
+      source.csvLabel?.(csvRecord(csv.data, index)) ??
+      values
+        .slice(0, 3)
+        .map((value) => value.slice(0, 80).trim())
+        .filter(Boolean)
+        .join(" · ")
+    )
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+    options.push(
+      `<option value="${index}" ${index === csv.row ? "selected" : ""}>${index + 1}${label ? " · " + esc(label) : ""}</option>`,
+    );
+  }
+  if (end < csv.data.rows.length)
+    options.push(`<option value="${end}">${esc(t("nextCSVRows"))}</option>`);
+  return picker(
+    "csv-row",
+    "csvRow",
+    options.join(""),
+    "previousCSVRow",
+    "nextCSVRow",
+    csv.data.rows.length > 1 || source.outputs.length > 1,
+  );
 }
 
 function outputPreview(template: Template, s?: Session): string {
@@ -1994,7 +2126,7 @@ function templateFormView(s: Session): string {
   const f = s.fields[s.active];
   return `<main class="capture-panel template-form ${focusedWorkflow ? "focused-session" : ""}">
     <h1>${esc(s.template.name)}</h1>
-    ${typingCheck ? "" : outputSelector(s)}
+    ${typingCheck && s.verificationOutputOnly ? "" : outputSelector(s)}
     <div class="task-toolbar">${!typingCheck && s.template.placeholderStyle === "source" ? button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") : ""}${button("switch-scanner", "openInScanner")}${button("pause-task", "pauseTask")}</div>
     ${focusedWorkflow ? `<p class="task-progress">${esc(progressText(s))}</p>` : ""}
     ${
@@ -2116,6 +2248,14 @@ function sectionOrderView(parts: NonNullable<Session["prepared"]>) {
   </div>`;
 }
 function sectionDeliveryView(s: Session) {
+  const csv = csvSessions.get(s);
+  const pickers = (csv ? csvSelector(s, csv) : "") + outputSelector(s);
+  if (csv?.error)
+    return `<main class="capture-panel delivery-panel">
+      <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${pickers}</header>
+      <p role="alert">${esc(csv.error)}</p>
+      <div class="toolbar delivery-exit">${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
+    </main>`;
   const parts = deliveredSections(s),
     index = s.deliveryIndex ?? 0;
   const navigation = sectionNavigation(s, parts, index);
@@ -2126,7 +2266,7 @@ function sectionDeliveryView(s: Session) {
         : ""
       : navigation.join(" → ");
   return `<main class="capture-panel delivery-panel">
-    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${outputSelector(s)}<p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
+    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${pickers}<p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
     <pre class="output delivery-text" tabindex="0">${esc(parts[index].text)}</pre>
     <div class="toolbar delivery-primary">${button("copy-section", "copySection", "primary")}${s.prepared!.length > 1 && !groupSections ? button("copy-output", "copyEntireOutput") : ""}${button("save-sections", "saveSections", "quiet")}</div>
     <p class="hint">${esc(t("sectionDeliveryHelp"))} <kbd>${esc(keyLabel(library.preferences.shortcuts.finish))}</kbd></p>
@@ -2146,7 +2286,7 @@ function sectionDeliveryView(s: Session) {
     }
     ${pasteOrder ? `<p class="hint" role="status">${esc(t("manualSectionOrder"))}</p>` : ""}
     ${parts.length > 1 && !s.deliveryDone ? `<p class="hint">${esc(t("afterSection"))} ${esc(keys || t("noNavigation"))}</p>` : ""}
-    <div class="toolbar delivery-exit">${button("section-edit", s.typing ? "returnToFilledForm" : "returnToFilledScanner", "quiet")}${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
+    <div class="toolbar delivery-exit">${csv ? "" : button("section-edit", s.typing ? "returnToFilledForm" : "returnToFilledScanner", "quiet")}${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
   </main>`;
 }
 function emailDeliveryView(s: Session) {
@@ -2210,7 +2350,7 @@ function sourceScannerView(s: Session) {
     <header class="scanner-header">
       <h1>${esc(s.template.name)}</h1>
       <p class="task-progress" role="status">${esc(progressText(s))}</p>
-      ${checking ? "" : outputSelector(s)}
+      ${checking && s.verificationOutputOnly ? "" : outputSelector(s)}
     </header>
     <div class="scanner-layout ${showPreview ? "" : "without-preview"}">
       <div class="scanner-work">
@@ -2475,6 +2615,82 @@ async function batchCompare(s: Session) {
   );
 }
 
+function adjacentOutput(s: Session, step: -1 | 1) {
+  const outputs = parseSource(s.template.content).outputs;
+  const current = outputs.findIndex(
+    (output) => output.id === selectedSourceOutput(s).id,
+  );
+  return outputs[(current + step + outputs.length) % outputs.length].id;
+}
+
+function resetOutputOptions(s: Session) {
+  groupSections = false;
+  pasteOrder = null;
+  sectionOrderOpen = false;
+  sectionTab = library.preferences.tabBetweenSections === true;
+  deliveryMode = selectedSourceOutput(s).delivery.mode;
+}
+
+function renderCSVSelection(s: Session, csv: CSVSession, focusId: string) {
+  resetOutputOptions(s);
+  prepareCSVRow(s, csv);
+  lastStep = null;
+  message = "";
+  render();
+  focus(focusId);
+}
+
+function selectCSVRow(row: number, step?: -1 | 1) {
+  const s = session!;
+  const csv = csvSessions.get(s)!;
+  if (!Number.isInteger(row)) return;
+  if (row < 0 || row >= csv.data.rows.length) {
+    if (step === undefined) return;
+    s.outputId = adjacentOutput(s, step);
+    row = row < 0 ? csv.data.rows.length - 1 : 0;
+  }
+  csv.row = row;
+  renderCSVSelection(
+    s,
+    csv,
+    step ? `csv-row-${step < 0 ? "previous" : "next"}` : "csv-row",
+  );
+}
+
+async function selectOutput(outputId: string, focusId = "source-output") {
+  const s = session!;
+  const csv = csvSessions.get(s);
+  if (csv) {
+    s.outputId = outputId;
+    renderCSVSelection(s, csv, focusId);
+    return;
+  }
+  // Validate a new output before replacing the currently prepared text.
+  const prepared =
+    s.mode === "delivery" ? prepareSections({ ...s, outputId }) : undefined;
+  s.outputId = outputId;
+  resetOutputOptions(s);
+  if (prepared) {
+    s.prepared = prepared;
+    s.deliveryIndex = 0;
+    s.deliveryDone = false;
+    lastStep = null;
+    message = "";
+    render();
+    focus(focusId);
+    await rememberOutput(s, sectionText(prepared));
+    return;
+  }
+  const panel = document.getElementById("form-output");
+  if (panel) {
+    if (!panel.hidden) panel.innerHTML = outputPreview(s.template, s);
+    root.querySelector<HTMLSelectElement>("#source-output")!.value = outputId;
+  } else {
+    render();
+  }
+  focus(focusId);
+}
+
 function bindSession() {
   click("source-copy-field", () =>
     copySelectedField(session!, session!.active),
@@ -2490,43 +2706,31 @@ function bindSession() {
   });
   on("source-output", "change", (event) => {
     const select = event.target as HTMLSelectElement;
-    const s = session!;
     const outputId = select.value;
     if (busy) {
-      select.value = selectedSourceOutput(s).id;
+      select.value = selectedSourceOutput(session!).id;
       return;
     }
-    void run(async () => {
-      const output = selectedSourceOutput({ ...s, outputId });
-      // Validate the new output before replacing the currently prepared text.
-      const prepared =
-        s.mode === "delivery" ? prepareSections({ ...s, outputId }) : undefined;
-      s.outputId = outputId;
-      groupSections = false;
-      pasteOrder = null;
-      sectionOrderOpen = false;
-      sectionTab = library.preferences.tabBetweenSections === true;
-      deliveryMode = output.delivery.mode;
-      if (prepared) {
-        s.prepared = prepared;
-        s.deliveryIndex = 0;
-        s.deliveryDone = false;
-        lastStep = null;
-        message = "";
-        render();
-        focus("source-output");
-        await rememberOutput(s, sectionText(prepared));
-        return;
-      }
-      const panel = document.getElementById("form-output");
-      if (panel) {
-        if (!panel.hidden) panel.innerHTML = outputPreview(s.template, s);
-      } else {
-        render();
-        focus("source-output");
-      }
-    });
+    void run(() => selectOutput(outputId));
   });
+  on("csv-row", "change", (event) => {
+    const row = Number((event.target as HTMLSelectElement).value);
+    void run(() => selectCSVRow(row));
+  });
+  for (const [direction, step] of [
+    ["previous", -1],
+    ["next", 1],
+  ] as const) {
+    click(`source-output-${direction}`, () =>
+      selectOutput(
+        adjacentOutput(session!, step),
+        `source-output-${direction}`,
+      ),
+    );
+    click(`csv-row-${direction}`, () =>
+      selectCSVRow(csvSessions.get(session!)!.row + step, step),
+    );
+  }
   click("copy-output", async () => {
     const s = session!;
     const text = s
@@ -3075,6 +3279,7 @@ async function perform(action: Action, global = false) {
   if (view !== "session" || paused || (global && templateFormActive())) return;
   if (s.mode === "review") return;
   if (s.mode === "delivery" && s.prepared && action !== "cancel") {
+    if (!s.prepared.length) return;
     const parts = deliveredSections(s),
       index = s.deliveryIndex ?? 0;
     if (action === "previous") {
@@ -3302,7 +3507,7 @@ function saveSectionText(s: Session, parts: NonNullable<Session["prepared"]>) {
 }
 async function requestSessionClose(s: Session, confirmDiscard: boolean) {
   if (s.template.placeholderStyle === "source") {
-    if (!(await saveBeforeClose(s))) return;
+    if (!csvSessions.has(s) && !(await saveBeforeClose(s))) return;
   } else {
     let text: string | undefined;
     if (
@@ -3724,7 +3929,8 @@ async function init() {
             session.mode !== "complete"
           ) {
             if (dirty && !(await confirmAction("discardConfirm"))) return;
-            if (!(await saveBeforeClose(session))) return;
+            if (!csvSessions.has(session) && !(await saveBeforeClose(session)))
+              return;
           } else if (
             (privateWork() || dirty) &&
             !(await confirmAction(session ? "quitConfirm" : "discardConfirm"))

@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseCSV, suggestHeader, csvTable } from "../src/core/csv";
+import {
+  parseCSV,
+  suggestHeader,
+  csvTable,
+  csvRecords,
+  csvRecord,
+} from "../src/core/csv";
 import { parseFields, renderTemplate } from "../src/core/template";
 import { scannerTemplateParts, validateWorkspace } from "../src/core/workspace";
 test("CSV supports BOM, quoted delimiters, escaped quotes and multiline addresses", () => {
@@ -108,4 +114,18 @@ test("CSV sanitizes multiline headers and rejects oversized expanded row objects
     ...Array.from({ length: 100 }, () => Array(1000).fill("a")),
   ];
   assert.throws(() => csvTable(rows, true, "Large"), /invalidCSV/);
+});
+
+test("CSV records retain exact unique headers without expanding archive keys", () => {
+  const text = "Location {code},Contact name\n" + "A,Alex\n".repeat(12_000);
+  const table = csvRecords(text);
+  assert.equal(table.rows.length, 12_000);
+  assert.deepEqual(
+    [...csvRecord(table, 11_999)],
+    [
+      ["Location {code}", "A"],
+      ["Contact name", "Alex"],
+    ],
+  );
+  assert.throws(() => csvRecords("Name,Name\na,b"), /csvHeaders/);
 });

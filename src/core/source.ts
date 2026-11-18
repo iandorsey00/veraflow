@@ -11,7 +11,12 @@ type Node =
   | { field: string }
   | { condition: Condition; yes: Node[]; no: Node[] };
 type Section = { id: string; label: string; nodes: Node[] };
-export type SourceWorkflow = "form" | "scanner";
+export type SourceWorkflow = "form" | "scanner" | "csv";
+type CSVSource = {
+  file: string;
+  rowLabel?: string;
+};
+
 export type SectionKey = "Tab" | "Shift+Tab";
 export type DeliveryMode = "step" | "sequence";
 type Delivery = {
@@ -67,6 +72,8 @@ type Source = {
   outputs: SourceOutput[];
   recordOnlyFields: string[];
   filename?: string;
+  csv?: CSVSource;
+  csvLabel?: (values: ReadonlyMap<string, string>) => string;
   controls: Map<string, Control>;
   fields: string[];
   conditionDrivers: string[];
@@ -81,7 +88,7 @@ const id = /^[A-Za-z0-9_-]+$/;
 const doubleQuoted = String.raw`"(?:[^"\\\r\n]|\\[^\r\n])*"`;
 const singleQuoted = String.raw`'(?:[^'\\\r\n]|\\[^\r\n])*'`;
 const quoted = `(?:${doubleQuoted}|${singleQuoted})`;
-const conditionText = String.raw`[^:{}]+?`;
+const conditionText = String.raw`(?:${doubleQuoted}|[^":{}])+?`;
 const clause = String.raw`(?:${conditionText}):\s*${quoted}`;
 const inlinePattern = String.raw`when\s+(${clause}(?:\s+else\s+if\s+${clause})*(?:\s+else\s*:\s*${quoted})?)`;
 const inlineClause = new RegExp(
@@ -190,6 +197,28 @@ function parseJSON(
   }
 }
 const sourceHeader = /^--- veraflow 2\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+function csvMetadata(raw: unknown): CSVSource {
+  const value = object(raw, '"csv"');
+  if (Object.keys(value).some((key) => key !== "file" && key !== "rowLabel"))
+    fail('Use only "file" and "rowLabel" in "csv".');
+  const file = string(value.file, '"csv.file"');
+  if (
+    file.length > 1024 ||
+    !/\.csv$/i.test(file) ||
+    /[:\\\p{Cc}]/u.test(file) ||
+    file.split("/").some((part) => !part || part === "." || part === "..")
+  )
+    fail(
+      '"csv.file" must point to a CSV next to the template or in a subfolder.',
+    );
+  const rowLabel =
+    value.rowLabel === undefined
+      ? undefined
+      : string(value.rowLabel, '"csv.rowLabel"');
+  if (rowLabel !== undefined && rowLabel.length > 1024)
+    fail('"csv.rowLabel" must be at most 1,024 characters.');
+  return { file, rowLabel };
+}
 function metadata(text: string) {
   const header = object(parseJSON(text));
   const unknown = Object.keys(header).find(
@@ -203,6 +232,7 @@ function metadata(text: string) {
         "delivery",
         "outputs",
         "filename",
+        "csv",
       ].includes(key),
   );
   if (unknown) fail(`Unknown header property "${unknown}".`);
@@ -219,16 +249,22 @@ function metadata(text: string) {
   if (syntax !== undefined && syntax !== "plain")
     fail('"syntax" must be "plain" when present.');
   const workflow = header.workflow;
-  if (workflow !== undefined && workflow !== "form" && workflow !== "scanner")
-    fail('"workflow" must be "form" or "scanner".');
+  if (
+    workflow !== undefined &&
+    workflow !== "form" &&
+    workflow !== "scanner" &&
+    workflow !== "csv"
+  )
+    fail('"workflow" must be "form", "scanner", or "csv".');
+  const csv = header.csv === undefined ? undefined : csvMetadata(header.csv);
+  if ((workflow === "csv") !== (csv !== undefined))
+    fail('Use "workflow": "csv" and a "csv" object together.');
   const controls = new Map<string, Control>();
   for (const [name, raw] of Object.entries(
     header.fields === undefined ? {} : object(header.fields, '"fields"'),
   )) {
-    if (!id.test(name))
-      fail(
-        `Field ID "${name}" must use letters A–Z, digits, underscores, or hyphens.`,
-      );
+    if (!name.trim() || name.includes("\0"))
+      fail(`Field names must be nonblank and cannot contain a null character.`);
     const field = object(raw, `Field "${name}"`);
     const extra = Object.keys(field).find(
       (key) =>
@@ -353,6 +389,7 @@ function metadata(text: string) {
     syntax,
     responses,
     delivery: deliverySettings(header.delivery),
+    csv,
     outputSettings:
       header.outputs === undefined ? {} : object(header.outputs, '"outputs"'),
     filename:
@@ -361,7 +398,13 @@ function metadata(text: string) {
         : string(header.filename, '"filename"'),
   } satisfies Pick<
     Source,
-    "controls" | "title" | "workflow" | "responses" | "delivery" | "filename"
+    | "controls"
+    | "title"
+    | "workflow"
+    | "responses"
+    | "delivery"
+    | "filename"
+    | "csv"
   > & { syntax?: "plain"; outputSettings: Record<string, unknown> };
 }
 function condition(
@@ -370,16 +413,20 @@ function condition(
   fields: Set<string>,
   line: number,
 ): Condition {
-  const match =
-    /^(?:(not)\s+)?([A-Za-z0-9_-]+)(?:\s*=\s*([A-Za-z0-9_-]+)| is (blank|not blank))?$/.exec(
-      text.trim(),
-    );
+  const match = new RegExp(
+    String.raw`^(?:(not)\s+)?(${doubleQuoted}|[A-Za-z0-9_-]+)(?:\s*=\s*([A-Za-z0-9_-]+)| is (blank|not blank))?$`,
+    "u",
+  ).exec(text.trim());
   if (!match)
     fail(
       'Use a Boolean field, field=option_id, "is blank", or "is not blank" in this condition.',
       line,
     );
-  const [, negated, name, value, blank] = match;
+  const [, negated, reference, value, blank] = match;
+  const name = reference.startsWith('"')
+    ? quotedText(reference, "Field name", line)
+    : reference;
+  if (!name.trim()) fail("A field name must not be blank.", line);
   if (negated && (value !== undefined || blank))
     fail('Use "not" with a Boolean field by itself.', line);
   fields.add(name);
@@ -414,14 +461,16 @@ function textNodes(
   controls: Map<string, Control>,
   fields: Set<string>,
   line = 1,
+  allowQuoted = advanced,
 ): Node[] {
   const nodes: Node[] = [];
   const fieldPattern = String.raw`\{\{([^<>{}\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+)\}\}`;
+  const quotedField = String.raw`\{\{[ \t]*(${doubleQuoted})[ \t]*\}\}`;
   const escaped = String.raw`\\(?:\\|\{\{)`;
   const pattern = new RegExp(
     advanced
-      ? String.raw`${escaped}|\{\{\s*(?:${inlinePattern})\s*\}\}|${fieldPattern}`
-      : `${escaped}|${fieldPattern}`,
+      ? String.raw`${escaped}|\{\{\s*(?:${inlinePattern})\s*\}\}|${quotedField}|${fieldPattern}`
+      : `${escaped}|${allowQuoted ? quotedField + "|" : ""}${fieldPattern}`,
     "gu",
   );
   const addLiteral = (value: string) => {
@@ -448,6 +497,7 @@ function textNodes(
           controls,
           fields,
           line,
+          true,
         );
       const clauses = match[1];
       let offset = 0;
@@ -473,8 +523,17 @@ function textNodes(
           break;
         }
       }
+    } else if (allowQuoted && match[advanced ? 2 : 1] !== undefined) {
+      const field = quotedText(
+        match[advanced ? 2 : 1],
+        "Quoted field name",
+        line,
+      );
+      if (!field.trim()) fail("A field name must not be blank.", line);
+      fields.add(field);
+      nodes.push({ field });
     } else {
-      const raw = match[advanced ? 2 : 1];
+      const raw = match[advanced ? 3 : allowQuoted ? 2 : 1];
       const name = raw?.trim();
       if (name === undefined) nodes.push(match[0].slice(1));
       else if (advanced && /^when(?:\s|$)/u.test(name))
@@ -645,6 +704,7 @@ export function parseSource(text: string): Source {
     delivery,
     outputSettings,
     filename,
+    csv,
   } = header
     ? metadata(header[1])
     : {
@@ -655,6 +715,7 @@ export function parseSource(text: string): Source {
         delivery: defaultDelivery,
         outputSettings: {},
         filename: undefined,
+        csv: undefined,
         responses: new Map<string, string | null>(),
       };
   // Prefilled plain files have a metadata header but still use the plain grammar.
@@ -732,8 +793,28 @@ export function parseSource(text: string): Source {
     )
       fail(`The saved response for "${name}" does not match its field rules.`);
   }
+  const label =
+    csv?.rowLabel === undefined
+      ? undefined
+      : textNodes(csv.rowLabel, true, controls, new Set());
+  if (label?.some((node) => typeof node !== "string" && "condition" in node))
+    fail('"csv.rowLabel" accepts text and placeholders.');
+  const csvLabel = label
+    ? (values: ReadonlyMap<string, string>) =>
+        label
+          .map((node) =>
+            typeof node === "string"
+              ? node
+              : "field" in node
+                ? (values.get(node.field)?.slice(0, 160) ?? "")
+                : "",
+          )
+          .join("")
+    : undefined;
   const parsed = {
     outputs,
+    csv,
+    csvLabel,
     recordOnlyFields,
     filename,
     controls,

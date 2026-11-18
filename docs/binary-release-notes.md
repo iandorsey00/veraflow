@@ -1,14 +1,14 @@
-VeraFlow 核流 0.13.0 is a public preview for Windows x64, macOS Apple Silicon, and macOS Intel.
+VeraFlow 核流 0.14.0 is a public preview for Windows x64, macOS Apple Silicon, and macOS Intel.
 
-- Fill one record and generate several named outputs. Switch between them on the Output page, or save your raw field values as JSON.
-- Use Boolean negation, else-if branches, and filename patterns in source templates. Batch comparison shows matching and conflicting evidence without marking fields verified.
-- The default output shortcut on new installations is Cmd+Opt+X on macOS or Ctrl+Alt+X on Windows. Copy a focused field with Cmd+C or Ctrl+C, or use **Copy field** in Scanner.
-- The release includes `VeraFlow_VSCode.vsix`. [English guide](https://github.com/iandorsey00/veraflow/blob/v0.13.0/README.md) · [简体中文指南](https://github.com/iandorsey00/veraflow/blob/v0.13.0/README.zh-CN.md)
+- A source template can link a CSV and open directly to Output. Choose a row and output, with row labels formatted from CSV columns.
+- Row arrows continue into the next or previous output at the ends. Output arrows keep the current row or the responses entered in Form or Scanner.
+- CSV imports support up to 64 MiB and 100,000 data rows. Column names match exactly and can contain spaces, Unicode, and punctuation.
+- The release includes `VeraFlow_VSCode.vsix`. [English guide](https://github.com/iandorsey00/veraflow/blob/v0.14.0/README.md) · [简体中文指南](https://github.com/iandorsey00/veraflow/blob/v0.14.0/README.zh-CN.md)
 
 Packages have VeraFlow updater signatures. Apple notarization and Windows publisher signing are pending. Verify downloads using `SHA256SUMS.txt`.
 
 ### 简体中文
 
-填写一条记录即可生成多个命名输出，也可在输出页面直接切换，或将原始字段保存为 JSON。模板支持布尔否定、`else if` 和文件名模式。批量比较会显示匹配与冲突的来源证据，不会自动将字段标记为已核对。扫描器支持用 **复制字段** 按钮复制所选字段。新安装的默认输出快捷键为 macOS 上的 Cmd+Opt+X 或 Windows 上的 Ctrl+Alt+X。
+模板可关联 CSV 并直接打开输出页面。可用列占位符设置行标签，再通过下拉框或箭头选择记录和输出。行箭头到达边界时会切换输出，输出箭头则保留当前记录或表单及扫描器中的响应。CSV 支持最多 64 MiB 和 100,000 条数据行，列名按原文匹配，可包含空格、中文和标点。
 
 安装包具有 VeraFlow 更新签名，尚无 Apple 公证和 Windows 发布者签名。请使用 `SHA256SUMS.txt` 核对下载文件。

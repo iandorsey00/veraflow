@@ -17,4 +17,6 @@
 
 将 `test-destination.html` 作为本地网页打开。准备输出后，将光标放在起始字段中，再按 VeraFlow 窗口上显示的输出快捷键。测试页只包含本地输入框。
 
+打开[关联拜访记录模板](linked-records.veraflow)，并将[配套 CSV](linked-records.csv) 放在同一个文件夹中。输出页面的行箭头可依次浏览两条记录和两个命名输出。
+
 试用[共享记录](shared-record.veraflow)，用同一组字段预览预约通知和制表符分隔的一行。保存 JSON 记录时也会包含内部备注。
