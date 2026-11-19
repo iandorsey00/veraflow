@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.16.0 release preparation
+
+Passed 87 TypeScript unit tests, 89 browser tests, 20 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, isolated test configuration, formatting, and Clippy checks passed. Native coverage checks byte preservation and rejection of a stale preview. Browser coverage checks switching between modes, duplicate confirmation, preserving the draft on write failure, and carrying values into the next record. Excel paste and locked workbook behavior need a manual check on the packaged app.
+
+Both npm audits reported zero vulnerabilities. RustSec reported zero vulnerability-class advisories and 12 informational warnings. Dependency lockfiles changed only for the app version. The file write uses a selected CSV or a CSV declared relative to the opened template, compares the existing bytes against the preview, and writes a complete replacement. Shared CSV use should have one writer at a time.
+
 ## 0.15.0 release preparation
 
 Passed 85 TypeScript unit tests, 88 browser tests, 19 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, isolated test configuration, formatting, and Clippy checks passed. The new tests cover loop expansion limits, text comparisons, CSV and date variables, updater placement, and saving and reopening a verified Scanner response. Packaged desktop checks remain pending.

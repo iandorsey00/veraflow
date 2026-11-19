@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.16.0 CSV append and mode switching
+
+Full release cycle for native CSV writes and switching among four workflows. Make a copy of the [shipment example](../examples/source/shipment-log.veraflow) and [its CSV](../examples/source/shipment-log.csv), then test review, duplicate confirmation, append, and carry-forward on both platforms. Change the CSV after opening the preview to exercise conflict recovery. On Windows, check an Excel-open CSV and paste a copied spreadsheet row into a workbook.
+
+To downgrade, close VeraFlow and reinstall [0.15.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.15.0). The CSV remains readable. Keep copies of templates that use the new append and row settings when testing with an older app. A downgrade does not undo rows already written.
+
 ## 0.15.0 source language and prefilled verification
 
 Full release cycle for source grammar changes and the verification state saved in prefilled files. On macOS and Windows, open the [dispatch note](../examples/source/dispatch-note.veraflow), confirm the formatted date and loop output, and verify that multiline cleanup is consistent between input and comparison. Save and reopen a checked response in its original workflow, then edit it and reverify. Confirm the update button appears beside Settings when a new version is available. The release workflow packages the VS Code extension with the signed update artifacts and verifies the downloads before publication.

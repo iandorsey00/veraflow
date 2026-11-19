@@ -22,3 +22,5 @@
 试用[共享记录](shared-record.veraflow)，用同一组字段预览预约通知和制表符分隔的一行。保存 JSON 记录时也会包含内部备注。
 
 打开[派送单](dispatch-note.veraflow)试用注释、条件、循环、日期格式与地址空行清理。
+
+将[发货记录模板](shipment-log.veraflow)和[配套 CSV](shipment-log.csv)复制到同一目录，试用四种模式。输入编号 `VF-104` 可查看查重提示，也可输入新编号并追加一条记录。

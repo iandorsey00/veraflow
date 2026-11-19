@@ -115,7 +115,26 @@ export type OpenDocument = {
   content: string | null;
   recentToken?: number | null;
 };
+export type CSVAppendDestination = {
+  token: number;
+  name: string;
+  content: string;
+};
 export const platform = {
+  async pickAppendCSV(
+    token?: number | null,
+    relative?: string,
+  ): Promise<CSVAppendDestination | null> {
+    if (!desktop) throw Error("appendDesktopOnly");
+    return invoke("pick_append_csv", { token, relative });
+  },
+  async appendCSVRow(token: number, suffix: string) {
+    if (!desktop) throw Error("appendDesktopOnly");
+    await invoke("append_csv_row", { token, suffix });
+  },
+  async releaseAppendCSV() {
+    if (desktop) await invoke("release_append_csv");
+  },
   async readLinkedCSV(
     token: number | null | undefined,
     relative: string,
@@ -155,7 +174,6 @@ export const platform = {
     if (desktop) return invoke("remember_document", { token, title });
     const file = browserTokens.get(token);
     if (!file) return;
-    browserTokens.delete(token);
     const existing = browserRecent.findIndex((recent) => recent.file === file);
     if (existing >= 0) browserRecent.splice(existing, 1);
     browserRecent.unshift({ file, title });

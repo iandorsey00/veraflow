@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
-    fs::File,
+    fs::{File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::{
@@ -80,7 +80,7 @@ fn open(app: &tauri::AppHandle, path: PathBuf) -> Option<Document> {
     Some(document)
 }
 
-fn declared_csv(content: &str) -> Option<String> {
+fn declared_file(content: &str, key: &str) -> Option<String> {
     let mut lines = content.trim_start_matches('\u{feff}').lines();
     if lines.next()? != "--- veraflow 2" {
         return None;
@@ -89,10 +89,7 @@ fn declared_csv(content: &str) -> Option<String> {
     for line in lines {
         if line == "---" {
             let header: serde_json::Value = serde_json::from_str(&metadata).ok()?;
-            if header["workflow"].as_str() != Some("csv") {
-                return None;
-            }
-            return header["csv"]["file"].as_str().map(str::to_owned);
+            return header[key]["file"].as_str().map(str::to_owned);
         }
         metadata.push_str(line);
         metadata.push('\n');
@@ -146,7 +143,7 @@ pub async fn read_linked_csv(
         let source = read(template.clone())
             .and_then(|document| document.content)
             .ok_or("csvLinkUnavailable")?;
-        if declared_csv(&source).as_deref() != Some(relative.as_str()) {
+        if declared_file(&source, "csv").as_deref() != Some(relative.as_str()) {
             return Err("csvLinkUnavailable".into());
         }
         let path = linked_csv_path(&template, &relative)?;
@@ -170,6 +167,156 @@ pub async fn read_linked_csv(
     })
     .await
     .map_err(|_| "csvLinkUnavailable".to_string())?
+}
+
+#[derive(Default)]
+pub struct AppendDestination(Mutex<Option<AppendSnapshot>>);
+
+struct AppendSnapshot {
+    token: u32,
+    path: PathBuf,
+    content: String,
+}
+
+#[derive(Serialize)]
+pub struct AppendPreview {
+    token: u32,
+    name: String,
+    content: String,
+}
+
+fn append_snapshot(path: PathBuf) -> Result<AppendSnapshot, String> {
+    let path = path.canonicalize().map_err(|_| "appendWriteFailed")?;
+    if format(&path) != Some("csv") || !path.is_file() {
+        return Err("invalidCSV".into());
+    }
+    let content = read(path.clone())
+        .and_then(|document| document.content)
+        .ok_or("appendReadFailed")?;
+    Ok(AppendSnapshot {
+        token: NEXT_TOKEN.fetch_add(1, Ordering::Relaxed),
+        path,
+        content,
+    })
+}
+
+#[tauri::command]
+pub async fn pick_append_csv(
+    app: tauri::AppHandle,
+    token: Option<u32>,
+    relative: Option<String>,
+) -> Result<Option<AppendPreview>, String> {
+    let template = token.and_then(|id| {
+        app.state::<IssuedDocuments>()
+            .0
+            .lock()
+            .ok()?
+            .iter()
+            .find(|(token, _)| *token == id)
+            .map(|(_, path)| path.clone())
+    });
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = if let (Some(template), Some(relative)) = (template, relative) {
+            let source = read(template.clone())
+                .and_then(|document| document.content)
+                .ok_or("csvLinkUnavailable")?;
+            if declared_file(&source, "append").as_deref() != Some(relative.as_str()) {
+                return Err("csvLinkUnavailable".into());
+            }
+            linked_csv_path(&template, &relative)?
+        } else {
+            let Some(file) = app
+                .dialog()
+                .file()
+                .add_filter("CSV", &["csv"])
+                .blocking_pick_file()
+            else {
+                return Ok(None);
+            };
+            file.into_path().map_err(|_| "appendReadFailed")?
+        };
+        let snapshot = append_snapshot(path)?;
+        let response = AppendPreview {
+            token: snapshot.token,
+            name: snapshot.path.to_string_lossy().into_owned(),
+            content: snapshot.content.clone(),
+        };
+        *app.state::<AppendDestination>()
+            .0
+            .lock()
+            .map_err(|_| "appendReadFailed")? = Some(snapshot);
+        Ok(Some(response))
+    })
+    .await
+    .map_err(|_| "appendReadFailed".to_string())?
+}
+
+fn commit_csv_append(snapshot: &mut AppendSnapshot, suffix: &str) -> Result<(), String> {
+    let path = &snapshot.path;
+    if suffix.is_empty()
+        || suffix.contains('\0')
+        || snapshot.content.len() as u64 + suffix.len() as u64 > MAX_CSV_BYTES
+    {
+        return Err("invalidCSV".into());
+    }
+    if !path.is_file() || path.canonicalize().ok().as_ref() != Some(path) {
+        return Err("appendChanged".into());
+    }
+    let mut original = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(|_| "appendWriteFailed")?;
+    original.try_lock().map_err(|_| "appendWriteFailed")?;
+    let permissions = original
+        .metadata()
+        .map_err(|_| "appendWriteFailed")?
+        .permissions();
+    let mut now = Vec::new();
+    (&mut original)
+        .take(MAX_CSV_BYTES + 1)
+        .read_to_end(&mut now)
+        .map_err(|_| "appendWriteFailed")?;
+    if now != snapshot.content.as_bytes() {
+        return Err("appendChanged".into());
+    }
+    let mut next = tempfile::NamedTempFile::new_in(path.parent().ok_or("appendWriteFailed")?)
+        .map_err(|_| "appendWriteFailed")?;
+    next.write_all(&now)
+        .and_then(|_| next.write_all(suffix.as_bytes()))
+        .and_then(|_| next.as_file().set_permissions(permissions))
+        .and_then(|_| next.as_file().sync_all())
+        .map_err(|_| "appendWriteFailed")?;
+    // Keep the original intact if publishing the complete replacement fails.
+    next.persist(path).map_err(|_| "appendWriteFailed")?;
+    snapshot.content.push_str(suffix);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn append_csv_row(
+    app: tauri::AppHandle,
+    token: u32,
+    suffix: String,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppendDestination>();
+        let mut state = state.0.lock().map_err(|_| "appendWriteFailed")?;
+        let snapshot = state
+            .as_mut()
+            .filter(|entry| entry.token == token)
+            .ok_or("appendChanged")?;
+        commit_csv_append(snapshot, &suffix)
+    })
+    .await
+    .map_err(|_| "appendWriteFailed".to_string())?
+}
+
+#[tauri::command]
+pub fn release_append_csv(app: tauri::AppHandle) {
+    if let Ok(mut state) = app.state::<AppendDestination>().0.lock() {
+        state.take();
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -366,6 +513,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn csv_append_preserves_the_file_and_refuses_stale_previews() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("records.csv");
+        std::fs::write(&path, "\u{feff}ID,Name\r\n").unwrap();
+        let mut snapshot = append_snapshot(path.clone()).unwrap();
+        commit_csv_append(&mut snapshot, "1,Alex\r\n").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "\u{feff}ID,Name\r\n1,Alex\r\n"
+        );
+        std::fs::write(&path, "ID,Name\r\n1,Pat\r\n").unwrap();
+        assert_eq!(
+            commit_csv_append(&mut snapshot, "2,Drew\r\n").unwrap_err(),
+            "appendChanged"
+        );
+        assert_eq!(
+            std::fs::read_to_string(path).unwrap(),
+            "ID,Name\r\n1,Pat\r\n"
+        );
+    }
+
+    #[test]
     fn linked_csv_restricts_paths_to_the_opened_template_directory() {
         let temp = tempfile::tempdir().unwrap();
         let folder = temp.path().join("templates");
@@ -386,7 +555,7 @@ mod tests {
             std::os::unix::fs::symlink(outside, folder.join("link.csv")).unwrap();
             assert!(linked_csv_path(&template, "link.csv").is_err());
         }
-        assert_eq!(declared_csv("--- veraflow 2\r\n{\"workflow\":\"csv\",\"csv\":{\"file\":\"data/rows.csv\"}}\r\n---\r\nBody").as_deref(), Some("data/rows.csv"));
+        assert_eq!(declared_file("--- veraflow 2\r\n{\"workflow\":\"csv\",\"csv\":{\"file\":\"data/rows.csv\"}}\r\n---\r\nBody", "csv").as_deref(), Some("data/rows.csv"));
     }
 
     #[test]

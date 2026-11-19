@@ -443,6 +443,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
         .manage(documents::IssuedDocuments::default())
+        .manage(documents::AppendDestination::default())
         .manage(documents::OpenFolder::default())
         .manage(Mutex::new(
             std::collections::VecDeque::<std::path::PathBuf>::new(),
@@ -450,6 +451,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             documents::take_document,
             documents::read_linked_csv,
+            documents::pick_append_csv,
+            documents::append_csv_row,
+            documents::release_append_csv,
             documents::pick_document,
             documents::pick_template_folder,
             documents::open_folder_template,

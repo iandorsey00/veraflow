@@ -5,6 +5,7 @@ import { defaultComparison, type Template } from "../src/core/model";
 import {
   activeSourceFields,
   prepareSections,
+  spreadsheetRow,
   renderTemplateValues,
   startSession,
   capture,
@@ -503,4 +504,35 @@ B
   assert.equal(delivery.mode, "sequence");
   assert.equal(delivery.separator, " | ");
   assert.deepEqual(delivery.after.get("first"), ["Tab"]);
+});
+
+test("spreadsheet row cells use template loops without creating extra records or fields", () => {
+  const content = `--- veraflow 2
+${JSON.stringify({
+  outputs: {
+    main: {
+      row: {
+        Ticket: "{{Reference}}",
+        Steps:
+          '{{#for task in ["Check label", "Confirm destination"]}}\n- {{task}}\n{{/for}}',
+      },
+    },
+  },
+})}
+---
+Ticket for {{Reference}}`;
+  const s = startSession(template(content));
+  assert.deepEqual(
+    s.fields.map((field) => field.name),
+    ["Reference"],
+  );
+  capture(s, "VF-104");
+  assert.deepEqual(
+    [...spreadsheetRow(s, ["Steps", "Ticket", "Other"])],
+    [
+      ["Ticket", "VF-104"],
+      ["Steps", "- Check label\n- Confirm destination\n"],
+    ],
+  );
+  assert.throws(() => spreadsheetRow(s, ["Ticket"]), /appendMissingColumn/);
 });

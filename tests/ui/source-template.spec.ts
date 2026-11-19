@@ -1008,3 +1008,95 @@ test("Scanner normalizes a comparison and reopens a verified prefilled response"
   await page.locator("#reverify-field").click();
   await expect(field).toContainText("Captured");
 });
+
+test("switches four modes without replacing a draft and reviews duplicate CSV appends", async ({
+  page,
+}) => {
+  await page.route("**/src/platform.ts*", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body:
+        (await response.text()) +
+        String.raw`
+        let csv = "Carrier,ID\nExample Ground,VF-105\n";
+        platform.pickAppendCSV = async () => ({ token: 42, name: "shipments.csv", content: csv });
+        platform.appendCSVRow = async (_token, suffix) => {
+          if (window.vfRejectAppend) throw Error("appendChanged");
+          csv += suffix;
+          window.vfCSV = csv;
+        };
+      `,
+    });
+  });
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "Shipment.vf",
+    `--- veraflow 2
+{"workflow":"form","append":{"duplicateKey":"ID","carryForward":["Carrier"]},
+"outputs":{"main":{"row":{"ID":"{{Reference}}","Carrier":"{{Carrier}}"}}}}
+---
+{{Reference}} / {{Carrier}}`,
+  );
+  const ref = page.getByLabel("Reference", { exact: true });
+  const carrier = page.getByLabel("Carrier", { exact: true });
+  await ref.fill("draft");
+  await carrier.fill("Ground");
+  await page.locator("#switch-scanner").click();
+  await expect(page.locator(".capture-fields")).toContainText("draft");
+  await page.locator("#switch-form").click();
+
+  const picker = page.waitForEvent("filechooser");
+  await page.locator("#switch-csv").click();
+  await (
+    await picker
+  ).setFiles({
+    name: "other.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Reference,Carrier\nVF-104,Air\nVF-105,Ground\n"),
+  });
+  await page.getByLabel("CSV row", { exact: true }).selectOption("1");
+  await expect(page.locator(".output")).toContainText("VF-105 / Ground");
+  await page.locator("#switch-form").click();
+  await expect(ref).toHaveValue("draft");
+  await page.locator("#switch-csv").click();
+  await expect(page.getByLabel("CSV row", { exact: true })).toHaveValue("1");
+  await page.locator("#use-csv-row").click();
+  const confirm = page.getByRole("dialog", {
+    name: "Replace the current draft with this CSV row?",
+  });
+  await confirm.getByRole("button", { name: "Use this row in Form" }).click();
+  await expect(ref).toHaveValue("VF-105");
+
+  await page.locator("#switch-append").click();
+  await page.locator("#append-choose").click();
+  await expect(page.locator(".append-destination")).toHaveText("shipments.csv");
+  await expect(page.locator(".append-panel summary")).toContainText(
+    "Matching key in data row 1",
+  );
+  await page.evaluate(() => Object.assign(window, { vfRejectAppend: true }));
+  await page.locator("#append-write-next").click();
+  const duplicate = page.getByRole("dialog", {
+    name: "This key already exists. Append another row?",
+  });
+  await duplicate
+    .getByRole("button", { name: "Append row", exact: true })
+    .click();
+  await expect(page.locator("#notice")).toContainText("The CSV changed");
+  await expect(page.locator(".append-cells").last()).toContainText("VF-105");
+  await page.evaluate(() => Object.assign(window, { vfRejectAppend: false }));
+  await page.locator("#append-choose").click();
+  await page.locator("#append-write-next").click();
+  await duplicate
+    .getByRole("button", { name: "Append row", exact: true })
+    .click();
+  await expect(ref).toHaveValue("");
+  await expect(carrier).toHaveValue("Ground");
+  await expect(page.locator("#notice")).toContainText("Added data row 2");
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as unknown as { vfCSV: string }).vfCSV),
+    )
+    .toBe("Carrier,ID\nExample Ground,VF-105\nGround,VF-105\n");
+});

@@ -6,7 +6,7 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地文本工具。用普通�
 
 ## 安装
 
-从 [v0.15.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.15.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
+从 [v0.16.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.16.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
 
 - **macOS 12 或更新版本**：Apple 芯片选 `macos-arm64.zip`，Intel 芯片选 `macos-x64.zip`。解压后将 VeraFlow.app 移到「应用程序」。预览版尚无 Developer ID 签名和 Apple 公证。如果系统拦截且你信任下载来源，可在「隐私与安全性」中为该应用选择「仍要打开」。跨应用采集和粘贴需要「辅助功能」权限。
 - **Windows**：运行 `windows-x64-setup.exe`。Windows 可能提示发布者未知。如果系统缺少 WebView2，安装程序可能会安装它。
@@ -17,6 +17,7 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地文本工具。用普通�
 
 - **打开文件…** 支持 `.veraflow`、`.vf` 和 CSV。安装桌面版后，也可从 Finder 或文件资源管理器打开模板。选择一条 CSV 记录后，可用模板生成输出，或在自由扫描器中核对该记录。
 - 模板可以[关联 CSV](docs/veraflow-language-draft.zh-CN.md#关联-csv) 并直接打开输出页面。可选择记录和命名输出，也可用箭头依次查看组合。
+- 选择 **追加行** 可核对并将记录写入 CSV，也可复制一行并粘贴到电子表格。[追加行指南](docs/veraflow-language-draft.zh-CN.md#追加行)
 - **打开文件夹…** 查找该文件夹及子文件夹中的模板。文件夹由 Finder 或文件资源管理器管理。外部改动后点击 **刷新**。
 - **自由扫描器** 适合没有模板的任务。每行定义一个字段，或导入扫描器 JSON。在 **更多工具** 中可导出字段或字段及其值。旧版模板可从 **设置 → 旧版模板库** 打开。
 

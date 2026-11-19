@@ -1,5 +1,5 @@
 import type { TemplateContext } from "./variables";
-import { forgetSource, parseSource, sourceParts } from "./source";
+import { forgetSource, parseSource, sourceOutput, sourceParts } from "./source";
 import { compare } from "./compare";
 import {
   captureFieldNames,
@@ -445,6 +445,21 @@ function checkedSource(
   const id = outputId ?? parsed.outputs[0].id;
   sourceParts(parsed, values, used, id, context);
   const parts = sourceParts(parsed, values, undefined, id, context);
+  validateSourceValues(parsed, values, used);
+  return parts.map((part) => {
+    if (part.parts.some((token) => token.missing)) throw Error("missingValue");
+    return {
+      id: part.id,
+      label: part.label,
+      text: part.parts.map((token) => token.text).join(""),
+    };
+  });
+}
+function validateSourceValues(
+  parsed: ReturnType<typeof parseSource>,
+  values: ReadonlyMap<string, string>,
+  used: ReadonlySet<string>,
+) {
   for (const name of used) {
     const control = parsed.controls.get(name),
       value = values.get(name);
@@ -463,15 +478,69 @@ function checkedSource(
     )
       throw Error("invalidControlValue");
   }
-  return parts.map((part) => {
-    if (part.parts.some((token) => token.missing)) throw Error("missingValue");
-    return {
-      id: part.id,
-      label: part.label,
-      text: part.parts.map((token) => token.text).join(""),
-    };
-  });
 }
+
+export function spreadsheetRow(
+  s: Session,
+  headers?: string[],
+  validate = true,
+) {
+  const parsed = parseSource(s.template.content);
+  const output = sourceOutput(parsed, s.outputId);
+  const values = sessionValues(s);
+  const used = new Set<string>();
+  let cells: Map<string, string>;
+  if (output.row) {
+    sourceParts(parsed, values, used, output.id, s.sourceContext, true);
+    const parts = sourceParts(
+      parsed,
+      values,
+      undefined,
+      output.id,
+      s.sourceContext,
+      true,
+    );
+    if (
+      validate &&
+      parts.some((part) => part.parts.some((token) => token.missing))
+    )
+      throw Error("missingValue");
+    cells = new Map(
+      parts.map((cell) => [
+        cell.id,
+        cell.parts.map((token) => token.text).join(""),
+      ]),
+    );
+    if (
+      validate &&
+      headers &&
+      [...cells.keys()].some((name) => !headers.includes(name))
+    )
+      throw Error("appendMissingColumn");
+  } else {
+    const active = activeSourceFields(s);
+    const names = headers ?? s.fields.map((field) => field.name);
+    for (const name of names) if (active?.has(name)) used.add(name);
+    if (validate && [...used].some((name) => !values.has(name)))
+      throw Error("missingValue");
+    cells = new Map(
+      [...used].map((name) => {
+        const value = values.get(name) ?? "";
+        return [name, parsed.controls.get(name)?.options?.get(value) ?? value];
+      }),
+    );
+  }
+  if (validate) {
+    validateSourceValues(parsed, values, used);
+    if (
+      verificationRequired(s) &&
+      s.fields.some((field) => needsCheck(s, field, used))
+    )
+      throw Error("unverified");
+  }
+  return cells;
+}
+
 export function prepareSections(s: Session) {
   validateOutput(s);
   return checkedSource(

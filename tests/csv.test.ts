@@ -6,6 +6,8 @@ import {
   csvTable,
   csvRecords,
   csvRecord,
+  planCSVAppend,
+  spreadsheetText,
 } from "../src/core/csv";
 import { parseFields, renderTemplate } from "../src/core/template";
 import { scannerTemplateParts, validateWorkspace } from "../src/core/workspace";
@@ -128,4 +130,24 @@ test("CSV records retain exact unique headers without expanding archive keys", (
     ],
   );
   assert.throws(() => csvRecords("Name,Name\na,b"), /csvHeaders/);
+});
+
+test("CSV append preserves the header dialect, matches columns and finds exact duplicate keys", () => {
+  const content = "\uFEFFCity;Reference;Notes\r\nSeattle;VF-104;Home";
+  const values = new Map([
+    ["Reference", "VF-104"],
+    ["Notes", '"Quoted"\nline 2'],
+    ["City", "Portland"],
+  ]);
+  const plan = planCSVAppend(content, csvRecords(content), values, "Reference");
+  assert.equal(plan.duplicate, 1);
+  assert.equal(plan.row, 2);
+  assert.equal(plan.suffix, '\r\nPortland;VF-104;"""Quoted""\nline 2"\r\n');
+  assert.deepEqual(csvRecords(content + plan.suffix).rows[1], [
+    "Portland",
+    "VF-104",
+    '"Quoted"\nline 2',
+  ]);
+  assert.equal(spreadsheetText("=1+1"), "'=1+1");
+  assert.equal(spreadsheetText("-123"), "-123");
 });

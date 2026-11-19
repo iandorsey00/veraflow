@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0
+
+- Switch between Form, Scanner, CSV browsing, and Append row. Preserve a working draft while browsing CSV.
+- Review and append a row to an existing CSV, check for duplicates, and carry selected fields forward when starting the next record.
+- Define structured spreadsheet rows in named outputs and copy a row for pasting into Excel.
+
 ## 0.15.0
 
 - Add source comments, text comparisons, bounded list and range loops, formatted UTC dates, and linked CSV row variables.

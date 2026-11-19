@@ -26,7 +26,12 @@ type Node =
   | { condition: Condition; yes: Node[]; no: Node[] };
 type Section = { id: string; label: string; nodes: Node[] };
 export type VerificationWorkflow = "form" | "scanner";
-export type SourceWorkflow = "form" | "scanner" | "csv";
+export type SourceWorkflow = "form" | "scanner" | "csv" | "append";
+type AppendSource = {
+  file?: string;
+  duplicateKey?: string;
+  carryForward: string[];
+};
 type CSVSource = {
   file: string;
   rowLabel?: string;
@@ -89,6 +94,7 @@ type Source = {
   recordOnlyFields: string[];
   filename?: string;
   csv?: CSVSource;
+  append?: AppendSource;
   csvLabel?: (
     values: ReadonlyMap<string, string>,
     context?: TemplateContext,
@@ -101,6 +107,7 @@ type SourceOutput = {
   id: string;
   label: string;
   sections: Section[];
+  row?: Section[];
   delivery: Delivery;
 };
 const id = /^[A-Za-z0-9_-]+$/;
@@ -218,11 +225,8 @@ function parseJSON(
   }
 }
 const sourceHeader = /^--- veraflow 2\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-function csvMetadata(raw: unknown): CSVSource {
-  const value = object(raw, '"csv"');
-  if (Object.keys(value).some((key) => key !== "file" && key !== "rowLabel"))
-    fail('Use only "file" and "rowLabel" in "csv".');
-  const file = string(value.file, '"csv.file"');
+function relativeCSV(value: unknown, label: string) {
+  const file = string(value, label);
   if (
     file.length > 1024 ||
     !/\.csv$/i.test(file) ||
@@ -230,8 +234,15 @@ function csvMetadata(raw: unknown): CSVSource {
     file.split("/").some((part) => !part || part === "." || part === "..")
   )
     fail(
-      '"csv.file" must point to a CSV next to the template or in a subfolder.',
+      label + " must point to a CSV next to the template or in a subfolder.",
     );
+  return file;
+}
+function csvMetadata(raw: unknown): CSVSource {
+  const value = object(raw, '"csv"');
+  if (Object.keys(value).some((key) => key !== "file" && key !== "rowLabel"))
+    fail('Use only "file" and "rowLabel" in "csv".');
+  const file = relativeCSV(value.file, "csv.file");
   const rowLabel =
     value.rowLabel === undefined
       ? undefined
@@ -239,6 +250,33 @@ function csvMetadata(raw: unknown): CSVSource {
   if (rowLabel !== undefined && rowLabel.length > 1024)
     fail('"csv.rowLabel" must be at most 1,024 characters.');
   return { file, rowLabel };
+}
+function appendMetadata(raw: unknown): AppendSource {
+  const config = object(raw, '"append"');
+  if (
+    Object.keys(config).some(
+      (key) => !["file", "duplicateKey", "carryForward"].includes(key),
+    )
+  )
+    fail('"append" supports "file", "duplicateKey", and "carryForward".');
+  const file =
+    config.file === undefined
+      ? undefined
+      : relativeCSV(config.file, "append.file");
+  const duplicateKey =
+    config.duplicateKey === undefined
+      ? undefined
+      : string(config.duplicateKey, "append.duplicateKey");
+  if (duplicateKey !== undefined && !duplicateKey.trim())
+    fail('"append.duplicateKey" must be a column name.');
+  const carryForward = config.carryForward ?? [];
+  if (
+    !Array.isArray(carryForward) ||
+    !carryForward.every((name) => typeof name === "string") ||
+    new Set(carryForward).size !== carryForward.length
+  )
+    fail('"append.carryForward" must contain unique field names.');
+  return { file, duplicateKey, carryForward };
 }
 function metadata(text: string) {
   const header = object(parseJSON(text));
@@ -255,6 +293,7 @@ function metadata(text: string) {
         "outputs",
         "filename",
         "csv",
+        "append",
       ].includes(key),
   );
   if (unknown) fail(`Unknown header property "${unknown}".`);
@@ -275,12 +314,15 @@ function metadata(text: string) {
     workflow !== undefined &&
     workflow !== "form" &&
     workflow !== "scanner" &&
-    workflow !== "csv"
+    workflow !== "csv" &&
+    workflow !== "append"
   )
-    fail('"workflow" must be "form", "scanner", or "csv".');
+    fail('"workflow" must be "form", "scanner", "csv", or "append".');
   const csv = header.csv === undefined ? undefined : csvMetadata(header.csv);
-  if ((workflow === "csv") !== (csv !== undefined))
-    fail('Use "workflow": "csv" and a "csv" object together.');
+  if (workflow === "csv" && csv === undefined)
+    fail('"workflow": "csv" requires a "csv" object.');
+  const append =
+    header.append === undefined ? undefined : appendMetadata(header.append);
   const controls = new Map<string, Control>();
   for (const [name, raw] of Object.entries(
     header.fields === undefined ? {} : object(header.fields, '"fields"'),
@@ -431,6 +473,7 @@ function metadata(text: string) {
     verification,
     delivery: deliverySettings(header.delivery),
     csv,
+    append,
     outputSettings:
       header.outputs === undefined ? {} : object(header.outputs, '"outputs"'),
     filename:
@@ -447,6 +490,7 @@ function metadata(text: string) {
     | "delivery"
     | "filename"
     | "csv"
+    | "append"
   > & { syntax?: "plain"; outputSettings: Record<string, unknown> };
 }
 function condition(
@@ -851,6 +895,7 @@ export function parseSource(text: string): Source {
     outputSettings,
     filename,
     csv,
+    append,
   } = header
     ? metadata(header[1])
     : {
@@ -862,6 +907,7 @@ export function parseSource(text: string): Source {
         outputSettings: {},
         filename: undefined,
         csv: undefined,
+        append: undefined,
         responses: new Map<string, string | null>(),
         verification: new Map<string, VerificationWorkflow>(),
       };
@@ -900,12 +946,22 @@ export function parseSource(text: string): Source {
         )
       : undefined;
     let outputDelivery = delivery;
+    let row: Section[] | undefined;
     if (configured) {
-      if (Object.hasOwn(configured, "delivery")) {
-        if (Object.keys(configured).some((name) => name !== "delivery"))
-          fail(`Output "${definition.id}" supports only a "delivery" object.`);
+      if (
+        Object.hasOwn(configured, "delivery") ||
+        Object.hasOwn(configured, "row")
+      ) {
+        if (
+          Object.keys(configured).some(
+            (name) => name !== "delivery" && name !== "row",
+          )
+        )
+          fail(
+            `Output "${definition.id}" supports "delivery" and "row" objects.`,
+          );
         const overrides = object(
-          configured.delivery,
+          configured.delivery ?? {},
           `Delivery for "${definition.id}"`,
         );
         outputDelivery = deliverySettings({
@@ -914,6 +970,25 @@ export function parseSource(text: string): Source {
           after: Object.fromEntries(delivery.after),
           ...overrides,
         });
+        if (configured.row !== undefined) {
+          const cells = Object.entries(object(configured.row, "row"));
+          if (
+            !cells.length ||
+            cells.length > 1000 ||
+            cells.some(([name]) => !name.trim() || name.includes("\0"))
+          )
+            fail('A "row" needs 1–1,000 named columns.');
+          row = cells.map(([name, expression]) => ({
+            id: name,
+            label: name,
+            nodes: blocks(
+              string(expression, `Cell "${name}"`),
+              controls,
+              referenced,
+              1,
+            ),
+          }));
+        }
       } else {
         // Existing source files used the delivery keys directly under the output ID.
         outputDelivery = deliverySettings(configured);
@@ -932,6 +1007,7 @@ export function parseSource(text: string): Source {
       id: definition.id,
       label: definition.label,
       sections,
+      row,
       delivery: outputDelivery,
     };
   });
@@ -941,7 +1017,7 @@ export function parseSource(text: string): Source {
   if (
     advanced &&
     outputs
-      .flatMap((output) => output.sections)
+      .flatMap((output) => [...output.sections, ...(output.row ?? [])])
       .reduce((total, section) => total + expandedSize(section.nodes), 0) >
       250_000
   )
@@ -955,6 +1031,8 @@ export function parseSource(text: string): Source {
     fields.size > 1000
   )
     fail("A source file supports up to 100 sections and 1,000 fields.");
+  for (const name of append?.carryForward ?? [])
+    if (!fields.has(name)) fail(`Unknown carry-forward field "${name}".`);
   const filenameError =
     filename === undefined ? undefined : filenamePatternError(filename, fields);
   if (filenameError) fail(filenameError);
@@ -1001,13 +1079,14 @@ export function parseSource(text: string): Source {
   const parsed = {
     outputs,
     csv,
+    append,
     csvLabel,
     recordOnlyFields,
     filename,
     controls,
     fields: [...fields],
     conditionDrivers: conditionFields(
-      outputs.flatMap((output) => output.sections),
+      outputs.flatMap((output) => [...output.sections, ...(output.row ?? [])]),
     ),
     title,
     workflow,
@@ -1098,14 +1177,20 @@ export function sourceParts(
   used?: Set<string>,
   outputId?: string,
   context?: TemplateContext,
+  row = false,
 ) {
   let length = 0;
   const local = new Map<string, string>();
   const valueOf = (name: string) => local.get(name) ?? values.get(name);
   const sections =
     outputId === undefined && used
-      ? source.outputs.flatMap((output) => output.sections)
-      : sourceOutput(source, outputId).sections;
+      ? source.outputs.flatMap((output) => [
+          ...output.sections,
+          ...(output.row ?? []),
+        ])
+      : row
+        ? (sourceOutput(source, outputId).row ?? [])
+        : sourceOutput(source, outputId).sections;
   const outputName =
     outputId === undefined && used
       ? undefined

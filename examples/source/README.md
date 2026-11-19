@@ -22,3 +22,5 @@ Try [Shared record](shared-record.veraflow) to preview an appointment note and a
 Open [Linked service visits](linked-records.veraflow) with [its CSV](linked-records.csv) beside it. Step through two visits and two named outputs using the row arrows on the Output page.
 
 Try the [dispatch note](dispatch-note.veraflow) for comments, conditions, loops, formatted dates, and an address field that removes blank lines.
+
+Copy [the shipment template](shipment-log.veraflow) and [its CSV](shipment-log.csv) into the same folder to try all four modes. Use reference `VF-104` to see the duplicate check, or use a new reference to append and start another record.

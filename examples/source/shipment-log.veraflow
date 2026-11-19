@@ -1,0 +1,28 @@
+--- veraflow 2
+{
+  "title": "Shipment log",
+  "workflow": "form",
+  "fields": {
+    "Notes": {"type": "textarea", "optional": true},
+    "Carrier": {"type": "text", "default": "Example Ground"}
+  },
+  "csv": {"file": "shipment-log.csv", "rowLabel": "{{Reference}} · {{Recipient}}"},
+  "append": {
+    "file": "shipment-log.csv",
+    "duplicateKey": "Reference",
+    "carryForward": ["Carrier"]
+  },
+  "outputs": {
+    "main": {
+      "row": {
+        "Reference": "{{Reference}}",
+        "Recipient": "{{Recipient}}",
+        "Carrier": "{{Carrier}}",
+        "Logged": "{{@date '%Y-%m-%d'}}",
+        "Notes": "{{Notes}}"
+      }
+    }
+  }
+}
+---
+Shipment {{Reference}} for {{Recipient}} via {{Carrier}}.

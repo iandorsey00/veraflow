@@ -18,7 +18,7 @@ Hello {{name}},
 
 Start with the exact first line `--- veraflow 2`, followed by a JSON object and a line containing only `---`. Use LF or CRLF header lines. This is a source-language version, separate from the JSON exchange envelope version. An unsupported explicit version yields an error.
 
-Set the optional top-level `"workflow"` property to `"form"` for **Fill form**, `"scanner"` for **Scanner**, or `"csv"` for [linked CSV](#linked-csv). If the property is absent, opening the file prompts for a workflow. Form and Scanner have a button to switch modes with values intact. This property controls how VeraFlow obtains input. Renderers that already have values can ignore it.
+Set the optional top-level `"workflow"` property to `"form"` for **Fill form**, `"scanner"` for **Scanner**, `"csv"` for [linked CSV](#linked-csv), or `"append"` for [Append row](#append-row). If the property is absent, opening the file prompts for a workflow. Form and Scanner have a button to switch modes with values intact. This property controls how VeraFlow obtains input. Renderers that already have values can ignore it.
 
 ```text
 --- veraflow 2
@@ -200,6 +200,39 @@ Use the **Row** dropdown above **Output** to select any combination. The row arr
 Use **Open folder…** to browse and search a directory of `.veraflow` and `.vf` files, including subfolders. Relative paths distinguish templates with the same name. Put CSV files alongside templates if useful, then open them with **Open file…**. Use **Refresh folder** to pick up changes made outside VeraFlow.
 
 Existing Email Mode templates retain their separate workflow and email-specific validation. Source sections are generic text. A future Email preset can add header validation and translate older templates. JSON export preserves a source template using `placeholderStyle: "source"`. Older builds can reject this style. Keep a compatible library backup before using it with an existing installation. The independent Python reader currently covers the earlier portable profile.
+
+### Append row
+
+Choose **Append row** from Form, Scanner, or CSV mode. Review the destination and cells, then write to the end of the file. The desktop app accepts an existing UTF-8 CSV with unique headers, including a file with only a header. If the file was changed or locked by another app, your record stays open. Use **Change or reload CSV…** and review the row again. Use one writer at a time for shared logs.
+
+Use `outputs.<id>.row` to map destination column headers to cell templates. Use `main` for the implicit output. Each cell supports placeholders, conditions, variables, and block loops. A loop builds text in one cell. When the mapping is omitted, fields match headers by exact name. With a mapping, VeraFlow requires every named destination column. Additional columns are left empty. Written cells follow the destination's column order.
+
+```json
+{
+  "append": {
+    "file": "shipment-log.csv",
+    "duplicateKey": "Reference",
+    "carryForward": ["Carrier"]
+  },
+  "outputs": {
+    "main": {
+      "row": {
+        "Reference": "{{Reference}}",
+        "Carrier": "{{Carrier}}",
+        "Logged": "{{@date '%Y-%m-%d'}}"
+      }
+    }
+  }
+}
+```
+
+All three `append` settings are optional. `file` is relative to the template and points to a CSV in the same folder or a subfolder. `duplicateKey` names a destination column for exact matches. Review the matching row and confirm if you want to append anyway. `carryForward` lists fields whose current values survive **Append and start next**. Other fields reset to defaults or empty, and verification starts fresh. A successful write shows the file and data row number.
+
+**Copy as spreadsheet row** prepares a tab-delimited row for pasting into Excel. It works without a destination and uses the mapping order in that case. If the mapping fits the selected CSV, copy follows the destination order. Text that looks like a spreadsheet formula gets a leading apostrophe, shown in the preview.
+
+Form, Scanner, and Append share the working record. CSV browsing keeps the draft and remembers the selected row. **Use this row in Form** asks before it replaces an existing draft. If a session starts in CSV with no draft, switching away loads the selected row as unverified. A `csv` link can appear regardless of the startup workflow.
+
+Try the [shipment log template](../examples/source/shipment-log.veraflow) with a copy of the [sample CSV](../examples/source/shipment-log.csv).
 
 ## VS Code
 

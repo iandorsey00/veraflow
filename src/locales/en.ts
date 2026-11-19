@@ -104,6 +104,36 @@ export const en = {
   nextCSVRows: "Later rows…",
   previousOutput: "Previous output",
   nextNamedOutput: "Next output",
+  csvMode: "CSV",
+  appendMode: "Append row",
+  useCSVRow: "Use this row in Form",
+  replaceDraftWithRow: "Replace the current draft with this CSV row?",
+  appendReview: "Review row",
+  appendChooseFile: "Choose destination CSV…",
+  appendChangeFile: "Change or reload CSV…",
+  appendWrite: "Append row",
+  appendWriteNext: "Append and start next",
+  appendNext: "Start next record",
+  appendReceipt: "Added data row",
+  appendDuplicate: "Matching key in data row",
+  appendDuplicateConfirm: "This key already exists. Append another row?",
+  appendDuplicateKey:
+    "The duplicate-check column is missing or its value is blank.",
+  appendUnmapped: "Fields outside the destination columns:",
+  appendMissingColumn:
+    "The destination CSV is missing a column named in this output.",
+  appendNoColumns: "The record and destination CSV have no matching columns.",
+  appendEmptyRow: "Enter at least one value before adding a row.",
+  appendDialect:
+    "The CSV delimiter is ambiguous. Use a CSV with clear column separators.",
+  appendDesktopOnly:
+    "Choose and write a CSV in the desktop app. You can copy the row here.",
+  appendReadFailed: "The destination could not be read as UTF-8 CSV.",
+  appendWriteFailed:
+    "The CSV could not be written. Close it in other apps and retry. Your record is still here.",
+  appendChanged:
+    "The CSV changed since it was opened. Reload it and review the row before retrying.",
+  copySpreadsheetRow: "Copy as spreadsheet row",
   csvRow: "CSV row",
 
   scannerWorkflow: "Scanner workflow",
