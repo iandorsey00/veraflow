@@ -251,6 +251,12 @@ pub async fn pick_append_csv(
     .map_err(|_| "appendReadFailed".to_string())?
 }
 
+fn append_write_error(_stage: &str, _error: impl std::fmt::Display) -> &'static str {
+    #[cfg(test)]
+    eprintln!("CSV append at {_stage}: {_error}");
+    "appendWriteFailed"
+}
+
 fn commit_csv_append(snapshot: &mut AppendSnapshot, suffix: &str) -> Result<(), String> {
     let path = &snapshot.path;
     if suffix.is_empty()
@@ -266,29 +272,36 @@ fn commit_csv_append(snapshot: &mut AppendSnapshot, suffix: &str) -> Result<(), 
         .read(true)
         .write(true)
         .open(path)
-        .map_err(|_| "appendWriteFailed")?;
-    original.try_lock().map_err(|_| "appendWriteFailed")?;
+        .map_err(|error| append_write_error("open", error))?;
+    original
+        .try_lock()
+        .map_err(|error| append_write_error("lock", error))?;
     let permissions = original
         .metadata()
-        .map_err(|_| "appendWriteFailed")?
+        .map_err(|error| append_write_error("permissions", error))?
         .permissions();
     let mut now = Vec::new();
     (&mut original)
         .take(MAX_CSV_BYTES + 1)
         .read_to_end(&mut now)
-        .map_err(|_| "appendWriteFailed")?;
+        .map_err(|error| append_write_error("read", error))?;
     if now != snapshot.content.as_bytes() {
         return Err("appendChanged".into());
     }
     let mut next = tempfile::NamedTempFile::new_in(path.parent().ok_or("appendWriteFailed")?)
-        .map_err(|_| "appendWriteFailed")?;
+        .map_err(|error| append_write_error("temporary file", error))?;
     next.write_all(&now)
         .and_then(|_| next.write_all(suffix.as_bytes()))
         .and_then(|_| next.as_file().set_permissions(permissions))
         .and_then(|_| next.as_file().sync_all())
-        .map_err(|_| "appendWriteFailed")?;
+        .map_err(|error| append_write_error("write and sync", error))?;
+    // Windows can refuse a replacement while the destination has a locked handle.
+    // Close our own handle before publishing the already-synced replacement.
+    #[cfg(windows)]
+    drop(original);
     // Keep the original intact if publishing the complete replacement fails.
-    next.persist(path).map_err(|_| "appendWriteFailed")?;
+    next.persist(path)
+        .map_err(|error| append_write_error("replace", error))?;
     snapshot.content.push_str(suffix);
     Ok(())
 }
