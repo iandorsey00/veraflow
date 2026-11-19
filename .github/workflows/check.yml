@@ -49,10 +49,19 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          clang++ tests/native/windows-window.cpp src-tauri/native/windows.cpp -luser32 -lkernel32 -o "$env:RUNNER_TEMP/veraflow-window-test.exe"
+          # Use the app's MSVC toolchain so the compiler and STL headers come from the same installation.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or !$vs) { throw 'Could not locate the Visual Studio C++ toolchain' }
+          & (Join-Path $vs 'Common7\Tools\Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          $testSource = Join-Path $env:GITHUB_WORKSPACE 'tests/native/windows-window.cpp'
+          $nativeSource = Join-Path $env:GITHUB_WORKSPACE 'src-tauri/native/windows.cpp'
+          Push-Location $env:RUNNER_TEMP
+          cl.exe /nologo /EHsc /std:c++17 $testSource $nativeSource /Fe:veraflow-window-test.exe /link user32.lib kernel32.lib
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & "$env:RUNNER_TEMP/veraflow-window-test.exe"
+          & .\veraflow-window-test.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Pop-Location
       - run: npx playwright install chromium
       - run: npm run test:ui
       - run: npm run desktop:build -- --no-bundle
