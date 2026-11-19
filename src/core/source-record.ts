@@ -19,8 +19,14 @@ export function sourceFilename(
   extension: "veraflow" | "json" | "txt",
 ) {
   const source = parseSource(s.template.content);
+  const context = {
+    templateName: s.template.name,
+    ...s.sourceContext,
+    timestamp: s.sourceContext?.timestamp ?? new Date(),
+    outputName: selectedSourceOutput(s).label,
+  };
   const timestamp =
-    new Date().toISOString().slice(0, 19).replace(/:/g, "-") + "Z";
+    context.timestamp.toISOString().slice(0, 19).replace(/:/g, "-") + "Z";
   const values = new Map<string, string>([
     ["timestamp", timestamp],
     ["template_name", s.template.name],
@@ -33,5 +39,6 @@ export function sourceFilename(
     source.filename ?? "{{template_name}}-{{timestamp}}",
     values,
     extension,
+    context,
   );
 }

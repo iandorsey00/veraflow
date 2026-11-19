@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.15.0 release preparation
+
+Passed 85 TypeScript unit tests, 88 browser tests, 19 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, isolated test configuration, formatting, and Clippy checks passed. The new tests cover loop expansion limits, text comparisons, CSV and date variables, updater placement, and saving and reopening a verified Scanner response. Packaged desktop checks remain pending.
+
+Both npm audits reported zero vulnerabilities. RustSec reported zero vulnerability-class advisories and 12 informational warnings. The dependency lockfiles changed only for the VeraFlow version. Prefilled check state is stored in editable files and should be trusted only from a known source. Loops use literal lists or ranges, with an expansion limit enforced when parsing.
+
 ## 0.14.0 release preparation
 
 Passed 82 TypeScript unit tests, 87 browser tests, 19 Rust tests, nine portable rendering fixtures, and the macOS native text conversion check. Version consistency, isolated test-build configuration, formatting, and Clippy checks passed. Native tests cover rejection of linked CSV paths outside the opened template’s directory, including symlinks. Packaged Finder and File Explorer checks remain pending.

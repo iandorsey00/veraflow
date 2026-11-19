@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.0
+
+- Add source comments, text comparisons, bounded list and range loops, formatted UTC dates, and linked CSV row variables.
+- Accept nested per-output delivery settings while continuing to read existing settings.
+- Remove blank lines automatically where configured. Preserve verified fields in prefilled copies, scoped to the workflow that checked them.
+- Move the launcher update button into the top navigation and highlight the new syntax in the VS Code extension.
+
 ## 0.14.0
 
 - Link a CSV in a source template and open directly to Output. Format row labels with CSV column placeholders.

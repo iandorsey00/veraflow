@@ -122,14 +122,20 @@ const lineBreak = /\r\n|[\r\n\u0085\u2028\u2029]/u;
 export function textLayoutError(control: Control | undefined, value: string) {
   if (control?.multiline === false && lineBreak.test(value))
     return "singleLineRequired";
-  if (
-    control?.multiline &&
-    control.allowBlankLines === false &&
-    value !== "" &&
-    value.split(lineBreak).some((line) => !line.trim())
-  )
-    return "blankLinesProhibited";
 }
+
+export function stripBlankLines(value: string) {
+  const lines = value.split(lineBreak);
+  const nonblank = lines.filter((line) => line.trim().length > 0);
+  return lines.length === nonblank.length ? value : nonblank.join("\n");
+}
+
+export function normalizeText(control: Control | undefined, value: string) {
+  return control?.multiline && control.allowBlankLines === false
+    ? stripBlankLines(value)
+    : value;
+}
+
 export function validControlValue(control: Control, value: string) {
   if (textLayoutError(control, value)) return false;
   if (control.options) return control.options.has(value);

@@ -9,6 +9,7 @@ export function filenamePatternError(pattern: string, fields: Set<string>) {
       !["timestamp", "template_name", "workflow_name", "output_name"].includes(
         name,
       ) &&
+      !templateVariable(name) &&
       !(name.startsWith("field.") && fields.has(name.slice(6)))
     )
       return `Unknown filename placeholder "${name}".`;
@@ -21,9 +22,16 @@ export function suggestedFilename(
   pattern: string,
   values: ReadonlyMap<string, string>,
   extension: "veraflow" | "json" | "txt",
+  context?: TemplateContext,
 ) {
   const sanitized = pattern
-    .replace(token, (_, key: string) => values.get(key.trim()) ?? "")
+    .replace(token, (_, key: string) => {
+      const name = key.trim();
+      const variable = templateVariable(name);
+      return variable
+        ? (variableValue(variable, context) ?? "")
+        : (values.get(name) ?? "");
+    })
     .replace(/[^\p{L}\p{N}_-]+/gu, "-");
   let stem =
     Array.from(sanitized)
@@ -33,3 +41,8 @@ export function suggestedFilename(
   if (/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(stem)) stem = "_" + stem;
   return `${stem}.${extension}`;
 }
+import {
+  templateVariable,
+  variableValue,
+  type TemplateContext,
+} from "./variables";

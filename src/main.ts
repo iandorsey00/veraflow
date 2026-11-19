@@ -5,7 +5,7 @@ import {
   sourceFilename,
 } from "./core/source-record";
 import { shortcutAccelerator, shortcutLabel } from "./core/shortcuts";
-import { textLayoutError } from "./core/form";
+import { normalizeText, textLayoutError } from "./core/form";
 import {
   parseSource,
   SourceSyntaxError,
@@ -303,7 +303,7 @@ function render() {
     manualDrafts.set(input.dataset.draftKey!, input.value);
   applyAppearance();
   root.className = view === "session" && !templateFormActive() ? "compact" : "";
-  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${view !== "recent" ? button("nav-recent", "recentTemplates") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
+  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${view !== "settings" && availableUpdate && !testBuild ? button("update-recent", "updateApp", "primary") : ""}${view !== "recent" ? button("nav-recent", "recentTemplates") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
     ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
@@ -316,6 +316,7 @@ function render() {
   click("start-scanner", () => setupScanner());
   click("import-scanner-home", () => loadScannerJSON());
   click("open-legacy-library", () => navigate("templates"));
+  click("update-recent", updateApp);
   click("nav-recent", () => navigate("recent"));
   click("open-document", pickDocument);
   click("nav-settings", () => navigate("settings"));
@@ -582,7 +583,7 @@ function scannerControls(secondaryOnly = false): string {
 }
 
 function recentView() {
-  return `<main class="settings recent-documents"><div class="section-head"><div class="toolbar">${availableUpdate && !testBuild ? button("update-recent", "updateApp", "primary") : ""}<h1>${esc(t("recentTemplates"))}</h1></div><div class="toolbar">${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-document", "openDocument", "primary")}</div></div>
+  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentTemplates"))}</h1><div class="toolbar">${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-document", "openDocument", "primary")}</div></div>
     ${templateFolderView()}
     ${recentDocuments.length ? `<ul class="recent-list">${recentDocuments.map((item, index) => `<li><button class="template-item" data-recent="${index}"><strong>${esc(item.title)}</strong><span>${esc(item.file)}</span></button></li>`).join("")}</ul>${button("clear-recent", "clearRecent", "quiet")}` : `<p>${esc(t("recentEmpty"))}</p>`}
     ${!session && lastTemplate ? sessionRecovery() : ""}</main>`;
@@ -614,7 +615,6 @@ async function pickTemplateFolder() {
   focus(folder.files.length ? "folder-search" : "open-folder");
 }
 function bindRecent() {
-  click("update-recent", updateApp);
   click("open-folder", pickTemplateFolder);
   click("refresh-folder", async () => {
     templateFolder = await platform.refreshTemplateFolder();
@@ -974,12 +974,24 @@ const csvSessions = new WeakMap<Session, CSVSession>();
 const csvPageSize = 500;
 
 function prepareCSVRow(s: Session, csv: CSVSession) {
+  const parsed = parseSource(s.template.content);
+  s.sourceContext = {
+    ...s.sourceContext,
+    csv: {
+      row: csv.row + 1,
+      rows: csv.data.rows.length,
+      file: parsed.csv?.file,
+    },
+  };
   const values = csvRecord(csv.data, csv.row);
   const fields = startSession(s.template).fields.map((field) =>
     values.has(field.name)
       ? {
           ...field,
-          value: values.get(field.name)!,
+          value: normalizeText(
+            s.controls?.get(field.name),
+            values.get(field.name)!,
+          ),
           status: "captured" as const,
         }
       : field,
@@ -1761,7 +1773,9 @@ async function launch(
     csvSessions.set(nextSession, linkedCSV);
     nextSession.mode = "delivery";
     prepareCSVRow(nextSession, linkedCSV);
-  } else if (form || reuse) prepareWorkflow(nextSession, form);
+  } else if (form || reuse || template.placeholderStyle === "source") {
+    prepareWorkflow(nextSession, form);
+  }
   const shortcutError = await configureSessionShortcuts(!form);
   await platform.mouseSource(false);
   await platform.active(true);
@@ -1986,7 +2000,15 @@ function csvSelector(s: Session, csv: CSVSession) {
   for (let index = start; index < end; index++) {
     const values = csv.data.rows[index];
     const label = (
-      source.csvLabel?.(csvRecord(csv.data, index)) ??
+      source.csvLabel?.(csvRecord(csv.data, index), {
+        ...s.sourceContext,
+        outputName: selectedSourceOutput(s).label,
+        csv: {
+          row: index + 1,
+          rows: csv.data.rows.length,
+          file: source.csv?.file,
+        },
+      }) ??
       values
         .slice(0, 3)
         .map((value) => value.slice(0, 80).trim())
@@ -2127,7 +2149,7 @@ function templateFormView(s: Session): string {
   return `<main class="capture-panel template-form ${focusedWorkflow ? "focused-session" : ""}">
     <h1>${esc(s.template.name)}</h1>
     ${typingCheck && s.verificationOutputOnly ? "" : outputSelector(s)}
-    <div class="task-toolbar">${!typingCheck && s.template.placeholderStyle === "source" ? button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") : ""}${button("switch-scanner", "openInScanner")}${button("pause-task", "pauseTask")}</div>
+    <div class="task-toolbar">${!typingCheck && s.template.placeholderStyle === "source" ? button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") + button("reverify-form", "verifyAgain", "quiet", !s.fields.some((field) => field.value?.trim() && fieldVisible(s, field.name, active))) : ""}${button("switch-scanner", "openInScanner")}${button("pause-task", "pauseTask")}</div>
     ${focusedWorkflow ? `<p class="task-progress">${esc(progressText(s))}</p>` : ""}
     ${
       typingCheck && f
@@ -2843,6 +2865,14 @@ function bindSession() {
     render();
     focus(controlFocus(`form-field-${session!.active}`));
   });
+  click("reverify-form", () => {
+    const s = session!;
+    beginReverification(s, true);
+    typingCheck = true;
+    message = "";
+    render();
+    focus(controlFocus("typing-check"));
+  });
   click("submit-typing-check", () => {
     const s = session!;
     if (!verify(s, selectedControl("typing-check")))
@@ -2864,18 +2894,36 @@ function bindSession() {
         previewPanel.innerHTML = outputPreview(s.template, s);
       const progress = root.querySelector(".template-form .task-progress");
       if (progress) progress.textContent = progressText(s);
+      const reverify = root.querySelector<HTMLButtonElement>("#reverify-form");
+      if (reverify)
+        reverify.disabled = !s.fields.some(
+          (field) => field.value?.trim() && fieldVisible(s, field.name, active),
+        );
     };
     root
       .querySelectorAll<
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
       >(".template-form [data-control]")
       .forEach((input) => {
+        if (input instanceof HTMLTextAreaElement) {
+          input.addEventListener("blur", () => {
+            const s = session!;
+            const field = s.fields[Number(input.dataset.control)];
+            input.value = normalizeText(
+              s.controls?.get(field.name),
+              input.value,
+            );
+          });
+        }
         input.addEventListener("input", () => {
           const s = session!;
           const index = Number(input.dataset.control);
           const field = s.fields[index];
           s.active = index;
-          const value = controlValue(input);
+          const value = normalizeText(
+            s.controls?.get(field.name),
+            controlValue(input),
+          );
           if (
             value === (field.value ?? "") &&
             !input.hasAttribute("aria-invalid") &&
@@ -3574,6 +3622,18 @@ async function saveBeforeClose(s: Session) {
       recordValues(s),
       s.typing ? "form" : "scanner",
       s.template.name.slice(0, 250).trim(),
+      new Map(
+        s.fields.flatMap((field) =>
+          field.status === "verified" && field.value?.trim()
+            ? [
+                [
+                  field.name,
+                  field.checkedByTyping ? "form" : "scanner",
+                ] as const,
+              ]
+            : [],
+        ),
+      ),
     );
     return platform.exportTemplates(content, sourceFilename(s, "veraflow"));
   }

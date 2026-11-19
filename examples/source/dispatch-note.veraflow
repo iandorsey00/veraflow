@@ -1,0 +1,28 @@
+--- veraflow 2
+{
+  "title": "Dispatch note",
+  "workflow": "form",
+  "fields": {
+    "Route": {"type": "text", "default": "Express"},
+    "Address": {"type": "textarea", "allowBlankLines": false, "default": "12 Sample Way\n\nPortland, OR"}
+  },
+  "outputs": {"note": {"delivery": {"separator": "\n\n"}}},
+  "filename": "{{@template}}-{{@date '%Y-%m-%d'}}"
+}
+---
+{{! Dispatch staff can edit the route and address in the form. }}
+{{#output note "Dispatch note"}}
+{{#section header "Header"}}
+Prepared {{@date "%Y-%m-%d"}}{{when Route equals "Express": ' · priority'}}
+{{/section}}
+{{#section body "Instructions"}}
+Deliver to:
+{{Address}}
+{{#when Route contains 'Express'}}
+Notify the dispatch lead.
+{{/when}}
+{{#for task in ["Check label", "Confirm destination"]}}
+- {{task}}
+{{/for}}
+{{/section}}
+{{/output}}

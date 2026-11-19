@@ -115,7 +115,6 @@ export const en = {
     "Enter a value that matches the field type and allowed choices.",
   singleLineRequired:
     "This field takes a single line. Remove line breaks and try again.",
-  blankLinesProhibited: "Remove blank lines from this field and try again.",
   leaveUnanswered: "Leave unanswered",
   chooseValue: "Choose a value",
   enableField: "On",

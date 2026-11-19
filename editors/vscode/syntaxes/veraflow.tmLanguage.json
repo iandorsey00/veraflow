@@ -8,6 +8,12 @@
       "include": "#escape"
     },
     {
+      "include": "#comment"
+    },
+    {
+      "include": "#builtin"
+    },
+    {
       "include": "#inlineWhen"
     },
     {
@@ -42,8 +48,16 @@
       "match": "\\\\(?:\\\\|\\{\\{)",
       "name": "constant.character.escape.veraflow"
     },
+    "comment": {
+      "match": "\\{\\{![^\\r\\n]*?\\}\\}",
+      "name": "comment.block.veraflow"
+    },
+    "builtin": {
+      "match": "\\{\\{\\s*@(?:timestamp|date|template|output|rows?|csv_file)(?=[ \\t]|\\}\\})[^{}]*\\}\\}",
+      "name": "support.variable.veraflow"
+    },
     "tag": {
-      "begin": "(\\{\\{)(#output|/output|#section|#when|/when|/section|else if|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
+      "begin": "(\\{\\{)(#output|/output|#section|#when|/when|#for|/for|/section|else if|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
       "end": "(\\}\\})|$",
       "beginCaptures": {
         "1": {
@@ -66,7 +80,7 @@
           "include": "#quotedSingle"
         },
         {
-          "match": "\\b(?:is not blank|is blank|else if|else|not)(?=\\b)",
+          "match": "\\b(?:is not blank|is blank|else if|else|not|equals|contains|in|range)(?=\\b)",
           "name": "keyword.control.veraflow"
         },
         {
@@ -145,7 +159,7 @@
           "include": "#quotedSingle"
         },
         {
-          "match": "\\b(?:is not blank|is blank|else if|else|not)(?=\\b)",
+          "match": "\\b(?:is not blank|is blank|else if|else|not|equals|contains|in|range)(?=\\b)",
           "name": "keyword.control.veraflow"
         },
         {

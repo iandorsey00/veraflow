@@ -1,16 +1,31 @@
 import { filenamePatternError } from "./filenames";
-import { validControlValue, type Control } from "./form";
+import { normalizeText, validControlValue, type Control } from "./form";
+import {
+  templateVariable,
+  variableValue,
+  type TemplateContext,
+} from "./variables";
 
 type Condition = {
   name: string;
-  test: "boolean" | "notBoolean" | "blank" | "notBlank" | "equals";
+  test:
+    | "boolean"
+    | "notBoolean"
+    | "blank"
+    | "notBlank"
+    | "option"
+    | "equals"
+    | "contains";
   value?: string;
 };
 type Node =
   | string
   | { field: string }
+  | { variable: NonNullable<ReturnType<typeof templateVariable>> }
+  | { loop: string; values: string[]; body: Node[] }
   | { condition: Condition; yes: Node[]; no: Node[] };
 type Section = { id: string; label: string; nodes: Node[] };
+export type VerificationWorkflow = "form" | "scanner";
 export type SourceWorkflow = "form" | "scanner" | "csv";
 type CSVSource = {
   file: string;
@@ -68,12 +83,16 @@ type Source = {
   title?: string;
   workflow?: SourceWorkflow;
   responses: ReadonlyMap<string, string | null>;
+  verification: ReadonlyMap<string, VerificationWorkflow>;
   delivery: Delivery;
   outputs: SourceOutput[];
   recordOnlyFields: string[];
   filename?: string;
   csv?: CSVSource;
-  csvLabel?: (values: ReadonlyMap<string, string>) => string;
+  csvLabel?: (
+    values: ReadonlyMap<string, string>,
+    context?: TemplateContext,
+  ) => string;
   controls: Map<string, Control>;
   fields: string[];
   conditionDrivers: string[];
@@ -87,8 +106,10 @@ type SourceOutput = {
 const id = /^[A-Za-z0-9_-]+$/;
 const doubleQuoted = String.raw`"(?:[^"\\\r\n]|\\[^\r\n])*"`;
 const singleQuoted = String.raw`'(?:[^'\\\r\n]|\\[^\r\n])*'`;
+const comment = String.raw`\{\{![^\r\n]*?\}\}`;
+const fullLineComment = /^\{\{!(?:(?!\}\})[^\r\n])*\}\}$/u;
 const quoted = `(?:${doubleQuoted}|${singleQuoted})`;
-const conditionText = String.raw`(?:${doubleQuoted}|[^":{}])+?`;
+const conditionText = String.raw`(?:${quoted}|[^"':{}])+?`;
 const clause = String.raw`(?:${conditionText}):\s*${quoted}`;
 const inlinePattern = String.raw`when\s+(${clause}(?:\s+else\s+if\s+${clause})*(?:\s+else\s*:\s*${quoted})?)`;
 const inlineClause = new RegExp(
@@ -117,7 +138,7 @@ function namedBlocks(
     number++;
     const tag = line.trim();
     if (!current) {
-      if (!tag) continue;
+      if (!tag || fullLineComment.test(tag)) continue;
       const match = opening.exec(tag);
       if (!match)
         fail(`Expected {{#${kind} id "Title"}} on its own line.`, number);
@@ -228,6 +249,7 @@ function metadata(text: string) {
         "fields",
         "workflow",
         "responses",
+        "verification",
         "syntax",
         "delivery",
         "outputs",
@@ -364,6 +386,8 @@ function metadata(text: string) {
       control.defaultValue ??= control.options.keys().next().value;
     } else if (field.options !== undefined)
       fail(`Only radio and dropdown fields support options ("${name}").`);
+    if (control.defaultValue !== undefined)
+      control.defaultValue = normalizeText(control, control.defaultValue);
     if (
       control.defaultValue !== undefined &&
       !(control.optional && control.defaultValue === "") &&
@@ -379,8 +403,24 @@ function metadata(text: string) {
     for (const [name, raw] of Object.entries(
       object(header.responses, '"responses"'),
     )) {
-      responses.set(name, raw === null ? null : string(raw));
+      responses.set(
+        name,
+        raw === null ? null : normalizeText(controls.get(name), string(raw)),
+      );
     }
+  }
+  const verification = new Map<string, VerificationWorkflow>();
+  for (const [name, scope] of Object.entries(
+    header.verification === undefined
+      ? {}
+      : object(header.verification, '"verification"'),
+  )) {
+    if (scope !== "form" && scope !== "scanner")
+      fail(`Verification for "${name}" must be "form" or "scanner".`);
+    const value = responses.get(name);
+    if (!value?.trim())
+      fail(`Verification for "${name}" requires a saved response.`);
+    verification.set(name, scope);
   }
   return {
     controls,
@@ -388,6 +428,7 @@ function metadata(text: string) {
     workflow,
     syntax,
     responses,
+    verification,
     delivery: deliverySettings(header.delivery),
     csv,
     outputSettings:
@@ -402,6 +443,7 @@ function metadata(text: string) {
     | "title"
     | "workflow"
     | "responses"
+    | "verification"
     | "delivery"
     | "filename"
     | "csv"
@@ -412,31 +454,38 @@ function condition(
   controls: Map<string, Control>,
   fields: Set<string>,
   line: number,
+  locals: Set<string>,
 ): Condition {
   const match = new RegExp(
-    String.raw`^(?:(not)\s+)?(${doubleQuoted}|[A-Za-z0-9_-]+)(?:\s*=\s*([A-Za-z0-9_-]+)| is (blank|not blank))?$`,
+    String.raw`^(?:(not)\s+)?(${doubleQuoted}|[A-Za-z0-9_-]+)(?:\s*=\s*([A-Za-z0-9_-]+)|\s+is\s+(blank|not\s+blank)|\s+(equals|contains)\s+(${quoted}))?$`,
     "u",
   ).exec(text.trim());
   if (!match)
     fail(
-      'Use a Boolean field, field=option_id, "is blank", or "is not blank" in this condition.',
+      'Use a Boolean field, field=option_id, "is blank", "is not blank", or equals/contains followed by quoted text.',
       line,
     );
-  const [, negated, reference, value, blank] = match;
+  const [, negated, reference, value, blank, operation, operand] = match;
   const name = reference.startsWith('"')
     ? quotedText(reference, "Field name", line)
     : reference;
   if (!name.trim()) fail("A field name must not be blank.", line);
-  if (negated && (value !== undefined || blank))
+  if (negated && (value !== undefined || blank || operation))
     fail('Use "not" with a Boolean field by itself.', line);
-  fields.add(name);
+  if (!locals.has(name)) fields.add(name);
   if (blank) return { name, test: blank === "blank" ? "blank" : "notBlank" };
+  if (operation)
+    return {
+      name,
+      test: operation === "equals" ? "equals" : "contains",
+      value: quotedText(operand, "Condition operand", line),
+    };
   if (value !== undefined) {
-    if (!controls.get(name)?.options?.has(value))
+    if (locals.has(name) || !controls.get(name)?.options?.has(value))
       fail(`"${value}" is not a defined option ID on "${name}".`, line);
-    return { name, test: "equals", value };
+    return { name, test: "option", value };
   }
-  if (controls.get(name)?.kind !== "boolean")
+  if (locals.has(name) || controls.get(name)?.kind !== "boolean")
     fail(
       `Declare "${name}" as a Boolean field or add an explicit condition.`,
       line,
@@ -462,6 +511,7 @@ function textNodes(
   fields: Set<string>,
   line = 1,
   allowQuoted = advanced,
+  locals = new Set<string>(),
 ): Node[] {
   const nodes: Node[] = [];
   const fieldPattern = String.raw`\{\{([^<>{}\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+)\}\}`;
@@ -469,8 +519,8 @@ function textNodes(
   const escaped = String.raw`\\(?:\\|\{\{)`;
   const pattern = new RegExp(
     advanced
-      ? String.raw`${escaped}|\{\{\s*(?:${inlinePattern})\s*\}\}|${quotedField}|${fieldPattern}`
-      : `${escaped}|${allowQuoted ? quotedField + "|" : ""}${fieldPattern}`,
+      ? String.raw`${escaped}|${comment}|\{\{\s*(?:${inlinePattern})\s*\}\}|${quotedField}|${fieldPattern}`
+      : `${escaped}|${allowQuoted ? comment + "|" + quotedField + "|" : ""}${fieldPattern}`,
     "gu",
   );
   const addLiteral = (value: string) => {
@@ -488,6 +538,7 @@ function textNodes(
     const at = match.index!;
     if (at > end) addLiteral(text.slice(end, at));
     end = at + match[0].length;
+    if (allowQuoted && match[0].startsWith("{{!")) continue;
     if (advanced && match[1] !== undefined) {
       // Parse placeholders in the branch. Values inserted later are never parsed again.
       const branch = (raw: string) =>
@@ -498,6 +549,7 @@ function textNodes(
           fields,
           line,
           true,
+          locals,
         );
       const clauses = match[1];
       let offset = 0;
@@ -508,7 +560,7 @@ function textNodes(
       while ((entry = inlineClause.exec(clauses))) {
         if (++count > 16) fail("Use up to 16 branches in a condition.", line);
         const node = {
-          condition: condition(entry[1], controls, fields, line),
+          condition: condition(entry[1], controls, fields, line, locals),
           yes: branch(entry[2]),
           no: [] as Node[],
         };
@@ -530,13 +582,18 @@ function textNodes(
         line,
       );
       if (!field.trim()) fail("A field name must not be blank.", line);
-      fields.add(field);
+      if (!locals.has(field)) fields.add(field);
       nodes.push({ field });
     } else {
       const raw = match[advanced ? 3 : allowQuoted ? 2 : 1];
       const name = raw?.trim();
       if (name === undefined) nodes.push(match[0].slice(1));
-      else if (advanced && /^when(?:\s|$)/u.test(name))
+      else if (allowQuoted && name.startsWith("@")) {
+        const variable = templateVariable(name);
+        if (!variable)
+          fail(`Unknown or invalid template variable "${name}".`, line);
+        nodes.push({ variable });
+      } else if (advanced && /^when(?:\s|$)/u.test(name))
         fail(
           'Use {{when condition: "text" else: "other text"}} for inline output.',
           line,
@@ -547,7 +604,7 @@ function textNodes(
           line,
         );
       else if (name) {
-        fields.add(name);
+        if (!locals.has(name)) fields.add(name);
         nodes.push({ field: name });
       } else nodes.push(match[0]);
     }
@@ -559,6 +616,40 @@ function textNodes(
 function lineBreaks(text: string) {
   return text.match(/\r\n|\r|\n/g)?.length ?? 0;
 }
+
+function loopValues(expression: string, line: number): string[] {
+  const range = /^range\(\s*(-?\d+)\s*(?:,\s*(-?\d+)\s*)?\)$/.exec(expression);
+  if (range) {
+    const start = range[2] === undefined ? 0 : Number(range[1]);
+    const end = Number(range[2] ?? range[1]);
+    if (
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end) ||
+      end < start ||
+      end - start > 100
+    )
+      fail("Use an ascending range of up to 100 integers.", line);
+    return Array.from({ length: end - start }, (_, index) =>
+      String(start + index),
+    );
+  }
+  if (!expression.startsWith("["))
+    fail("Use a JSON list or range(start, end) in a loop.", line);
+  const list = parseJSON(expression, "The loop list", line);
+  if (!Array.isArray(list) || list.length > 100)
+    fail("Use a JSON list with up to 100 entries.", line);
+  return list.map((entry) => {
+    if (
+      (typeof entry === "number" && Number.isFinite(entry)) ||
+      typeof entry === "boolean"
+    )
+      return String(entry);
+    if (typeof entry !== "string" || entry.includes("\0"))
+      fail("Loop lists accept strings, numbers, and Booleans.", line);
+    return entry;
+  });
+}
+
 // Block tags consume their entire line. Ordinary text keeps its original line ending.
 function blocks(
   text: string,
@@ -567,13 +658,16 @@ function blocks(
   startLine: number,
 ): Node[] {
   const root: Node[] = [];
-  const stack: {
+  type Branch = {
     branch: Extract<Node, { condition: Condition }>;
     parent: Node[];
     hasElse: boolean;
     clauses: number;
     line: number;
-  }[] = [];
+  };
+  type Loop = { loop: string; parent: Node[]; line: number };
+  const stack: (Branch | Loop)[] = [];
+  const locals = new Set<string>();
   let nodes = root;
   let number = startLine - 1;
   // Buffer ordinary lines so an inline when can span lines without emitting them.
@@ -586,6 +680,8 @@ function blocks(
       controls,
       fields,
       firstLine,
+      true,
+      locals,
     ))
       nodes.push(node);
     pending = [];
@@ -594,12 +690,31 @@ function blocks(
     number++;
     const tag = line.trim();
     const open = /^\{\{#when (.+)\}\}$/.exec(tag);
-    if (open) {
+    const loop =
+      /^\{\{#for ([A-Za-z_][A-Za-z0-9_-]*)\s+in\s+(.+?)\s*\}\}$/.exec(tag);
+    if (fullLineComment.test(tag)) {
+      flush();
+    } else if (open || loop) {
       flush();
       if (stack.length >= 16)
-        fail("Conditions can be nested up to 16 levels.", number);
+        fail("Template blocks can be nested up to 16 levels.", number);
+      if (loop) {
+        const [, name, expression] = loop;
+        if (locals.has(name))
+          fail(`A loop already uses "${name}" in this scope.`, number);
+        const block = {
+          loop: name,
+          values: loopValues(expression, number),
+          body: [] as Node[],
+        };
+        nodes.push(block);
+        stack.push({ loop: name, parent: nodes, line: number });
+        locals.add(name);
+        nodes = block.body;
+        continue;
+      }
       const branch = {
-        condition: condition(open[1], controls, fields, number),
+        condition: condition(open![1], controls, fields, number, locals),
         yes: [],
         no: [],
       };
@@ -615,12 +730,18 @@ function blocks(
     } else if (/^\{\{else if .+\}\}$/.test(tag)) {
       flush();
       const top = stack.at(-1);
-      if (!top || top.hasElse)
+      if (!top || "loop" in top || top.hasElse)
         fail("{{else if …}} needs an open condition before {{else}}.", number);
       if (++top.clauses > 16)
         fail("Use up to 16 branches in a condition.", number);
       const branch = {
-        condition: condition(tag.slice(10, -2), controls, fields, number),
+        condition: condition(
+          tag.slice(10, -2),
+          controls,
+          fields,
+          number,
+          locals,
+        ),
         yes: [],
         no: [],
       };
@@ -630,45 +751,69 @@ function blocks(
     } else if (tag === "{{else}}") {
       flush();
       const top = stack.at(-1);
-      if (!top || top.hasElse)
+      if (!top || "loop" in top || top.hasElse)
         fail(
-          top
+          top && !("loop" in top)
             ? "This condition already has an {{else}}."
             : "{{else}} needs an opening {{#when …}}.",
           number,
         );
       top.hasElse = true;
       nodes = top.branch.no;
-    } else if (tag === "{{/when}}") {
+    } else if (tag === "{{/when}}" || tag === "{{/for}}") {
       flush();
       const top = stack.pop();
-      if (!top) fail("{{/when}} needs a matching {{#when …}}.", number);
+      if (!top || "loop" in top !== (tag === "{{/for}}"))
+        fail(`${tag} needs a matching opening tag.`, number);
+      if ("loop" in top) locals.delete(top.loop);
       nodes = top.parent;
     } else pending.push(line);
   }
   number++;
   flush();
-  if (stack.length)
+  const unclosed = stack.at(-1);
+  if (unclosed)
     fail(
-      "This {{#when …}} is missing its closing {{/when}}.",
-      stack.at(-1)?.line,
+      "loop" in unclosed
+        ? "This {{#for …}} is missing its closing {{/for}}."
+        : "This {{#when …}} is missing its closing {{/when}}.",
+      unclosed.line,
     );
   return root;
 }
 
 function conditionFields(sections: Section[]) {
   const drivers = new Set<string>();
-  const visit = (nodes: Node[]) => {
+  const visit = (nodes: Node[], locals = new Set<string>()) => {
     for (const node of nodes) {
-      if (typeof node === "string" || "field" in node) continue;
-      const branches = [...node.yes, ...node.no];
-      if (branches.some((part) => typeof part !== "string"))
-        drivers.add(node.condition.name);
-      visit(branches);
+      if (typeof node === "string") continue;
+      if ("loop" in node) visit(node.body, new Set([...locals, node.loop]));
+      else if ("condition" in node) {
+        const branches = [...node.yes, ...node.no];
+        if (
+          !locals.has(node.condition.name) &&
+          branches.some((part) => typeof part !== "string")
+        )
+          drivers.add(node.condition.name);
+        visit(branches, locals);
+      }
     }
   };
   for (const section of sections) visit(section.nodes);
   return [...drivers];
+}
+
+function expandedSize(nodes: Node[]): number {
+  let size = 0;
+  for (const node of nodes) {
+    size++;
+    if (typeof node === "string") continue;
+    if ("condition" in node)
+      size += Math.max(expandedSize(node.yes), expandedSize(node.no));
+    if ("loop" in node)
+      size += node.values.length * (1 + expandedSize(node.body));
+  }
+  return size;
 }
 
 // Preview and validation repeatedly parse the same open template. Cache only the last source.
@@ -701,6 +846,7 @@ export function parseSource(text: string): Source {
     workflow,
     syntax,
     responses,
+    verification,
     delivery,
     outputSettings,
     filename,
@@ -717,6 +863,7 @@ export function parseSource(text: string): Source {
         filename: undefined,
         csv: undefined,
         responses: new Map<string, string | null>(),
+        verification: new Map<string, VerificationWorkflow>(),
       };
   // Prefilled plain files have a metadata header but still use the plain grammar.
   const advanced = !!header && syntax !== "plain";
@@ -746,9 +893,32 @@ export function parseSource(text: string): Source {
         : textNodes(text, false, controls, referenced, line),
     }));
     const hasSettings = Object.hasOwn(outputSettings, definition.id);
-    const outputDelivery = hasSettings
-      ? deliverySettings(outputSettings[definition.id])
-      : delivery;
+    const configured = hasSettings
+      ? object(
+          outputSettings[definition.id],
+          `Settings for output "${definition.id}"`,
+        )
+      : undefined;
+    let outputDelivery = delivery;
+    if (configured) {
+      if (Object.hasOwn(configured, "delivery")) {
+        if (Object.keys(configured).some((name) => name !== "delivery"))
+          fail(`Output "${definition.id}" supports only a "delivery" object.`);
+        const overrides = object(
+          configured.delivery,
+          `Delivery for "${definition.id}"`,
+        );
+        outputDelivery = deliverySettings({
+          mode: delivery.mode,
+          separator: delivery.separator,
+          after: Object.fromEntries(delivery.after),
+          ...overrides,
+        });
+      } else {
+        // Existing source files used the delivery keys directly under the output ID.
+        outputDelivery = deliverySettings(configured);
+      }
+    }
     for (const [sectionId, keys] of outputDelivery.after) {
       const index = sections.findIndex((section) => section.id === sectionId);
       if (index < 0)
@@ -768,6 +938,16 @@ export function parseSource(text: string): Source {
   for (const name of Object.keys(outputSettings))
     if (!outputs.some((output) => output.id === name))
       fail(`Settings refer to unknown output "${name}".`);
+  if (
+    advanced &&
+    outputs
+      .flatMap((output) => output.sections)
+      .reduce((total, section) => total + expandedSize(section.nodes), 0) >
+      250_000
+  )
+    fail(
+      "This template expands to too many operations. Use shorter or fewer nested loops.",
+    );
   const fields = new Set([...controls.keys(), ...referenced]);
   if (
     outputs.reduce((count, output) => count + output.sections.length, 0) >
@@ -797,17 +977,24 @@ export function parseSource(text: string): Source {
     csv?.rowLabel === undefined
       ? undefined
       : textNodes(csv.rowLabel, true, controls, new Set());
-  if (label?.some((node) => typeof node !== "string" && "condition" in node))
-    fail('"csv.rowLabel" accepts text and placeholders.');
+  if (
+    label?.some(
+      (node) =>
+        typeof node !== "string" && ("condition" in node || "loop" in node),
+    )
+  )
+    fail('"csv.rowLabel" accepts text, variables, and placeholders.');
   const csvLabel = label
-    ? (values: ReadonlyMap<string, string>) =>
+    ? (values: ReadonlyMap<string, string>, context?: TemplateContext) =>
         label
           .map((node) =>
             typeof node === "string"
               ? node
               : "field" in node
                 ? (values.get(node.field)?.slice(0, 160) ?? "")
-                : "",
+                : "variable" in node
+                  ? (variableValue(node.variable, context) ?? "")
+                  : "",
           )
           .join("")
     : undefined;
@@ -825,6 +1012,7 @@ export function parseSource(text: string): Source {
     title,
     workflow,
     responses,
+    verification,
     delivery,
   };
   cached = { text, parsed };
@@ -842,11 +1030,13 @@ export function sourceDefinitionText(text: string, title?: string) {
   const metadata = header ? object(parseJSON(header[1])) : { syntax: "plain" };
   if (
     !Object.hasOwn(metadata, "responses") &&
+    !Object.hasOwn(metadata, "verification") &&
     (!title || title === metadata.title)
   )
     return text;
   // Exports of reusable definitions must leave out responses from the current case.
   delete metadata.responses;
+  delete metadata.verification;
   if (title) metadata.title = title;
   const definition = sourceWithHeader(
     metadata,
@@ -860,10 +1050,12 @@ export function prefillSource(
   responses: ReadonlyMap<string, string | null>,
   workflow: SourceWorkflow,
   title?: string,
+  verification: ReadonlyMap<string, VerificationWorkflow> = new Map(),
 ) {
   const source = text.replace(/^\uFEFF/, "");
   const header = sourceHeader.exec(source);
   const original = header ? object(parseJSON(header[1])) : { syntax: "plain" };
+  delete original.verification;
   // A saved null suppresses the field default. Missing keys still inherit defaults.
   const saved = sourceWithHeader(
     {
@@ -871,6 +1063,9 @@ export function prefillSource(
       ...(title ? { title } : {}),
       workflow,
       responses: Object.fromEntries(responses),
+      ...(verification.size
+        ? { verification: Object.fromEntries(verification) }
+        : {}),
     },
     header ? source.slice(header[0].length) : source,
   );
@@ -879,61 +1074,100 @@ export function prefillSource(
   return saved;
 }
 
+function conditionMatches(test: Condition, actual: string | undefined) {
+  switch (test.test) {
+    case "boolean":
+      return actual === "true";
+    case "notBoolean":
+      return actual === "false";
+    case "blank":
+      return !actual?.trim();
+    case "notBlank":
+      return !!actual?.trim();
+    case "option":
+    case "equals":
+      return actual === test.value;
+    case "contains":
+      return actual?.includes(test.value!) === true;
+  }
+}
+
 export function sourceParts(
   source: Source,
   values: ReadonlyMap<string, string>,
   used?: Set<string>,
   outputId?: string,
+  context?: TemplateContext,
 ) {
   let length = 0;
-  const part = (text: string, missing = false) => {
-    length += text.length;
-    if (!used && length > 16 * 1024 * 1024) throw Error("invalidText");
-    return { text, missing };
-  };
-  // The same traversal drives field visibility and output so both select the same branches.
-  const parts = (nodes: Node[]): { text: string; missing: boolean }[] =>
-    nodes.flatMap((node) => {
-      if (typeof node === "string") return used ? [] : [part(node)];
-      if ("field" in node) {
-        if (used) {
-          used.add(node.field);
-          return [];
-        }
-        // Emit the value or choice text directly. Template markers in a value remain literal.
-        const value = values.get(node.field);
-        const options = source.controls.get(node.field)?.options;
-        return value === undefined
-          ? [part(`{{${node.field}}}`, true)]
-          : [part(options?.get(value) ?? value)];
-      }
-      const { name, test, value } = node.condition;
-      used?.add(name);
-      const actual = values.get(name);
-      if (
-        (actual === undefined || actual === "") &&
-        (test === "boolean" || test === "notBoolean" || test === "equals")
-      )
-        return used ? [] : [part(`{{${name}}}`, true)];
-      const match =
-        test === "boolean" || test === "notBoolean"
-          ? actual === (test === "boolean" ? "true" : "false")
-          : test === "equals"
-            ? actual === value
-            : test === "blank"
-              ? !actual?.trim()
-              : !!actual?.trim();
-      return parts(match ? node.yes : node.no);
-    });
+  const local = new Map<string, string>();
+  const valueOf = (name: string) => local.get(name) ?? values.get(name);
   const sections =
     outputId === undefined && used
       ? source.outputs.flatMap((output) => output.sections)
       : sourceOutput(source, outputId).sections;
-  return sections.map((section) => ({
-    id: section.id,
-    label: section.label,
-    parts: parts(section.nodes),
-  }));
+  const outputName =
+    outputId === undefined && used
+      ? undefined
+      : sourceOutput(source, outputId).label;
+  const variables = { templateName: source.title, ...context, outputName };
+  return sections.map((section) => {
+    const parts: { text: string; missing: boolean }[] = [];
+    const emit = (text: string, missing = false) => {
+      length += text.length;
+      if (length > 16 * 1024 * 1024) throw Error("invalidText");
+      if (text || missing) parts.push({ text, missing });
+    };
+    // Field discovery and rendering walk the same branches. Inserted values stay literal.
+    const visit = (nodes: Node[]) => {
+      for (const node of nodes) {
+        if (typeof node === "string") {
+          if (!used) emit(node);
+        } else if ("field" in node) {
+          if (used) {
+            if (!local.has(node.field)) used.add(node.field);
+            continue;
+          }
+          const value = valueOf(node.field);
+          const options = local.has(node.field)
+            ? undefined
+            : source.controls.get(node.field)?.options;
+          if (value === undefined) emit(`{{${node.field}}}`, true);
+          else emit(options?.get(value) ?? value);
+        } else if ("variable" in node) {
+          if (used) continue;
+          const value = variableValue(node.variable, variables);
+          if (
+            value === undefined &&
+            (node.variable.name === "date" ||
+              node.variable.name === "timestamp")
+          )
+            emit(`{{@${node.variable.name}}}`, true);
+          else emit(value ?? "");
+        } else if ("loop" in node) {
+          for (const value of node.values) {
+            local.set(node.loop, value);
+            visit(node.body);
+          }
+          local.delete(node.loop);
+        } else {
+          const condition = node.condition;
+          if (!local.has(condition.name)) used?.add(condition.name);
+          const actual = valueOf(condition.name);
+          if (
+            !actual &&
+            ["boolean", "notBoolean", "option"].includes(condition.test)
+          ) {
+            if (!used) emit(`{{${condition.name}}}`, true);
+          } else {
+            visit(conditionMatches(condition, actual) ? node.yes : node.no);
+          }
+        }
+      }
+    };
+    visit(section.nodes);
+    return { id: section.id, label: section.label, parts };
+  });
 }
 
 export function sourceOutput(source: Source, id?: string) {

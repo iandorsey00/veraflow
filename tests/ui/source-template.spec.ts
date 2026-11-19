@@ -254,12 +254,13 @@ test("source labels and text layout follow the field into Scanner", async ({
   await expect(ticket).toHaveValue("A-104");
   await expect(address).toHaveJSProperty("tagName", "TEXTAREA");
   await address.fill("100 Example Way\n\nExample City");
-  await expect(address).toHaveAttribute("aria-invalid", "true");
-  await expect(page.locator("#form-state-1")).toContainText(
-    "Remove blank lines",
-  );
-  await address.fill("100 Example Way\nExample City");
   await expect(address).not.toHaveAttribute("aria-invalid");
+  await expect(page.locator("#form-output pre")).toHaveJSProperty(
+    "textContent",
+    "A-104\n100 Example Way\nExample City",
+  );
+  await ticket.focus();
+  await expect(address).toHaveValue("100 Example Way\nExample City");
   await page.locator("#switch-scanner").click();
   await expect(page.locator("#field-0 strong")).toHaveText("Ticket #");
   await expect(page.locator("#field-1 strong")).toHaveText(
@@ -975,4 +976,35 @@ test("linked CSV opens at output and walks row-output pairs in both directions",
   } finally {
     await rm(folder, { recursive: true, force: true });
   }
+});
+
+test("Scanner normalizes a comparison and reopens a verified prefilled response", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "Address.veraflow",
+    `--- veraflow 2
+{"workflow":"scanner","fields":{
+  "Address":{"type":"textarea","allowBlankLines":false}
+},"responses":{"Address":"12 Sample Way\\nPortland"}}
+---
+{{Address}}`,
+  );
+  await page.locator("#scanner-control").fill("12 Sample Way\n\nPortland");
+  await page.locator("#use-scanner-control").click();
+  const field = page.locator("#field-0");
+  await expect(field).toContainText("Matched source");
+  await page.locator("#cancel-session").click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save prefilled template" }).click();
+  const snapshot = await download;
+  const content = await readFile((await snapshot.path())!, "utf8");
+  expect(content).toContain('"verification"');
+  await pickDocument(page, snapshot.suggestedFilename(), content);
+  await expect(field).toContainText("Matched source");
+  await page.locator("#task-tools summary").click();
+  await page.locator("#reverify-field").click();
+  await expect(field).toContainText("Captured");
 });

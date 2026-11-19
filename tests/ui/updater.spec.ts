@@ -48,6 +48,11 @@ test("an available update shows version and literal notes and can be declined", 
   expect(await page.evaluate(() => (window as any).__updateInstalls || 0)).toBe(
     0,
   );
+  await page.locator("#nav-recent").click();
+  await expect(page.locator(".appbar nav button")).toHaveText([
+    "Update app…",
+    "Settings",
+  ]);
 });
 test("installation requires confirmation and reports verification errors without retrying", async ({
   page,

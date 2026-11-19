@@ -107,7 +107,6 @@ export const zh: Record<keyof typeof en, string> = {
   invalidFormDirective: "请检查模板表单语法、选项标识和字段条件。",
   invalidControlValue: "请输入符合字段类型和可用选项的值。",
   singleLineRequired: "此字段仅接受单行文本。请删除换行后重试。",
-  blankLinesProhibited: "请删除此字段中的空行后重试。",
   leaveUnanswered: "留空",
   chooseValue: "请选择",
   enableField: "开启",

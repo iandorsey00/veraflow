@@ -1,4 +1,4 @@
-import { textLayoutError, validControlValue } from "./form";
+import { normalizeText, textLayoutError, validControlValue } from "./form";
 import type { Preferences, Session, Template } from "./model";
 import { startSession, capture, prepareWorkflow } from "./session";
 
@@ -119,18 +119,20 @@ export function applyScanner(scanner: Session, template: Template): Session {
       source.status !== "mismatch"
     ) {
       const control = result.controls?.get(field.name);
-      const layoutError = textLayoutError(control, source.value);
+      const value = normalizeText(control, source.value);
+      const layoutError = textLayoutError(control, value);
       if (layoutError) throw Error(layoutError);
       if (
         control &&
-        !(control.optional && source.value === "") &&
-        !validControlValue(control, source.value)
+        !(control.optional && value === "") &&
+        !validControlValue(control, value)
       ) {
         if (template.placeholderStyle === "source")
           throw Error("invalidControlValue");
         continue;
       }
-      field.value = source.value;
+      field.value = value;
+      delete field.checkedByTyping;
       field.status = "captured";
     }
   }

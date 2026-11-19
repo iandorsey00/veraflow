@@ -133,6 +133,7 @@ export type Session = {
   active: number;
   mode: "capture" | "verify" | "ready" | "delivery" | "review" | "complete";
   outputId?: string;
+  sourceContext?: import("./variables").TemplateContext;
   verificationOutputOnly?: boolean;
   deliveryIndex?: number;
   deliveryDone?: boolean;

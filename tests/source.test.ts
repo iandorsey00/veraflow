@@ -8,8 +8,15 @@ import {
   renderTemplateValues,
   startSession,
   capture,
+  prepareWorkflow,
+  beginReverification,
+  verify,
 } from "../src/core/session";
-import { parseSource, prefillSource } from "../src/core/source";
+import {
+  parseSource,
+  prefillSource,
+  sourceDefinitionText,
+} from "../src/core/source";
 import {
   exportTemplateArchive,
   parseTemplateArchive,
@@ -151,17 +158,22 @@ test("declared text line rules apply to capture, seed values, and portable rende
     () => renderTemplateValues(doc, new Map([...valid, ["ticket", "A\n104"]])),
     /singleLineRequired/,
   );
-  for (const address of ["A\n\nB", "A\r\n \r\nB", "A\n", "A\u2028\u2028B"]) {
-    assert.throws(
-      () =>
-        renderTemplateValues(doc, new Map([...valid, ["address", address]])),
-      /blankLinesProhibited/,
+  for (const [address, normalized] of [
+    ["A\n\nB", "A\nB"],
+    ["A\r\n \r\nB", "A\nB"],
+    ["A\n", "A"],
+    ["A\u2028\u2028B", "A\nB"],
+  ]) {
+    assert.equal(
+      renderTemplateValues(doc, new Map([...valid, ["address", address]]))[0]
+        .text,
+      `A-104 — ${normalized} — First paragraph\n\nSecond paragraph`,
     );
   }
   const session = startSession(doc);
   assert.equal(session.fields[session.active].name, "address");
-  assert.throws(() => capture(session, "A\n\nB"), /blankLinesProhibited/);
-  assert.equal(session.fields[session.active].value, null);
+  capture(session, "A\n\nB", false);
+  assert.equal(session.fields[session.active].value, "A\nB");
   assert.throws(
     () =>
       parseSource(
@@ -387,4 +399,108 @@ test("else if short-circuits branches and not only matches a false Boolean", () 
     () => parseSource(header + "{{when not unknown: 'x'}}"),
     /invalidSource/,
   );
+});
+
+test("source comments, text comparisons, local loops, and UTC variables share one render", () => {
+  const doc = template(`--- veraflow 2
+{"workflow":"csv","csv":{"file":"records.csv","rowLabel":"{{@row}} · {{Name}}"}}
+---
+{{! A comment between outputs is allowed. }}
+{{#output note "Report"}}
+{{! This entire line disappears. }}
+{{@date "%Y-%m-%d %H:%M:%S %%"}}, row {{@row}} of {{@rows}} ({{@csv_file}}) {{@output}}{{! hidden }}
+{{when Name equals 'Alex': 'Exact' else if Name contains "lex": 'Close'}}
+{{#for item in ["Alex", "{{Name}}", true]}}
+{{when item equals 'Alex': 'Local {{item}}' else: '{{item}}'}}
+{{/for}}
+{{#for n in range(1, 3)}}
+{{n}}
+{{/for}}
+{{/output}}
+`);
+  const parsed = parseSource(doc.content);
+  assert.deepEqual(parsed.fields, ["Name"]);
+  const context = {
+    timestamp: new Date("2026-11-18T21:04:05Z"),
+    csv: { row: 2, rows: 7, file: "records.csv" },
+  };
+  assert.equal(
+    parsed.csvLabel?.(new Map([["Name", "Alex"]]), context),
+    "2 · Alex",
+  );
+  const expected =
+    "2026-11-18 21:04:05 %, row 2 of 7 (records.csv) Report\nExact\nLocal Alex\n{{Name}}\ntrue\n1\n2\n";
+  assert.equal(
+    renderTemplateValues(doc, new Map([["Name", "Alex"]]), "note", context)[0]
+      .text,
+    expected,
+  );
+  assert.equal(
+    renderTemplateValues(doc, new Map([["Name", "Alexa"]]), "note", context)[0]
+      .text,
+    expected.replace("Exact", "Close"),
+  );
+  assert.throws(
+    () =>
+      parseSource(
+        "--- veraflow 2\n{}\n---\n{{#for n in range(101)}}\n{{n}}\n{{/for}}",
+      ),
+    /invalidSource/,
+  );
+  assert.throws(
+    () =>
+      parseSource(`--- veraflow 2
+{}
+---
+{{#for x in range(100)}}
+{{#for y in range(100)}}
+{{#for z in range(100)}}
+{{z}}
+{{/for}}
+{{/for}}
+{{/for}}`),
+    /invalidSource/,
+  );
+});
+
+test("prefilled verification resumes in its originating workflow and clears on edit", () => {
+  const saved = prefillSource(
+    "Hello {{name}}",
+    new Map([["name", "Alex"]]),
+    "scanner",
+    undefined,
+    new Map([["name", "scanner"]]),
+  );
+  const doc = { ...template(saved), verificationEnabled: true };
+  const scanner = startSession(doc);
+  assert.equal(scanner.fields[0].status, "verified");
+  assert.equal(prepareSections(scanner)[0].text, "Hello Alex");
+  beginReverification(scanner);
+  assert.equal(verify(scanner, "Alex"), true);
+  capture(scanner, "Sam", false);
+  assert.equal(scanner.fields[0].status, "captured");
+  const form = startSession(doc);
+  prepareWorkflow(form, true);
+  assert.equal(form.fields[0].status, "captured");
+  const definition = parseSource(sourceDefinitionText(saved));
+  assert.equal(definition.responses.size, 0);
+  assert.equal(definition.verification.size, 0);
+});
+
+test("named outputs accept nested delivery settings with inherited defaults", () => {
+  const doc = `--- veraflow 2
+{"delivery":{"mode":"sequence","separator":" | "},"outputs":{"note":{"delivery":{"after":{"first":["Tab"]}}}}}
+---
+{{#output note "Note"}}
+{{#section first "First"}}
+A
+{{/section}}
+{{#section second "Second"}}
+B
+{{/section}}
+{{/output}}`;
+  const delivery = parseSource(doc).outputs[0].delivery;
+  assert.equal(delivery.mode, "sequence");
+  assert.equal(delivery.separator, " | ");
+  assert.deepEqual(delivery.after.get("first"), ["Tab"]);
 });

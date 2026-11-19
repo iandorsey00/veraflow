@@ -1,3 +1,4 @@
+import type { TemplateContext } from "./variables";
 import { forgetSource, parseSource, sourceParts } from "./source";
 import { compare } from "./compare";
 import {
@@ -6,7 +7,12 @@ import {
   templateControls,
   emailSections,
 } from "./template";
-import { textLayoutError, validControlValue } from "./form";
+import {
+  normalizeText,
+  stripBlankLines,
+  textLayoutError,
+  validControlValue,
+} from "./form";
 import type { Session, Template, EmailHeader } from "./model";
 export function verificationRequired(s: Session) {
   return s.typing
@@ -17,7 +23,7 @@ export function activeSourceFields(s: Session): Set<string> | undefined {
   if (s.template.placeholderStyle !== "source") return;
   const parsed = parseSource(s.template.content);
   const active = new Set(parsed.recordOnlyFields);
-  sourceParts(parsed, sessionValues(s), active);
+  sourceParts(parsed, sessionValues(s), active, undefined, s.sourceContext);
   return active;
 }
 function selectedOutputFields(s: Session) {
@@ -30,6 +36,7 @@ function selectedOutputFields(s: Session) {
     sessionValues(s),
     active,
     s.outputId ?? parsed.outputs[0].id,
+    s.sourceContext,
   );
   return active;
 }
@@ -92,7 +99,13 @@ export function startSession(template: Template): Session {
     const value = saved?.has(name)
       ? saved.get(name)!
       : (controls.get(name)?.defaultValue ?? null);
-    return { name, value, status: value === null ? "empty" : "captured" };
+    const verified = source?.verification.get(name);
+    return {
+      name,
+      value,
+      status: verified ? "verified" : value === null ? "empty" : "captured",
+      ...(verified === "form" ? { checkedByTyping: true } : {}),
+    };
   });
   const s: Session = {
     template: structuredClone(template),
@@ -100,6 +113,11 @@ export function startSession(template: Template): Session {
     fields,
     active: 0,
     mode: "capture",
+    ...(source
+      ? {
+          sourceContext: { timestamp: new Date(), templateName: template.name },
+        }
+      : {}),
   };
   if (!fields.length) s.mode = "ready";
   else if (controls.size || template.placeholderStyle === "source") {
@@ -155,7 +173,9 @@ export function capture(s: Session, value: string, advance = true): void {
   const field = s.fields[s.active];
   if (!field) throw new Error("noField");
   const control = s.controls?.get(field.name);
-  const text = field.removeBlankLines ? stripBlankLines(value) : value;
+  const text = field.removeBlankLines
+    ? stripBlankLines(value)
+    : normalizeText(control, value);
   const layoutError = textLayoutError(control, text);
   if (layoutError) throw Error(layoutError);
   if (!text.trim()) throw Error("emptySelection");
@@ -247,8 +267,11 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   if (s.mode !== "verify") throw new Error("notVerifying");
   const field = s.fields[s.active];
   if (!field || field.value === null) throw new Error("noValue");
-  if (field.removeBlankLines) candidate = stripBlankLines(candidate);
-  const layoutError = textLayoutError(s.controls?.get(field.name), candidate);
+  const control = s.controls?.get(field.name);
+  candidate = field.removeBlankLines
+    ? stripBlankLines(candidate)
+    : normalizeText(control, candidate);
+  const layoutError = textLayoutError(control, candidate);
   if (layoutError) throw Error(layoutError);
   if (!candidate.trim()) throw new Error("emptySelection");
   const matches = s.controls?.get(field.name)?.options
@@ -294,6 +317,7 @@ function renderParts(
   values: ReadonlyMap<string, string>,
   controls: NonNullable<Session["controls"]>,
   outputId?: string,
+  context?: TemplateContext,
 ) {
   if (template.placeholderStyle === "source")
     return sourceParts(
@@ -301,6 +325,7 @@ function renderParts(
       values,
       undefined,
       outputId,
+      context,
     ).map(({ id, label, parts }) => ({ key: id, label, parts }));
   return emailSections(template).map((part) => ({
     key: part.key,
@@ -319,9 +344,15 @@ export function renderTemplateValues(
   template: Template,
   input: ReadonlyMap<string, string>,
   outputId?: string,
+  context?: TemplateContext,
 ) {
   const controls = templateControls(template);
-  const values = new Map(input);
+  const values = new Map(
+    Array.from(input, ([name, value]) => [
+      name,
+      normalizeText(controls.get(name), value),
+    ]),
+  );
   const saved =
     template.placeholderStyle === "source"
       ? parseSource(template.content).responses
@@ -338,7 +369,10 @@ export function renderTemplateValues(
     }
   }
   if (template.placeholderStyle === "source")
-    return checkedSource(template, values, outputId);
+    return checkedSource(template, values, outputId, {
+      templateName: template.name,
+      ...context,
+    });
   const rendered = checkedParts(template, values, controls);
   return template.email?.enabled ? checkedEmail(template, rendered) : rendered;
 }
@@ -396,20 +430,21 @@ export function previewSections(template: Template, s?: Session) {
       else if (control.optional) values.set(name, "");
     }
   }
-  return renderParts(template, values, controls, s?.outputId);
+  return renderParts(template, values, controls, s?.outputId, s?.sourceContext);
 }
 
 function checkedSource(
   template: Template,
   values: ReadonlyMap<string, string>,
   outputId?: string,
+  context?: TemplateContext,
 ) {
   const parsed = parseSource(template.content);
   // Validate fields visited by the selected branches. Hidden values can remain in the session.
   const used = new Set<string>();
   const id = outputId ?? parsed.outputs[0].id;
-  sourceParts(parsed, values, used, id);
-  const parts = sourceParts(parsed, values, undefined, id);
+  sourceParts(parsed, values, used, id, context);
+  const parts = sourceParts(parsed, values, undefined, id, context);
   for (const name of used) {
     const control = parsed.controls.get(name),
       value = values.get(name);
@@ -439,7 +474,12 @@ function checkedSource(
 }
 export function prepareSections(s: Session) {
   validateOutput(s);
-  return checkedSource(s.template, sessionValues(s), s.outputId);
+  return checkedSource(
+    s.template,
+    sessionValues(s),
+    s.outputId,
+    s.sourceContext,
+  );
 }
 export function renderSession(s: Session): string {
   if (s.template.placeholderStyle === "source")
@@ -536,12 +576,7 @@ export function moveEmailSection(s: Session, direction: -1 | 1): void {
   }
 }
 
-export function stripBlankLines(value: string): string {
-  return value
-    .split(/\r\n|[\r\n\u0085\u2028\u2029]/u)
-    .filter((line) => line.trim().length > 0)
-    .join("\n");
-}
+export { stripBlankLines } from "./form";
 export function cleanBlankLines(s: Session): void {
   editable(s);
   const field = s.fields[s.active];
