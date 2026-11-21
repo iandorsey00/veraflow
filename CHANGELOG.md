@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.19.1
+
+- Add optional plain-text instructions below individual fields, including accessible descriptions and multiline guidance.
+
 ## 0.19.0
 
 - Combine typing, selection capture, and field verification in one Form.

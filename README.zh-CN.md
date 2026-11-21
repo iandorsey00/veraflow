@@ -6,7 +6,7 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地文本工具。用普通�
 
 ## 安装
 
-从 [v0.19.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.19.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
+从 [v0.19.1 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.19.1) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
 
 - **macOS 12 或更新版本**：Apple 芯片选 `macos-arm64.zip`，Intel 芯片选 `macos-x64.zip`。解压后将 VeraFlow.app 移到「应用程序」。预览版尚无 Developer ID 签名和 Apple 公证。如果系统拦截且你信任下载来源，可在「隐私与安全性」中为该应用选择「仍要打开」。跨应用采集和粘贴需要「辅助功能」权限。
 - **Windows**：运行 `windows-x64-setup.exe`。Windows 可能提示发布者未知。如果系统缺少 WebView2，安装程序可能会安装它。

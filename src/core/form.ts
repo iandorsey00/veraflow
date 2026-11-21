@@ -13,6 +13,7 @@ export type Control = {
   options?: Map<string, string>;
   optionLabels?: Map<string, string>;
   label?: string;
+  instructions?: string;
   multiline?: boolean;
   allowBlankLines?: boolean;
   defaultValue?: string;

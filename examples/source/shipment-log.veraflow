@@ -4,6 +4,7 @@
   "workflow": "form",
   "instructions": "Confirm the recipient and carrier before logging this shipment.",
   "fields": {
+    "Reference": {"type": "text", "instructions": "Include the VF- prefix, for example VF-104."},
     "Notes": {"type": "textarea", "optional": true},
     "Carrier": {"type": "text", "default": "Example Ground"}
   },

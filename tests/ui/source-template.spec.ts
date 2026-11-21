@@ -150,7 +150,15 @@ test("opens a source form with instructions and switches outputs without losing 
   await pickDocument(
     page,
     "Greeting.veraflow",
-    '--- veraflow 2\n{"workflow":"form","instructions":"Check the booking.\\nUse <reference> exactly."}\n---\n{{#output greeting "Greeting"}}\nHello {{name}}\n{{/output}}\n{{#output farewell "Farewell"}}\nBye {{name}}\n{{/output}}',
+    `--- veraflow 2
+{"workflow":"form","instructions":"Check the booking.\\nUse <reference> exactly.","fields":{"name":{"type":"text","instructions":"Use <b>the full name</b>.\\nKeep {{punctuation}} as written."}}}
+---
+{{#output greeting "Greeting"}}
+Hello {{name}}
+{{/output}}
+{{#output farewell "Farewell"}}
+Bye {{name}}
+{{/output}}`,
   );
   const instructions = page.getByRole("complementary", {
     name: "Form instructions",
@@ -162,7 +170,16 @@ test("opens a source form with instructions and switches outputs without losing 
   await expect(page.locator("#form-output")).not.toContainText(
     "Check the booking.",
   );
-  await page.getByLabel("name", { exact: true }).fill("Alex Example");
+  const name = page.getByRole("textbox", { name: "name", exact: true });
+  await expect(name).toHaveAccessibleDescription(
+    /Use <b>the full name<\/b>\. Keep \{\{punctuation\}\} as written\./,
+  );
+  await expect(name.locator("+ .field-instructions")).toHaveJSProperty(
+    "textContent",
+    "Use <b>the full name</b>.\nKeep {{punctuation}} as written.",
+  );
+  await name.fill("Alex Example");
+  await expect(page.locator("#form-output")).not.toContainText("the full name");
   const output = page.getByLabel("Output", { exact: true });
   await page
     .getByRole("button", { name: "Next output", exact: true })

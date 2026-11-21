@@ -1,5 +1,9 @@
 # Validation record
 
+## 0.19.1 release preparation
+
+Passed 88 TypeScript unit tests, 93 browser tests, and nine portable rendering fixtures. The updated form test checks that instructions appear beneath the field, are included in its accessible description, preserve line breaks, and stay out of the rendered text. Version consistency, formatting, and test-build isolation passed.
+
 ## 0.19.0 release preparation
 
 Passed 88 TypeScript unit tests, 93 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, isolated test configuration, formatting, and Clippy passed. Browser coverage includes the two verification levels, keyboard navigation to outstanding fields, persisted checks in prefilled forms, and switching among the three open sessions. Cross-app capture and the native menu still need packaged acceptance on Windows and macOS.

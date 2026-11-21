@@ -347,6 +347,7 @@ function metadata(text: string) {
         ![
           "type",
           "label",
+          "instructions",
           "default",
           "optional",
           "options",
@@ -383,6 +384,10 @@ function metadata(text: string) {
     };
     if (field.label !== undefined)
       control.label = string(field.label, `"${name}.label"`);
+    if (field.instructions !== undefined)
+      control.instructions =
+        string(field.instructions, `"${name}.instructions"`).trim() ||
+        undefined;
     if (kind === "text" || kind === "textarea") {
       if (field.multiline !== undefined && typeof field.multiline !== "boolean")
         fail(`"${name}.multiline" must be true or false.`);

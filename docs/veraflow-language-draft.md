@@ -45,6 +45,7 @@ Declare fields under `fields`. Declarations emit no text. Field names are case-s
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `type`            | `boolean`, `text`, `textarea`, `email`, `date`, `number`, `radio`, or `dropdown`                                                                                                      |
 | `label`           | Optional display label in the form. Accepts Unicode and punctuation                                                                                                                   |
+| `instructions`    | Optional plain-text guidance shown directly below the field. Use `\n` for a line break. This text stays out of the output.                                                            |
 | `multiline`       | Text only. Defaults to `false` for `text` and `true` for `textarea`                                                                                                                   |
 | `allowBlankLines` | Text only. Defaults to `true` for multiline fields. Set to `false` to remove empty or whitespace-only lines automatically                                                             |
 | `optional`        | Boolean flag. An unset optional field contributes empty text                                                                                                                          |
@@ -61,7 +62,7 @@ Set `"verify-by-default": true` to require checks for populated fields used by t
 {
   "verify-by-default": true,
   "fields": {
-    "Reference": { "type": "text" },
+    "Reference": { "type": "text", "instructions": "Include the VF- prefix." },
     "Notes": { "type": "textarea", "optional": true, "verify": false }
   }
 }

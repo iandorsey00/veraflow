@@ -2,6 +2,10 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.19.1 field instructions
+
+Proportional release cycle for additive source metadata and form accessibility. Open the [shipment log example](../examples/source/shipment-log.veraflow) and check that the instructions below Reference stay visible while editing and stay out of the output. To roll back to [0.19.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.19.0), use a copy of the source file with the field-level `instructions` property removed. Form-wide instructions work in both versions.
+
 ## 0.19.0 forms and field verification
 
 Full release cycle for the combined form workflow and source-file verification rules. On Windows and macOS, open the [address example](../examples/source/address.veraflow). Enter or capture values, use the attention list, and compare a field against a differing value and then a matching value. Prepare output, save a prefilled form, and reopen it to check that verified values return. Test the launcher and tray, and switch between a form from a file, a custom form, and a snippet collection.

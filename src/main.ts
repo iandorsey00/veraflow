@@ -2326,7 +2326,11 @@ function fieldControl(
   const value = comparing ? "" : (field.value ?? "");
   const name = fieldLabel(s, field.name);
   const label = `<label for="${id}">${esc(name)}</label>`;
-  const attrs = `id="${id}" data-control="${index}" ${id.startsWith("form-field-") ? `aria-describedby="form-state-${index}"` : ""} autocomplete="off"`;
+  const inForm = id.startsWith("form-field-");
+  const description = inForm
+    ? `aria-describedby="${definition?.instructions ? `form-instructions-${index} ` : ""}form-state-${index}"`
+    : "";
+  const attrs = `id="${id}" data-control="${index}" ${description} autocomplete="off"`;
   if (definition?.options) {
     const options = [...definition.options].map(([key, text]) => [
       key,
@@ -2343,15 +2347,10 @@ function fieldControl(
       conditionalChoice ||
       (s.unifiedForm && definition.kind === "boolean")
     ) {
-      if (
-        conditionalChoice &&
-        definition.optional &&
-        !comparing &&
-        id.startsWith("form-field-")
-      )
+      if (conditionalChoice && definition.optional && !comparing && inForm)
         options.push(["", t("leaveUnanswered")]);
       return `<fieldset id="${id}"><legend>${esc(name)}</legend>
-        ${options.map(([key, text], i) => `<label class="check"><input type="radio" id="${id}-${i}" name="${id}" data-control="${index}" ${id.startsWith("form-field-") ? `aria-describedby="form-state-${index}"` : ""} value="${esc(key)}" ${key === value ? "checked" : ""}>${esc(definition.optionLabels?.get(key) ?? (text || key))}</label>`).join("")}
+        ${options.map(([key, text], i) => `<label class="check"><input type="radio" id="${id}-${i}" name="${id}" data-control="${index}" ${description} value="${esc(key)}" ${key === value ? "checked" : ""}>${esc(definition.optionLabels?.get(key) ?? (text || key))}</label>`).join("")}
       </fieldset>`;
     }
     if (
@@ -2546,14 +2545,15 @@ function unifiedFormFields(
     !!s.controls?.get(field.name)?.optional && !field.value?.trim();
   const rows = (entries: typeof fields) =>
     entries
-      .map(
-        ({ field, index }) =>
-          `<div class="template-form-field ${library.preferences.verifiedBackground && field.status === "verified" ? "verified-background" : ""}" data-form-row="${index}" ${active && !active.has(field.name) ? "hidden" : ""}>
+      .map(({ field, index }) => {
+        const instructions = s.controls?.get(field.name)?.instructions;
+        return `<div class="template-form-field ${library.preferences.verifiedBackground && field.status === "verified" ? "verified-background" : ""}" data-form-row="${index}" ${active && !active.has(field.name) ? "hidden" : ""}>
       ${fieldControl(s, index, `form-field-${index}`)}
+      ${instructions ? `<p class="field-instructions" id="form-instructions-${index}">${esc(instructions)}</p>` : ""}
       <small id="form-state-${index}">${esc(t(formFieldState(s, index)))}</small>
       <div data-form-field-tools="${index}">${formFieldActions(s, index)}</div>
-    </div>`,
-      )
+    </div>`;
+      })
       .join("");
   const optional = fields.filter(unfilledOptional);
   return (

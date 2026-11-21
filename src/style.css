@@ -1510,6 +1510,12 @@ input.toggle-switch:checked::before {
   overflow-wrap: anywhere;
 }
 
+.field-instructions {
+  margin: 0.375rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .unified-form .template-form-field {
   padding-block-end: 0.75rem;
   border-bottom: 1px solid var(--line);
