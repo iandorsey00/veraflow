@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0
+
+- Save filled template sessions locally and reopen their responses and verification status from Recent Sessions.
+- Show the version in the launcher footer and move Free Scanner into the launcher toolbar.
+- Add a screenshot of the sample dispatch form to the README.
+
 ## 0.16.0
 
 - Switch between Form, Scanner, CSV browsing, and Append row. Preserve a working draft while browsing CSV.

@@ -378,9 +378,9 @@ fn build_menu(app: &tauri::AppHandle, zh: bool, update_available: bool) -> Resul
         app,
         "recent",
         if zh {
-            "显示最近打开的模板…"
+            "显示最近会话…"
         } else {
-            "Show recent templates…"
+            "Show recent sessions…"
         },
         true,
         None::<&str>,
@@ -403,9 +403,9 @@ fn build_menu(app: &tauri::AppHandle, zh: bool, update_available: bool) -> Resul
     let recent_menu = Submenu::with_items(
         app,
         if zh {
-            "最近打开的模板"
+            "最近会话"
         } else {
-            "Recently opened templates"
+            "Recent sessions"
         },
         true,
         &recent_refs,

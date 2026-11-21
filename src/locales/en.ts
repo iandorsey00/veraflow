@@ -39,10 +39,13 @@ export const en = {
   manualSectionOrder:
     "Custom paste order. Place the cursor before each paste. VeraFlow pastes one section and sends no navigation keys.",
   outputHeading: "Output",
-  recentTemplates: "Recently opened templates",
-  recentEmpty: "Open a .veraflow or .vf file to start.",
-  clearRecent: "Clear recent templates",
-  recentMissing: "The file could not be reopened. Choose Open file to find it.",
+  recentTemplates: "Recent sessions",
+  recentEmpty:
+    "Open a template, fill it in, then save the session here when you close it.",
+  saveRecentSession: "Save to Recent Sessions",
+  clearRecentConfirm: "Clear all saved recent sessions?",
+  clearRecent: "Clear recent sessions",
+  recentMissing: "This recent session could not be reopened.",
   openDocument: "Open file…",
   openWorkflow: "Open as",
   chooseWorkflow: "Choose a workflow",
@@ -80,9 +83,9 @@ export const en = {
   saveSections: "Save output as text",
   closeSourceTitle: "Save before closing?",
   closeSourceHelp:
-    "Save a prefilled template to reopen and edit your responses, or save the rendered output as a text file.",
+    "Save your responses to Recent Sessions on this device, save a prefilled template file, or export the output as text.",
   closeSourceIncomplete:
-    "Save a prefilled template to continue later. Finish the required fields and checks to save the rendered text.",
+    "Save your responses to Recent Sessions on this device or to a prefilled template file. Finish the required fields and checks to export the output as text.",
   savePrefilled: "Save prefilled template",
   returnToFilledForm: "Return to Form",
   returnToFilledScanner: "Return to Scanner",

@@ -36,9 +36,11 @@ export const zh: Record<keyof typeof en, string> = {
   manualSectionOrder:
     "已使用自定义粘贴顺序。每次粘贴前请先定位光标。VeraFlow 每次只粘贴一个区段，不发送导航按键。",
   outputHeading: "输出",
-  recentTemplates: "最近打开的模板",
-  recentEmpty: "打开 .veraflow 或 .vf 文件以开始。",
-  clearRecent: "清除最近的模板",
+  recentTemplates: "最近会话",
+  recentEmpty: "打开并填写模板后，可在关闭时将会话保存到这里。",
+  saveRecentSession: "保存到最近会话",
+  clearRecentConfirm: "清除所有已保存的最近会话？",
+  clearRecent: "清除最近会话",
   recentMissing: "无法重新打开该文件。请选择打开文件以查找它。",
   openDocument: "打开文件…",
   openWorkflow: "打开方式",
@@ -76,9 +78,9 @@ export const zh: Record<keyof typeof en, string> = {
   saveSections: "将输出保存为文本",
   closeSourceTitle: "关闭前保存？",
   closeSourceHelp:
-    "保存预填模板以便稍后编辑答案，或将生成的内容保存为文本文件。",
+    "可将响应保存到此设备的最近会话或预填模板文件，也可将输出导出为文本。",
   closeSourceIncomplete:
-    "保存预填模板以便稍后继续。完成必填字段和核对后，即可保存生成的文本。",
+    "可将响应保存到此设备的最近会话或预填模板文件。填写并核对必填项后，即可将输出导出为文本。",
   savePrefilled: "保存预填模板",
   returnToFilledForm: "返回表单",
   returnToFilledScanner: "返回扫描器",

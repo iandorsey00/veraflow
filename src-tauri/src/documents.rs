@@ -8,6 +8,7 @@ use std::{
         atomic::{AtomicU32, Ordering},
         Mutex,
     },
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
@@ -28,6 +29,8 @@ pub struct Document {
     format: &'static str,
     content: Option<String>,
     recent_token: Option<u32>,
+    session_id: Option<String>,
+    output_id: Option<String>,
 }
 
 fn format(path: &Path) -> Option<&'static str> {
@@ -64,18 +67,24 @@ fn read(path: PathBuf) -> Option<Document> {
         format,
         content,
         recent_token: None,
+        session_id: None,
+        output_id: None,
     })
+}
+
+fn issue_document(app: &tauri::AppHandle, path: PathBuf) -> Option<u32> {
+    let issued = app.state::<IssuedDocuments>();
+    let mut issued = issued.0.lock().ok()?;
+    let token = NEXT_TOKEN.fetch_add(1, Ordering::Relaxed);
+    issued.truncate(RECENT_LIMIT - 1);
+    issued.push_front((token, path));
+    Some(token)
 }
 
 fn open(app: &tauri::AppHandle, path: PathBuf) -> Option<Document> {
     let mut document = read(path.clone())?;
     if document.format == "source" && document.content.is_some() {
-        let issued = app.state::<IssuedDocuments>();
-        let mut issued = issued.0.lock().ok()?;
-        let token = NEXT_TOKEN.fetch_add(1, Ordering::Relaxed);
-        issued.truncate(RECENT_LIMIT - 1);
-        issued.push_front((token, path));
-        document.recent_token = Some(token);
+        document.recent_token = issue_document(app, path);
     }
     Some(document)
 }
@@ -332,20 +341,34 @@ pub fn release_append_csv(app: tauri::AppHandle) {
     }
 }
 
+const RECENT_MAX_BYTES: usize = 16 * 1024 * 1024;
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionSnapshot {
+    id: String,
+    title: String,
+    content: String,
+    output_id: Option<String>,
+}
+
 #[derive(Serialize, Deserialize)]
 struct RecentDocument {
-    path: PathBuf,
-    title: String,
+    #[serde(flatten)]
+    snapshot: SessionSnapshot,
+    path: Option<PathBuf>,
+    time: u64,
 }
 #[derive(Serialize)]
 pub struct RecentLabel {
     pub title: String,
     file: String,
+    time: u64,
 }
 fn recent_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_data_dir()
-        .map(|dir| dir.join("recent-documents.json"))
+        .map(|dir| dir.join("recent-sessions.json"))
         .map_err(|_| "storageFailed".into())
 }
 fn read_recent(path: &Path) -> Result<Vec<RecentDocument>, String> {
@@ -355,26 +378,57 @@ fn read_recent(path: &Path) -> Result<Vec<RecentDocument>, String> {
         Err(_) => return Err("storageFailed".into()),
     };
     let mut data = Vec::new();
-    file.take(256 * 1024 + 1)
+    file.take((RECENT_MAX_BYTES + 1) as u64)
         .read_to_end(&mut data)
         .map_err(|_| "storageFailed")?;
-    if data.len() > 256 * 1024 {
+    if data.len() > RECENT_MAX_BYTES {
         return Err("storageFailed".into());
     }
     let mut recent: Vec<RecentDocument> =
         serde_json::from_slice(&data).map_err(|_| "storageFailed")?;
-    recent.retain(|entry| entry.path.is_absolute() && format(&entry.path) == Some("source"));
     recent.truncate(RECENT_LIMIT);
     Ok(recent)
 }
 fn write_recent(path: &Path, recent: &[RecentDocument]) -> Result<(), String> {
+    if recent.is_empty() {
+        return match std::fs::remove_file(path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err("storageFailed".into()),
+        };
+    }
     let dir = path.parent().ok_or("storageFailed")?;
     std::fs::create_dir_all(dir).map_err(|_| "storageFailed")?;
     let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| "storageFailed")?;
-    temp.write_all(&serde_json::to_vec(recent).map_err(|_| "storageFailed")?)
-        .map_err(|_| "storageFailed")?;
+    serde_json::to_writer(&mut temp, recent).map_err(|_| "storageFailed")?;
+    temp.as_file().sync_all().map_err(|_| "storageFailed")?;
     temp.persist(path).map_err(|_| "storageFailed")?;
     Ok(())
+}
+
+fn record_recent(path: &Path, entry: RecentDocument) -> Result<(), String> {
+    let mut size = serde_json::to_vec(&entry)
+        .map_err(|_| "storageFailed")?
+        .len()
+        + 2;
+    if size > RECENT_MAX_BYTES {
+        return Err("historyFull".into());
+    }
+    let mut recent = read_recent(path)?;
+    recent.retain(|old| old.snapshot.id != entry.snapshot.id);
+    let count = recent
+        .iter()
+        .take(RECENT_LIMIT - 1)
+        .take_while(|old| {
+            size += serde_json::to_vec(old)
+                .map(|bytes| bytes.len() + 1)
+                .unwrap_or(RECENT_MAX_BYTES);
+            size <= RECENT_MAX_BYTES
+        })
+        .count();
+    recent.truncate(count);
+    recent.insert(0, entry);
+    write_recent(path, &recent)
 }
 
 #[tauri::command]
@@ -383,42 +437,57 @@ pub fn recent_documents(app: tauri::AppHandle) -> Result<Vec<RecentLabel>, Strin
     Ok(read_recent(&recent_path(&app)?)?
         .into_iter()
         .map(|entry| RecentLabel {
-            title: entry.title,
+            title: entry.snapshot.title,
             file: entry
                 .path
-                .file_name()
+                .as_deref()
+                .and_then(Path::file_name)
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into_owned(),
+            time: entry.time,
         })
         .collect())
 }
 
 #[tauri::command]
-pub fn remember_document(app: tauri::AppHandle, token: u32, title: String) -> Result<(), String> {
-    // Consume a token issued by native file open. The frontend never supplies a path here.
-    let path = {
-        let issued = app.state::<IssuedDocuments>();
-        let mut issued = issued.0.lock().map_err(|_| "storageFailed")?;
-        let index = issued
-            .iter()
-            .position(|(id, _)| *id == token)
-            .ok_or("recentMissing")?;
-        issued.remove(index).ok_or("recentMissing")?.1
-    };
-    let store = recent_path(&app)?;
+pub fn remember_document(
+    app: tauri::AppHandle,
+    token: Option<u32>,
+    mut snapshot: SessionSnapshot,
+) -> Result<(), String> {
+    if snapshot.id.is_empty()
+        || snapshot.id.len() > 64
+        || snapshot.title.trim().is_empty()
+        || snapshot.content.len() as u64 > MAX_BYTES
+        || snapshot.content.contains('\0')
+    {
+        return Err("invalidImport".into());
+    }
+    snapshot.title = snapshot.title.chars().take(250).collect();
+    // A snapshot can reopen on its own. The optional source path retains the original
+    // directory for linked CSVs and always comes from a native file-open token.
+    let path = app
+        .state::<IssuedDocuments>()
+        .0
+        .lock()
+        .map_err(|_| "storageFailed")?
+        .iter()
+        .find(|(id, _)| Some(*id) == token)
+        .map(|(_, path)| path.clone());
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
     let _lock = RECENTS_LOCK.lock().map_err(|_| "storageFailed")?;
-    let mut recent = read_recent(&store)?;
-    recent.retain(|entry| entry.path != path);
-    recent.insert(
-        0,
+    record_recent(
+        &recent_path(&app)?,
         RecentDocument {
+            snapshot,
             path,
-            title: title.chars().take(250).collect(),
+            time,
         },
-    );
-    recent.truncate(RECENT_LIMIT);
-    write_recent(&store, &recent)
+    )
 }
 
 #[tauri::command]
@@ -428,22 +497,26 @@ pub fn clear_recent_documents(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn open_recent_document(app: tauri::AppHandle, index: usize) -> Result<Document, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let path = {
-            let _lock = RECENTS_LOCK.lock().map_err(|_| "storageFailed")?;
-            read_recent(&recent_path(&app)?)?
-                .into_iter()
-                .nth(index)
-                .ok_or("recentMissing")?
-                .path
-        };
-        open(&app, path)
-            .filter(|document| document.content.is_some())
-            .ok_or_else(|| "recentMissing".into())
+pub fn open_recent_document(app: tauri::AppHandle, index: usize) -> Result<Document, String> {
+    let _lock = RECENTS_LOCK.lock().map_err(|_| "storageFailed")?;
+    let entry = read_recent(&recent_path(&app)?)?
+        .into_iter()
+        .nth(index)
+        .ok_or("recentMissing")?;
+    let name = entry
+        .path
+        .as_deref()
+        .and_then(Path::file_name)
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or(entry.snapshot.title);
+    Ok(Document {
+        name,
+        format: "source",
+        content: Some(entry.snapshot.content),
+        recent_token: entry.path.and_then(|path| issue_document(&app, path)),
+        session_id: Some(entry.snapshot.id),
+        output_id: entry.snapshot.output_id,
     })
-    .await
-    .map_err(|_| "recentMissing".to_string())?
 }
 
 pub fn enqueue(app: &tauri::AppHandle, paths: impl IntoIterator<Item = PathBuf>) {
@@ -524,6 +597,32 @@ pub async fn pick_document(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recent_sessions_keep_separate_records_and_update_a_resumed_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("recent-sessions.json");
+        let record = |id: &str, value: &str| RecentDocument {
+            snapshot: SessionSnapshot {
+                id: id.into(),
+                title: "Sample".into(),
+                content: value.into(),
+                output_id: Some("brief".into()),
+            },
+            path: None,
+            time: 1_800_000_000_000,
+        };
+        record_recent(&path, record("first", "Alex Example")).unwrap();
+        record_recent(&path, record("second", "Morgan Example")).unwrap();
+        record_recent(&path, record("first", "Alex Updated")).unwrap();
+        let entries = read_recent(&path).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].snapshot.content, "Alex Updated");
+        assert_eq!(entries[0].snapshot.output_id.as_deref(), Some("brief"));
+        assert_eq!(entries[1].snapshot.content, "Morgan Example");
+        write_recent(&path, &[]).unwrap();
+        assert!(!path.exists());
+    }
 
     #[test]
     fn csv_append_preserves_the_file_and_refuses_stale_previews() {

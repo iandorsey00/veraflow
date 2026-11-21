@@ -4,9 +4,13 @@ English · [简体中文](README.zh-CN.md)
 
 VeraFlow is a local desktop app for capturing, checking, and reusing text on macOS and Windows. Keep reusable templates in ordinary folders, fill them by typing or with Scanner, and review the result before copying or pasting it. VeraFlow has no account, analytics, or AI service. It contacts GitHub for update checks and downloads.
 
+![VeraFlow showing a dispatch form with sample values on the left and the generated note on the right](docs/images/veraflow-form-preview.png)
+
+Try the [Dispatch note example](examples/source/dispatch-note.veraflow) to see the live preview.
+
 ## Install
 
-Get the [v0.16.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.16.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.17.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.17.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
 - **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
@@ -27,13 +31,13 @@ A template can be as simple as `Hello {{name}}`. The [source file guide](docs/ve
 
 1. Open a template as a fill-in form or in Scanner. Scanner can capture selected text from another app, use text you copied yourself, or accept manual typing and paste.
 2. When verification is enabled, select the original text again to compare it with the captured value. VeraFlow keeps both values visible if they differ and does not overwrite the capture. To check a value again, select it and use **Verify again…**.
-3. Review the live preview, then prepare the output. Copy or save it, or use the paste shortcut in the intended destination. Use **Paste options → Reorder sections…** when the destination has a different field order. A custom order uses one section per shortcut and sends no navigation keys. When closing from output, you can return to your filled form or Scanner. Save a prefilled copy to resume after quitting. Prepared source output also appears in **Recent outputs** for copying.
+3. Review the live preview, then prepare the output. Copy or save it, or use the paste shortcut in the intended destination. Use **Paste options → Reorder sections…** when the destination has a different field order. A custom order uses one section per shortcut and sends no navigation keys. When closing from output, you can return to your filled form or Scanner. Choose **Save to Recent Sessions** to resume from the launcher, or save a prefilled file to reopen separately. Prepared source output also appears in **Recent outputs** for copying.
 
 The default output shortcut is **Ctrl+Alt+X** on Windows and **Cmd+Opt+X** on macOS. The other actions use Ctrl+Alt+1–7 or Cmd+Opt+1–7. Existing shortcut preferences are kept on upgrade. Change them in Settings. In VeraFlow, Cmd/Ctrl+Enter submits manual entry, and Alt+Left/Right moves between fields. Some protected apps block synthetic input, so copy and paste manually if direct transfer fails. When a paste fails partway through, inspect the destination before resuming; the pending output stays available to copy.
 
 ## Local data and rollback
 
-Settings and the older template library are stored in `library.json` under `~/Library/Application Support/com.veraflow.desktop/` on macOS or `%APPDATA%\com.veraflow.desktop\` on Windows. Quit VeraFlow before backing up or restoring that file. Keep a pre-upgrade backup for a rollback; older versions may reject settings or definitions from this release. Existing saved data is retained in place. Prefilled source files and exported results are plain text and may contain private information.
+Settings and the older template library are stored in `library.json` under `~/Library/Application Support/com.veraflow.desktop/` on macOS or `%APPDATA%\com.veraflow.desktop\` on Windows. Quit VeraFlow before backing up or restoring that file. Keep a pre-upgrade backup for a rollback; older versions may reject settings or definitions from this release. Existing saved data is retained in place. Saved recent sessions, prefilled source files, and exported results are plain text and may contain private information.
 
 See [release and rollback instructions](docs/release.md), [release notes](CHANGELOG.md), and [known limitations](docs/binary-release-notes.md).
 

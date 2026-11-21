@@ -6,7 +6,7 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地文本工具。用普通�
 
 ## 安装
 
-从 [v0.16.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.16.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
+从 [v0.17.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.17.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
 
 - **macOS 12 或更新版本**：Apple 芯片选 `macos-arm64.zip`，Intel 芯片选 `macos-x64.zip`。解压后将 VeraFlow.app 移到「应用程序」。预览版尚无 Developer ID 签名和 Apple 公证。如果系统拦截且你信任下载来源，可在「隐私与安全性」中为该应用选择「仍要打开」。跨应用采集和粘贴需要「辅助功能」权限。
 - **Windows**：运行 `windows-x64-setup.exe`。Windows 可能提示发布者未知。如果系统缺少 WebView2，安装程序可能会安装它。
@@ -28,13 +28,13 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地文本工具。用普通�
 1. 选择 **填写表单** 或 **在扫描器中打开**。扫描器可以采集其他应用中选中的文字，也可从剪贴板获取或手动输入。布尔值和其他选项直接在 VeraFlow 中选择。
 2. 启用核对时，再次选择或输入原文。两次内容不一致时，应用会显示差异并保留已采集的值。
 3. 查看实时预览，点击 **准备输出区段**。你可以复制当前区段、保存文本，或按窗口显示的快捷键粘贴。**粘贴选项 → 调整区段顺序…** 只调整本次会话的粘贴顺序。自定义顺序每次只粘贴一个区段，也不会发送 Tab 等导航按键。
-4. **最近的输出** 保存已准备好的结果，方便重新复制。要继续修改字段，关闭前可返回已填写的表单或扫描器，也可以 **保存预填模板**，以后重新打开。
+4. **最近的输出** 保存已准备好的结果，方便重新复制。关闭时可选择 **保存到最近会话**，以后从启动页继续填写，也可 **保存预填模板** 文件。
 
 Windows 默认输出快捷键为 **Ctrl+Alt+X**，macOS 为 **Cmd+Opt+X**。其他操作使用 Ctrl+Alt+1–7 或 Cmd+Opt+1–7。升级时会保留已有的快捷键设置。可在设置中修改。部分受保护的应用会拦截模拟按键，此时可手动复制和粘贴。
 
 ## 本地数据与源码
 
-准备好的结果和预填文件以明文保存。可在设置中调整或清空最近输出。升级前请退出应用并备份 `library.json`。macOS 数据目录是 `~/Library/Application Support/com.veraflow.desktop/`，Windows 是 `%APPDATA%\com.veraflow.desktop\`。
+最近会话、准备好的结果和预填文件以明文保存。可在启动页清除最近会话，也可在设置中调整或清空最近输出。升级前请退出应用并备份 `library.json`。macOS 数据目录是 `~/Library/Application Support/com.veraflow.desktop/`，Windows 是 `%APPDATA%\com.veraflow.desktop\`。
 
 从源码运行需要 Node.js 22.12+、稳定版 Rust 和 [Tauri 构建依赖](https://v2.tauri.app/start/prerequisites/)：
 

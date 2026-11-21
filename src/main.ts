@@ -319,7 +319,7 @@ function render() {
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
     ${paused && session && view !== "session" ? pausedTaskView() : ""}
     ${view === "recent" ? recentView() : view === "outputs" ? outputsView() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
-    ${view !== "session" ? `<footer>${button("nav-scanner", "freeScanner")}${session && !(paused && focusedWorkflow) ? button("nav-session", session.mode === "complete" ? "sessionResults" : "session") : ""}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span></footer>` : ""}`;
+    ${view !== "session" ? `<footer>${view !== "recent" ? button("nav-scanner", "freeScanner") : ""}${session && !(paused && focusedWorkflow) ? button("nav-session", session.mode === "complete" ? "sessionResults" : "session") : ""}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span><span class="app-version">VeraFlow ${esc(appVersion)}</span></footer>` : ""}`;
   click("nav-scanner", () =>
     navigate(session?.scanner ? "session" : "scanner"),
   );
@@ -592,10 +592,17 @@ function scannerControls(secondaryOnly = false): string {
   </section>`;
 }
 
+function formatHistoryTime(time: number) {
+  return new Intl.DateTimeFormat(library.preferences.language, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(time);
+}
+
 function recentView() {
-  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentTemplates"))}</h1><div class="toolbar">${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-document", "openDocument", "primary")}</div></div>
+  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentTemplates"))}</h1><div class="toolbar">${button("nav-scanner", "freeScanner")}${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-document", "openDocument", "primary")}</div></div>
     ${templateFolderView()}
-    ${recentDocuments.length ? `<ul class="recent-list">${recentDocuments.map((item, index) => `<li><button class="template-item" data-recent="${index}"><strong>${esc(item.title)}</strong><span>${esc(item.file)}</span></button></li>`).join("")}</ul>${button("clear-recent", "clearRecent", "quiet")}` : `<p>${esc(t("recentEmpty"))}</p>`}
+    ${recentDocuments.length ? `<ul class="recent-list">${recentDocuments.map((item, index) => `<li><button class="template-item" data-recent="${index}"><strong>${esc(item.title)}</strong><span>${item.file ? esc(item.file) + " · " : ""}${esc(formatHistoryTime(item.time))}</span></button></li>`).join("")}</ul>${button("clear-recent", "clearRecent", "quiet")}` : `<p>${esc(t("recentEmpty"))}</p>`}
     ${!session && lastTemplate ? sessionRecovery() : ""}</main>`;
 }
 function templateFolderView() {
@@ -671,6 +678,8 @@ function bindRecent() {
       );
   });
   click("clear-recent", async () => {
+    if (!(await confirmAction("clearRecentConfirm", "", t("clearRecent"))))
+      return;
     await platform.clearRecentDocuments();
     recentDocuments = [];
     await refreshTrayMenu().catch(() => {});
@@ -1108,8 +1117,7 @@ async function openDocumentTemplate(
     workflow = choice.workflow as SourceWorkflow;
   }
   if (workflow === "csv") {
-    if (await openLinkedCSV(template, file))
-      await rememberOpenedTemplate(template, file);
+    await openLinkedCSV(template, file);
     return;
   }
   const opened = await launch(
@@ -1122,15 +1130,17 @@ async function openDocumentTemplate(
   );
   if (opened && session) {
     if (file) templateDocuments.set(session, file);
+    if (
+      file?.outputId &&
+      parseSource(template.content).outputs.some(
+        (output) => output.id === file.outputId,
+      )
+    ) {
+      session.outputId = file.outputId;
+      resetOutputOptions(session);
+      render();
+    }
     if (workflow === "append") await switchSourceMode("append");
-    await rememberOpenedTemplate(template, file);
-  }
-}
-async function rememberOpenedTemplate(template: Template, file?: OpenDocument) {
-  if (file?.recentToken != null) {
-    await platform.rememberDocument(file.recentToken, template.name);
-    recentDocuments = await platform.recentDocuments();
-    await refreshTrayMenu().catch(() => {});
   }
 }
 async function openDocument(file: OpenDocument) {
@@ -3927,11 +3937,36 @@ function saveActiveDraft(s: Session) {
   if (!csvSessions.has(s)) return saveBeforeClose(s);
   const draft = csvDrafts.get(s);
   return draft
-    ? saveBeforeClose({ ...s, ...draft, prepared: undefined })
+    ? saveBeforeClose(
+        { ...s, ...draft, prepared: undefined },
+        templateDocuments.get(s),
+      )
     : true;
 }
 
-async function saveBeforeClose(s: Session) {
+function prefilledContent(s: Session) {
+  return prefillSource(
+    s.template.content,
+    recordValues(s),
+    s.typing ? "form" : "scanner",
+    s.template.name.slice(0, 250).trim(),
+    new Map(
+      s.fields.flatMap((field) =>
+        field.status === "verified" && field.value?.trim()
+          ? [[field.name, field.checkedByTyping ? "form" : "scanner"] as const]
+          : [],
+      ),
+    ),
+  );
+}
+
+async function saveBeforeClose(
+  s: Session,
+  sourceDocument = templateDocuments.get(s),
+) {
+  const hasResponses = s.fields.some(
+    (field) => field.value !== null || field.status === "skipped",
+  );
   let parts: Session["prepared"];
   try {
     if (
@@ -3947,8 +3982,9 @@ async function saveBeforeClose(s: Session) {
     "closeSourceTitle",
     `<p>${esc(t(parts ? "closeSourceHelp" : "closeSourceIncomplete"))}</p>`,
     `<div class="close-save-actions">
-       ${parts ? `<button value="text" class="primary">${esc(t("saveSections"))}</button>` : ""}
-       <button value="prefilled" class="${parts ? "" : "primary"}">${esc(t("savePrefilled"))}</button>
+       ${hasResponses ? `<button value="recent" class="primary">${esc(t("saveRecentSession"))}</button>` : ""}
+       ${parts ? `<button value="text" class="${hasResponses ? "" : "primary"}">${esc(t("saveSections"))}</button>` : ""}
+       <button value="prefilled" class="${parts || hasResponses ? "" : "primary"}">${esc(t("savePrefilled"))}</button>
      </div>
      <div class="close-exit-actions">${s.prepared ? `<button value="edit" class="quiet">${esc(t(s.typing ? "returnToFilledForm" : "returnToFilledScanner"))}</button>` : ""}<button value="no" class="quiet" autofocus>${esc(t("keep"))}</button><button value="discard" class="quiet danger">${esc(t("closeWithoutSaving"))}</button></div>`,
   );
@@ -3959,26 +3995,24 @@ async function saveBeforeClose(s: Session) {
     if (saved) await rememberOutput(s, sectionText(s.prepared ?? parts));
     return saved;
   }
-  if (choice === "prefilled") {
-    const content = prefillSource(
-      s.template.content,
-      recordValues(s),
-      s.typing ? "form" : "scanner",
-      s.template.name.slice(0, 250).trim(),
-      new Map(
-        s.fields.flatMap((field) =>
-          field.status === "verified" && field.value?.trim()
-            ? [
-                [
-                  field.name,
-                  field.checkedByTyping ? "form" : "scanner",
-                ] as const,
-              ]
-            : [],
-        ),
-      ),
+  if (choice === "prefilled")
+    return platform.exportTemplates(
+      prefilledContent(s),
+      sourceFilename(s, "veraflow"),
     );
-    return platform.exportTemplates(content, sourceFilename(s, "veraflow"));
+  if (choice === "recent") {
+    await platform.rememberDocument(
+      {
+        id: sourceDocument?.sessionId ?? crypto.randomUUID(),
+        title: s.template.name,
+        content: prefilledContent(s),
+        outputId: s.outputId,
+      },
+      sourceDocument?.recentToken,
+    );
+    recentDocuments = await platform.recentDocuments();
+    await refreshTrayMenu().catch(() => {});
+    return true;
   }
   return false;
 }

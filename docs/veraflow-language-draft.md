@@ -2,7 +2,9 @@
 
 English · [简体中文](veraflow-language-draft.zh-CN.md)
 
-Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a session. Install the desktop bundle first. If your system already uses another app for that extension, choose VeraFlow once in **Open With** and set it as the default if desired. You can also use **Open file…** on the **Recently opened templates** page. Recent templates are also available from the tray menu on Windows and the menu-bar menu on macOS. The desktop app stores up to 12 recent paths and titles locally. Reopening an entry reads the file from disk. **Clear recent templates** clears that list.
+Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a session. Install the desktop bundle first. If your system already uses another app for that extension, choose VeraFlow once in **Open With** and set it as the default if desired. You can also select **Open file…** on the **Recent sessions** page.
+
+When closing a filled template, choose **Save to Recent Sessions** to reopen its editable responses later from the launcher, tray, or menu bar. VeraFlow keeps up to 12 saved sessions locally, including separate records from the same template. Resaving a resumed session updates its entry. **Close without saving** discards the current changes. **Clear recent sessions** removes these local copies. Responses are stored in plain text in `recent-sessions.json` in the app data directory.
 
 **Settings → Legacy template library → Templates → Import template file** creates a library copy for editing. This picker also accepts `.txt`. **Export .veraflow** saves the definition. Responses stay separate.
 

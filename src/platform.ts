@@ -74,10 +74,27 @@ export class ShortcutBindingError extends Error {
 }
 export type OutputLabel = { title: string; time: number };
 const browserOutputs: (OutputLabel & { text: string })[] = [];
-export type RecentDocument = { title: string; file: string };
-const browserRecent: { file: File; title: string }[] = [];
+export type RecentDocument = { title: string; file: string; time: number };
+type SessionSnapshot = {
+  id: string;
+  title: string;
+  content: string;
+  outputId?: string;
+};
+const browserRecent: {
+  file?: File;
+  snapshot: SessionSnapshot;
+  time: number;
+}[] = [];
 const browserTokens = new Map<number, File>();
 let nextDocumentToken = 1;
+function issueBrowserDocument(file: File) {
+  const token = nextDocumentToken++;
+  if (browserTokens.size >= 12)
+    browserTokens.delete(browserTokens.keys().next().value!);
+  browserTokens.set(token, file);
+  return token;
+}
 async function browserDocument(
   file: File,
   templateOnly: boolean,
@@ -85,12 +102,7 @@ async function browserDocument(
   const csv = /\.csv$/i.test(file.name);
   if (!(csv && !templateOnly) && !/\.(veraflow|vf)$/i.test(file.name))
     throw Error("invalidImport");
-  const recentToken = csv ? null : nextDocumentToken++;
-  if (recentToken !== null) {
-    if (browserTokens.size >= 12)
-      browserTokens.delete(browserTokens.keys().next().value!);
-    browserTokens.set(recentToken, file);
-  }
+  const recentToken = csv ? null : issueBrowserDocument(file);
   return {
     name: file.name,
     format: csv ? "csv" : "source",
@@ -114,6 +126,8 @@ export type OpenDocument = {
   format: "source" | "csv";
   content: string | null;
   recentToken?: number | null;
+  sessionId?: string | null;
+  outputId?: string | null;
 };
 export type CSVAppendDestination = {
   token: number;
@@ -168,22 +182,35 @@ export const platform = {
   async recentDocuments(): Promise<RecentDocument[]> {
     return desktop
       ? invoke("recent_documents")
-      : browserRecent.map(({ file, title }) => ({ title, file: file.name }));
+      : browserRecent.map(({ file, snapshot, time }) => ({
+          title: snapshot.title,
+          file: file?.name ?? "",
+          time,
+        }));
   },
-  async rememberDocument(token: number, title: string) {
-    if (desktop) return invoke("remember_document", { token, title });
-    const file = browserTokens.get(token);
-    if (!file) return;
-    const existing = browserRecent.findIndex((recent) => recent.file === file);
+  async rememberDocument(snapshot: SessionSnapshot, token?: number | null) {
+    if (desktop) return invoke("remember_document", { snapshot, token });
+    const file = token == null ? undefined : browserTokens.get(token);
+    const existing = browserRecent.findIndex(
+      (entry) => entry.snapshot.id === snapshot.id,
+    );
     if (existing >= 0) browserRecent.splice(existing, 1);
-    browserRecent.unshift({ file, title });
+    browserRecent.unshift({ file, snapshot, time: Date.now() });
     browserRecent.splice(12);
   },
   async openRecentDocument(index: number): Promise<OpenDocument> {
     if (desktop) return invoke("open_recent_document", { index });
     const entry = browserRecent[index];
     if (!entry) throw Error("recentMissing");
-    return browserDocument(entry.file, true);
+    // Keep the original browser file's path for resolving links, and open the saved text.
+    return {
+      name: entry.file?.name ?? entry.snapshot.title,
+      format: "source",
+      content: entry.snapshot.content,
+      recentToken: entry.file && issueBrowserDocument(entry.file),
+      sessionId: entry.snapshot.id,
+      outputId: entry.snapshot.outputId,
+    };
   },
   async clearRecentDocuments() {
     if (desktop) return invoke("clear_recent_documents");

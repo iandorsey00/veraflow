@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.17.0 release preparation
+
+Passed 87 TypeScript unit tests, 89 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, test-build isolation, formatting, and Clippy checks passed. Browser tests check resuming filled responses, updating the existing entry, discarding unsaved edits, and launcher controls. Native tests check separate records, replacement on resave, and deletion of the saved store. Interactive quit and relaunch on packaged apps remains a manual check.
+
+Both npm audits reported zero vulnerabilities. RustSec reported zero vulnerability-class advisories and 12 informational warnings. The staged screenshot uses the bundled synthetic dispatch example. Recent Sessions stores responses in the local app-data directory only when the user selects **Save to Recent Sessions**.
+
 ## 0.16.0 release preparation
 
 Passed 87 TypeScript unit tests, 89 browser tests, 20 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, isolated test configuration, formatting, and Clippy checks passed. Native coverage checks byte preservation and rejection of a stale preview. Browser coverage checks switching between modes, duplicate confirmation, preserving the draft on write failure, and carrying values into the next record. Excel paste and locked workbook behavior need a manual check on the packaged app.

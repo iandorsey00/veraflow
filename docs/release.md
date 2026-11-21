@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.17.0 recent sessions
+
+Full release cycle for storing responses and verification state on disk. On each packaged platform, save a filled template to Recent Sessions, quit, then reopen the session from the launcher and the tray or menu bar. Edit and resave it, open a separate record from the same template, and check that **Close without saving** preserves the previous saved copy. Confirm that **Clear recent sessions** removes the saved copies.
+
+To downgrade, close VeraFlow and reinstall [0.16.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.16.0). That version uses the old recent-template list. Export any required sessions as prefilled files before downgrading, using syntax supported by 0.16.0. The 0.17.0 session store stays in the app data directory unless cleared.
+
 ## 0.16.0 CSV append and mode switching
 
 Full release cycle for native CSV writes and switching among four workflows. Make a copy of the [shipment example](../examples/source/shipment-log.veraflow) and [its CSV](../examples/source/shipment-log.csv), then test review, duplicate confirmation, append, and carry-forward on both platforms. Change the CSV after opening the preview to exercise conflict recovery. On Windows, check an Excel-open CSV and paste a copied spreadsheet row into a workbook.

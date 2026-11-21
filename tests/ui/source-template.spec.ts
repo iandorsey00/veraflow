@@ -490,13 +490,15 @@ test("keyboard section reordering uses single-step paste without keys and keeps 
   await expect(mode).toHaveValue("step");
 });
 
-test("opens titled recent files and presents conditional choices before dependent fields", async ({
-  page,
-}) => {
+test("recent sessions restore filled values and choices", async ({ page }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Recently opened templates" }),
+    page.getByRole("heading", { name: "Recent sessions" }),
   ).toBeVisible();
+  await expect(page.locator("footer")).toContainText(/VeraFlow \d+\.\d+\.\d+/);
+  await expect(
+    page.locator(".recent-documents .toolbar #nav-scanner"),
+  ).toHaveText("Free Scanner");
   await pickDocument(
     page,
     "conditional-booking.vf",
@@ -519,14 +521,28 @@ test("opens titled recent files and presents conditional choices before dependen
   await expect(page.getByRole("radio", { name: "Express" })).toBeChecked();
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Full name")).toBeFocused();
+  await page.getByLabel("Full name").fill("Alex Example");
   await page.locator("#cancel-session").click();
-  await page.getByRole("button", { name: "Close without saving" }).click();
+  await page.getByRole("button", { name: "Save to Recent Sessions" }).click();
   await page
     .getByRole("button", { name: /Booking intake.*conditional-booking/ })
     .click();
   await expect(
     page.getByRole("heading", { name: "Booking intake" }),
   ).toBeVisible();
+  await expect(page.getByLabel("Full name")).toHaveValue("Alex Example");
+  await expect(page.getByRole("radio", { name: "Express" })).toBeChecked();
+  await page.getByLabel("Full name").fill("Edited draft");
+  await page.locator("#cancel-session").click();
+  await page.getByRole("button", { name: "Close without saving" }).click();
+  await page.locator("[data-recent]").click();
+  await expect(page.getByLabel("Full name")).toHaveValue("Alex Example");
+  await page.getByLabel("Full name").fill("Alex Updated");
+  await page.locator("#cancel-session").click();
+  await page.getByRole("button", { name: "Save to Recent Sessions" }).click();
+  await expect(page.locator("[data-recent]")).toHaveCount(1);
+  await page.locator("[data-recent]").click();
+  await expect(page.getByLabel("Full name")).toHaveValue("Alex Updated");
 });
 
 test("CSV picker pages through rows and searches columns outside the row summary", async ({

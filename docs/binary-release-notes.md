@@ -1,14 +1,14 @@
-VeraFlow 核流 0.16.0 is a public preview for Windows x64, macOS Apple Silicon, and macOS Intel.
+VeraFlow 核流 0.17.0 is a public preview for Windows x64, macOS Apple Silicon, and macOS Intel.
 
-- Switch a source template between Form, Scanner, CSV browsing, and Append row. Browsing CSV preserves a working draft.
-- Review and append a row to an existing CSV. Optional duplicate checks show the matching row, and Append and start next can carry selected fields forward.
-- Map spreadsheet columns under a named output's `row` object. Use Copy as spreadsheet row to paste a record into Excel.
-- This release includes `VeraFlow_VSCode.vsix`. [English guide](https://github.com/iandorsey00/veraflow/blob/v0.16.0/README.md) · [简体中文指南](https://github.com/iandorsey00/veraflow/blob/v0.16.0/README.zh-CN.md)
+- Choose **Save to Recent Sessions** when closing a filled template. Reopen it with its responses and verification status from the launcher, tray, or menu bar.
+- Each saved record gets its own entry. Resaving a resumed session updates that entry. **Clear recent sessions** removes the local copies.
+- The launcher shows the app version and groups Free Scanner with the other ways to start work.
+- This release includes `VeraFlow_VSCode.vsix`. [English guide](https://github.com/iandorsey00/veraflow/blob/v0.17.0/README.md) · [简体中文指南](https://github.com/iandorsey00/veraflow/blob/v0.17.0/README.zh-CN.md)
 
 Packages have VeraFlow updater signatures. Apple notarization and Windows publisher signing are pending. Verify downloads using `SHA256SUMS.txt`.
 
 ### 简体中文
 
-模板可在表单、扫描器、CSV 浏览和追加行之间切换。浏览 CSV 时会保留当前草稿。追加前可核对目标列和单元格，查看重复记录，或在追加后带着指定字段开始下一条记录。也可复制一行并粘贴到 Excel。
+关闭已填写的模板时，可选择 **保存到最近会话**，以后从启动页或托盘菜单恢复响应和核对状态。同一模板的不同记录可分开保存。启动页显示版本号，并将自由扫描器与其他启动按钮放在一起。
 
 安装包具有 VeraFlow 更新签名，尚无 Apple 公证和 Windows 发布者签名。请使用 `SHA256SUMS.txt` 核对下载文件。
