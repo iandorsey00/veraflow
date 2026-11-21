@@ -2,12 +2,26 @@ export type TemplateContext = {
   timestamp?: Date;
   templateName?: string;
   outputName?: string;
+  selection?: string;
+  selectionOrClipboard?: string;
+  clipboard?: string;
   csv?: { row: number; rows: number; file?: string };
 };
 
 type Variable =
-  | { name: "date"; format: string }
-  | { name: "timestamp" | "template" | "output" | "row" | "rows" | "csv_file" };
+  | { name: "date"; format: string; local: boolean }
+  | {
+      name:
+        | "timestamp"
+        | "template"
+        | "output"
+        | "row"
+        | "rows"
+        | "csv_file"
+        | "selection"
+        | "selection-or-clipboard"
+        | "clipboard";
+    };
 
 const dateTokens = {
   Y: (iso: string) => iso.slice(0, 4),
@@ -27,13 +41,19 @@ export function templateVariable(text: string): Variable | undefined {
     case "@row":
     case "@rows":
     case "@csv_file":
+    case "@selection":
+    case "@selection-or-clipboard":
+    case "@clipboard":
       return { name: text.slice(1) as Exclude<Variable["name"], "date"> };
     default: {
-      const format = /^@date\s+(?:"([^"{}\r\n]*)"|'([^'{}\r\n]*)')$/.exec(text);
+      const format =
+        /^@date\s+(?:"([^"{}\r\n]*)"|'([^'{}\r\n]*)')(?:\s+(local))?$/.exec(
+          text,
+        );
       if (!format) return;
       const value = format[1] ?? format[2];
-      if (value.length > 100 || !/^(?:[^%]|%[YmdHMS%])*$/u.test(value)) return;
-      return { name: "date", format: value };
+      if (value.length > 100 || !/^(?:[^%]|%[YmdHMSz%])*$/u.test(value)) return;
+      return { name: "date", format: value, local: format[3] === "local" };
     }
   }
 }
@@ -45,13 +65,27 @@ export function variableValue(variable: Variable, context?: TemplateContext) {
       const date = context?.timestamp;
       if (!date || !Number.isFinite(+date)) return;
       const iso = date.toISOString();
-      return "format" in variable
-        ? variable.format.replace(
-            /%([YmdHMS%])/g,
-            (_, key: keyof typeof dateTokens) => dateTokens[key](iso),
-          )
+      if (!("format" in variable)) return iso;
+      const offset = variable.local ? -date.getTimezoneOffset() : 0;
+      const clock = offset
+        ? new Date(+date + offset * 60_000).toISOString()
         : iso;
+      const zone =
+        (offset < 0 ? "-" : "+") +
+        String(Math.floor(Math.abs(offset) / 60)).padStart(2, "0") +
+        String(Math.abs(offset) % 60).padStart(2, "0");
+      return variable.format.replace(
+        /%([YmdHMSz%])/g,
+        (_, key: keyof typeof dateTokens | "z") =>
+          key === "z" ? zone : dateTokens[key](clock),
+      );
     }
+    case "selection":
+      return context?.selection;
+    case "selection-or-clipboard":
+      return context?.selectionOrClipboard;
+    case "clipboard":
+      return context?.clipboard;
     case "template":
       return context?.templateName;
     case "output":

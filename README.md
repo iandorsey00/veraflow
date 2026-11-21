@@ -10,7 +10,7 @@ Try the [Dispatch note example](examples/source/dispatch-note.veraflow) to see t
 
 ## Install
 
-Get the [v0.17.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.17.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.18.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.18.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
 - **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
@@ -23,6 +23,7 @@ If an update is available, **Update app…** appears in the menu-bar or tray men
 - **Open file…** opens a template or a CSV directly. You can also double-click a template or use your file manager’s **Open With → VeraFlow**. In the CSV picker, search for a row and open it in Scanner or use it to fill a template.
 - A template can [link a CSV](docs/veraflow-language-draft.md#linked-csv) and open directly to Output. Choose a row and a named output, or use the arrow buttons to step through combinations.
 - Use **Append row** to review and add the working record to a CSV, or copy it for pasting into a spreadsheet. [Append row guide](docs/veraflow-language-draft.md#append-row)
+- Open a [snippet collection](docs/veraflow-language-draft.md#snippet-collections) to copy reusable text with one click.
 - **Free Scanner** captures and checks text without a template. Define one field per line or import Scanner JSON. Use **More tools** to export the field list or the captured values. Existing library templates and JSON exchange remain available under **Settings → Legacy template library**.
 
 A template can be as simple as `Hello {{name}}`. The [source file guide](docs/veraflow-language-draft.md) covers shared records, named outputs, source comparison, and paste sections. The [examples](examples/source/README.md) include an address, a sample CSV, and a page to test paste navigation. The [VS Code extension](editors/vscode/README.md) adds highlighting, folding, and snippets. The release page also includes `VeraFlow_VSCode.vsix`. The [portable specification](docs/portable-templates.md) includes a simpler template profile, fixtures, and an independent Python reader.

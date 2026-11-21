@@ -1,3 +1,4 @@
+import type { TemplateContext } from "./core/variables";
 import { compareSourceText } from "./core/batch";
 import {
   recordValues,
@@ -12,6 +13,7 @@ import {
   prefillSource,
   sourceDefinitionText,
   sourceOutput,
+  sourceParts,
   type DeliveryMode,
   type SourceWorkflow,
 } from "./core/source";
@@ -161,10 +163,127 @@ let scannerOutput: "copy" | "paste" | "tab" = "copy";
 const macKeyboard = /Mac/i.test(navigator.platform);
 const keyLabel = (binding: string) => shortcutLabel(binding, macKeyboard);
 
+type SessionSlot = "template" | "freeScanner" | "snippet";
+const parkedSessions = new Map<
+  SessionSlot,
+  {
+    session: Session;
+    retained: Session | null;
+    restore: () => void;
+  }
+>();
+
+function sessionSlot(s: Session): SessionSlot {
+  if (isSnippetCollection(s)) return "snippet";
+  return s.scanner || s.template.id === "scanner" ? "freeScanner" : "template";
+}
+
+function rememberManualDraft() {
+  const input = document.getElementById("manual-value") as
+    HTMLInputElement | HTMLTextAreaElement | null;
+  if (input?.dataset.owner === String(taskGeneration))
+    manualDrafts.set(input.dataset.draftKey!, input.value);
+}
+
+function parkCurrentSession() {
+  if (!session) return;
+  rememberManualDraft();
+  const drafts = [...manualDrafts];
+  const steps = [...emailSteps];
+  const options = {
+    typingCheck,
+    groupSections,
+    pasteOptionsOpen,
+    sectionOrderOpen,
+    pasteOrder,
+    sectionTab,
+    deliveryMode,
+    lastTemplate,
+    templateForm,
+    lastStep,
+    retainedScanner,
+    returnToScanner,
+    scannerOutput,
+    manualOpen,
+    sessionOptionsOpen,
+    scannerMoreOpen,
+    taskToolsOpen,
+    scannerReordering,
+    reverification,
+    mouseMode,
+    preserveClipboard,
+    focusedWorkflow,
+    preview,
+  };
+  parkedSessions.set(sessionSlot(session), {
+    session,
+    retained: retainedScanner,
+    restore: () => {
+      ({
+        typingCheck,
+        groupSections,
+        pasteOptionsOpen,
+        sectionOrderOpen,
+        pasteOrder,
+        sectionTab,
+        deliveryMode,
+        lastTemplate,
+        templateForm,
+        lastStep,
+        retainedScanner,
+        returnToScanner,
+        scannerOutput,
+        manualOpen,
+        sessionOptionsOpen,
+        scannerMoreOpen,
+        taskToolsOpen,
+        scannerReordering,
+        reverification,
+        mouseMode,
+        preserveClipboard,
+        focusedWorkflow,
+        preview,
+      } = options);
+      manualDrafts.clear();
+      for (const [key, value] of drafts) manualDrafts.set(key, value);
+      emailSteps.clear();
+      for (const [key, value] of steps) emailSteps.set(key, value);
+    },
+  });
+  retainedScanner = null;
+}
+
+async function resumeParkedSession(slot: SessionSlot) {
+  const parked = parkedSessions.get(slot);
+  if (!parked || !(await abandonDraft())) return;
+  await platform.mouseSource(false);
+  parkCurrentSession();
+  parkedSessions.delete(slot);
+  session = parked.session;
+  taskGeneration++;
+  parked.restore();
+  paused = true;
+  await navigate("session");
+}
+
+function openSessionBar() {
+  if (view !== "session" && !parkedSessions.size) return "";
+  const parked = [...parkedSessions]
+    .map(
+      ([slot, entry]) =>
+        `<button id="resume-slot-${slot}" class="quiet">${esc(taskName(entry.session))}</button>`,
+    )
+    .join("");
+  return `<nav class="open-session-bar" aria-label="${esc(t("openSessions"))}">${view === "session" ? button("session-home", "sessionHome", "quiet") : ""}${parked}</nav>`;
+}
+
 function privateWork() {
   return (
     !!document.querySelector("dialog[open]") ||
     !!retainedScanner ||
+    [...parkedSessions.values()].some(
+      ({ session }) => session.mode !== "complete",
+    ) ||
     (!!session && session.mode !== "complete")
   );
 }
@@ -187,6 +306,13 @@ let availableUpdate: Awaited<ReturnType<typeof platform.checkUpdate>> = null;
 let updateCheck: Promise<
   Awaited<ReturnType<typeof platform.checkUpdate>>
 > | null = null;
+function isSnippetCollection(s: Session) {
+  return (
+    s.template.placeholderStyle === "source" &&
+    parseSource(s.template.content).snippets
+  );
+}
+
 let watchingSource = false;
 let mousePolling = false;
 setInterval(async () => {
@@ -197,7 +323,8 @@ setInterval(async () => {
     !paused &&
     !templateFormActive() &&
     !!session &&
-    ["capture", "verify"].includes(session.mode);
+    (["capture", "verify"].includes(session.mode) ||
+      isSnippetCollection(session));
   if (!enabled && !watchingSource) return;
   mousePolling = true;
   try {
@@ -307,21 +434,24 @@ function applyAppearance() {
 }
 function render() {
   root.oninput = null;
-  const input = document.getElementById("manual-value") as
-    HTMLInputElement | HTMLTextAreaElement | null;
-  if (input?.dataset.owner === String(taskGeneration))
-    manualDrafts.set(input.dataset.draftKey!, input.value);
+  rememberManualDraft();
   applyAppearance();
   root.className = view === "session" && !templateFormActive() ? "compact" : "";
   root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${view !== "settings" && availableUpdate && !testBuild ? button("update-recent", "updateApp", "primary") : ""}${view !== "recent" ? button("nav-recent", "recentTemplates") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
     ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
+    ${openSessionBar()}
     ${paused && session && view !== "session" ? pausedTaskView() : ""}
     ${view === "recent" ? recentView() : view === "outputs" ? outputsView() : view === "scanner" ? scannerHome() : view === "templates" ? libraryView() : view === "settings" ? settingsView() : sessionView()}
     ${view !== "session" ? `<footer>${view !== "recent" ? button("nav-scanner", "freeScanner") : ""}${session && !(paused && focusedWorkflow) ? button("nav-session", session.mode === "complete" ? "sessionResults" : "session") : ""}<span>◉ ${esc(t("localOnly"))}</span><span>${esc(t("localNote"))}</span><span class="app-version">VeraFlow ${esc(appVersion)}</span></footer>` : ""}`;
+  click("session-home", () => navigate("recent"));
+  for (const slot of parkedSessions.keys())
+    click(`resume-slot-${slot}`, () => resumeParkedSession(slot));
   click("nav-scanner", () =>
-    navigate(session?.scanner ? "session" : "scanner"),
+    parkedSessions.has("freeScanner")
+      ? resumeParkedSession("freeScanner")
+      : navigate(session?.scanner ? "session" : "scanner"),
   );
   click("start-scanner", () => setupScanner());
   click("import-scanner-home", () => loadScannerJSON());
@@ -1091,9 +1221,10 @@ async function openDocumentTemplate(
   row?: ReadonlyMap<string, string>,
   file?: OpenDocument,
 ) {
-  let workflow = parseSource(template.content).workflow;
+  const source = parseSource(template.content);
+  let workflow = source.workflow;
   if (!(await abandonDraft())) return;
-  if (!workflow) {
+  if (!workflow && !source.snippets) {
     const choice = await formDialog(
       template.name,
       [
@@ -1564,6 +1695,8 @@ async function navigate(next: typeof view) {
     try {
       await bindShortcuts(
         library.preferences.globalShortcuts &&
+          !isSnippetCollection(session!) &&
+          !appending.has(session!) &&
           !templateFormActive() &&
           !["review", "complete"].includes(session!.mode)
           ? library.preferences.shortcuts
@@ -1793,6 +1926,22 @@ async function launch(
   seed?: Session,
   linkedCSV?: CSVSession,
 ): Promise<boolean> {
+  const snippets =
+    template.placeholderStyle === "source" &&
+    parseSource(template.content).snippets;
+  if (snippets) form = false;
+  const slot = snippets
+    ? "snippet"
+    : template.id === "scanner"
+      ? "freeScanner"
+      : "template";
+  const replacingCurrent = !!session && sessionSlot(session) === slot;
+  const replaced = replacingCurrent
+    ? session
+    : parkedSessions.get(slot)?.session;
+  const replacedRetained = replacingCurrent
+    ? retainedScanner
+    : parkedSessions.get(slot)?.retained;
   if (
     !linkedCSV &&
     template.placeholderStyle === "source" &&
@@ -1802,8 +1951,7 @@ async function launch(
   )
     return openLinkedCSV(template);
   if (
-    ((session && session.mode !== "complete") || retainedScanner) &&
-    !scannerSource &&
+    ((replaced && replaced.mode !== "complete") || replacedRetained) &&
     !confirmed &&
     !(await confirmAction("sessionConfirm"))
   )
@@ -1841,14 +1989,17 @@ async function launch(
   } else if (form || reuse || template.placeholderStyle === "source") {
     prepareWorkflow(nextSession, form);
   }
-  const shortcutError = await configureSessionShortcuts(!form);
+  const shortcutError = await configureSessionShortcuts(!form && !snippets);
   await platform.mouseSource(false);
   await platform.active(true);
   await platform.compact(!form, library.preferences.alwaysOnTop, form);
-  if (session) {
-    if (appendStates.has(session)) await platform.releaseAppendCSV();
-    eraseSession(session);
-  }
+  if (replaced && appendStates.has(replaced)) await platform.releaseAppendCSV();
+  if (session && !replacingCurrent && !scannerSource) parkCurrentSession();
+  else if (session && session !== replaced) eraseSession(session);
+  parkedSessions.delete(slot);
+  if (replaced) eraseSession(replaced);
+  if (replacedRetained && replacedRetained !== retainedScanner)
+    eraseSession(replacedRetained);
   session = nextSession;
   templateForm = form;
   groupSections = false;
@@ -1861,7 +2012,7 @@ async function launch(
       ? sourceOutput(parseSource(template.content)).delivery.mode
       : "step";
   typingCheck = false;
-  if (linkedCSV) lastTemplate = null;
+  if (linkedCSV || snippets) lastTemplate = null;
   else if (template.id !== "scanner")
     lastTemplate = { definition: nextSession.template, typing: form };
   paused = false;
@@ -1889,7 +2040,8 @@ async function launch(
         ? focusSourceScanner()
         : `field-${session.active}`,
   );
-  if (linkedCSV) focus("csv-row");
+  if (snippets) focus("snippet-run-0");
+  else if (linkedCSV) focus("csv-row");
   else if (!session.fields.length) focus("finish");
   if (shortcutError) report(shortcutError);
   return true;
@@ -2759,11 +2911,119 @@ function sourceScannerView(s: Session) {
     </div>
   </main>`;
 }
+function snippetCollectionView(s: Session) {
+  const actions = parseSource(s.template.content).outputs;
+  return `<main class="capture-panel snippet-collection">
+    <h1>${esc(s.template.name)}</h1>
+    <p class="hint">${esc(t("snippetCollectionHelp"))}</p>
+    <div class="snippet-action-list">${actions
+      .map(
+        ({ label }, index) =>
+          `<button id="snippet-run-${index}" data-collection-action="${index}">${esc(label)}</button>`,
+      )
+      .join("")}</div>
+    <div class="actions">${button("snippet-close", "closeSession", "quiet")}</div>
+  </main>`;
+}
+
+async function manualSnippetText() {
+  const entry = await formDialog(
+    t("snippetPasteTitle"),
+    [{ key: "text", label: t("snippetPasteLabel"), lines: true }],
+    t("snippetCopyAction"),
+    t("cancel"),
+    ({ text }) => (text.trim() ? null : t("emptySelection")),
+  );
+  return entry?.text;
+}
+
+async function snippetClipboardText() {
+  try {
+    const value = await platform.readClipboard();
+    if (value.trim()) return value;
+  } catch {
+    // A native clipboard restriction still allows manual input in the snippet.
+  }
+  return manualSnippetText();
+}
+
+async function copySnippetAction(s: Session, index: number) {
+  const source = parseSource(s.template.content);
+  const action = source.outputs[index];
+  const context: TemplateContext = {
+    timestamp: new Date(),
+    templateName: s.template.name,
+  };
+  const renderAction = () =>
+    sourceParts(source, new Map(), undefined, action.id, context)[0].parts;
+  const missing = new Set(
+    renderAction()
+      .filter((part) => part.missing)
+      .map((part) => part.text),
+  );
+  const selectionOnly = missing.has("{{@selection}}");
+  const selectionFallback = missing.has("{{@selection-or-clipboard}}");
+  if (selectionOnly || selectionFallback) {
+    try {
+      const selection = await platform.mouseTransfer(true);
+      if (!selection.trim()) throw Error("emptySelection");
+      context.selection = selection;
+      context.selectionOrClipboard = selection;
+    } catch (error) {
+      const choice = await actionDialog(
+        "snippetSelectionUnavailable",
+        `<p>${esc(errorText(error))}</p>`,
+        `<button value="cancel" autofocus>${esc(t("cancel"))}</button>
+        <button value="manual">${esc(t("snippetPasteTitle"))}</button>
+        ${selectionFallback ? `<button value="clipboard" class="primary">${esc(t("clipboard"))}</button>` : ""}`,
+      );
+      if (choice === "clipboard") {
+        context.clipboard = await snippetClipboardText();
+        context.selectionOrClipboard = context.clipboard;
+      } else if (choice === "manual") {
+        const value = await manualSnippetText();
+        context.selection = value;
+        context.selectionOrClipboard = value;
+      } else return;
+      if (
+        selectionOnly &&
+        context.selection === undefined &&
+        context.selectionOrClipboard !== undefined
+      )
+        context.selection = await manualSnippetText();
+      if (
+        (selectionOnly && context.selection === undefined) ||
+        (selectionFallback && context.selectionOrClipboard === undefined)
+      )
+        return;
+    }
+  }
+  if (missing.has("{{@clipboard}}") && context.clipboard === undefined) {
+    context.clipboard = await snippetClipboardText();
+    if (context.clipboard === undefined) return;
+  }
+  const result = renderAction();
+  if (result.some((part) => part.missing)) throw Error("missingValue");
+  const text = result.map((part) => part.text).join("");
+  if (!text) throw Error("emptySelection");
+  try {
+    await copyTask(text, action.label);
+    notify("copied");
+  } catch (error) {
+    await actionDialog(
+      "snippetCopyUnavailable",
+      `<p>${esc(errorText(error))}</p><label for="snippet-copy-text">${esc(t("snippetOutputLabel"))}</label><textarea id="snippet-copy-text" readonly rows="5" autofocus>${esc(text)}</textarea>`,
+      `<button value="close">${esc(t("done"))}</button>`,
+    );
+  }
+}
+
 function sessionView(): string {
   if (!session) return "";
   const s = session,
     p = library.preferences,
     f = s.fields[s.active];
+  if (isSnippetCollection(s)) return snippetCollectionView(s);
   if (appending.has(s)) return appendView(s);
   if (s.mode === "delivery") {
     return s.prepared ? sectionDeliveryView(s) : emailDeliveryView(s);
@@ -3043,6 +3303,17 @@ async function selectOutput(outputId: string, focusId = "source-output") {
 }
 
 function bindSession() {
+  if (session && isSnippetCollection(session)) {
+    root
+      .querySelectorAll<HTMLButtonElement>("[data-collection-action]")
+      .forEach((action) => {
+        click(action.id, () =>
+          copySnippetAction(session!, Number(action.dataset.collectionAction)),
+        );
+      });
+    click("snippet-close", closeSession);
+    return;
+  }
   click("source-copy-field", () =>
     copySelectedField(session!, session!.active),
   );
@@ -3670,6 +3941,10 @@ async function perform(action: Action, global = false) {
   if (!s || s.mode === "complete") return;
   // Global navigation is frozen while an editor/settings screen or confirmation is open.
   if (view !== "session" || paused || (global && templateFormActive())) return;
+  if (isSnippetCollection(s)) {
+    if (action === "cancel") await closeSession();
+    return;
+  }
   if (s.mode === "review" || (appending.has(s) && action !== "cancel")) return;
   if (s.mode === "delivery" && s.prepared && action !== "cancel") {
     if (!s.prepared.length) return;
@@ -3934,6 +4209,7 @@ async function requestSessionClose(s: Session, confirmDiscard: boolean) {
 }
 // Text export requires valid, complete output. A prefilled file can preserve unfinished inputs.
 function saveActiveDraft(s: Session) {
+  if (isSnippetCollection(s)) return true;
   if (!csvSessions.has(s)) return saveBeforeClose(s);
   const draft = csvDrafts.get(s);
   return draft
@@ -4088,6 +4364,7 @@ async function actionDialog(title: Key, body: string, actions: string) {
   dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(title))}</h2>${body}<div class="actions">${actions}</div></form>`;
   document.body.append(dialog);
   dialog.showModal();
+  dialog.querySelector<HTMLTextAreaElement>("#snippet-copy-text")?.select();
   return new Promise<string>((resolve) =>
     dialog.addEventListener(
       "close",
@@ -4364,6 +4641,14 @@ async function init() {
     (action) =>
       void run(async () => {
         if (action === "quit") {
+          const hasParkedWork = [...parkedSessions.values()].some(
+            ({ session }) => session.mode !== "complete",
+          );
+          if (
+            hasParkedWork &&
+            !(await confirmAction("quitParkedConfirm", "", t("quit")))
+          )
+            return;
           if (
             session?.template.placeholderStyle === "source" &&
             session.mode !== "complete"
@@ -4371,11 +4656,16 @@ async function init() {
             if (dirty && !(await confirmAction("discardConfirm"))) return;
             if (!(await saveActiveDraft(session))) return;
           } else if (
-            (privateWork() || dirty) &&
+            ((!hasParkedWork && privateWork()) || dirty) &&
             !(await confirmAction(session ? "quitConfirm" : "discardConfirm"))
           )
             return;
           if (session) eraseSession(session);
+          for (const entry of parkedSessions.values()) {
+            eraseSession(entry.session);
+            if (entry.retained) eraseSession(entry.retained);
+          }
+          parkedSessions.clear();
           manualDrafts.clear();
           taskGeneration++;
           eraseRetainedScanner();

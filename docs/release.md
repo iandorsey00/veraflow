@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.18.0 snippet collections and open sessions
+
+Full release cycle for snippet clipboard handling and keeping three tasks open. On each packaged platform, open the [Quick snippets example](../examples/source/quick-snippets.veraflow), a filled template, and Free Scanner. Verify the draft in each after switching. Try copying a timestamp and selected text, then exercise clipboard fallback and manual copying. Confirm only the visible session handles capture shortcuts.
+
+To downgrade, close VeraFlow and reinstall [0.17.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.17.0). Save any required template drafts first. Keep new snippet files separately for use with 0.18.0 or later.
+
 ## 0.17.0 recent sessions
 
 Full release cycle for storing responses and verification state on disk. On each packaged platform, save a filled template to Recent Sessions, quit, then reopen the session from the launcher and the tray or menu bar. Edit and resave it, open a separate record from the same template, and check that **Close without saving** preserves the previous saved copy. Confirm that **Clear recent sessions** removes the saved copies.

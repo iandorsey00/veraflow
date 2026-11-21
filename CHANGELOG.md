@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.0
+
+- Add snippet collections with named clipboard actions, selection variables, and local timestamp formatting.
+- Keep a snippet collection, a template session, and Free Scanner open in the same window.
+- Offer clipboard confirmation and manual text entry after failed selection capture, and manual output after failed copying.
+
 ## 0.17.0
 
 - Save filled template sessions locally and reopen their responses and verification status from Recent Sessions.

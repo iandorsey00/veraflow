@@ -123,6 +123,38 @@ Built-ins begin with `@`. In an advanced template, use `{{@date "%Y-%m-%d"}}` fo
 
 Try the [dispatch note example](../examples/source/dispatch-note.veraflow).
 
+### Snippet collections
+
+A snippet collection is an advanced `.veraflow` file with a title and one or more action blocks. Each block has a stable ID and a quoted button label. Clicking the button renders the body and copies the result to the clipboard.
+
+```text
+--- veraflow 2
+{"title": "Quick snippets"}
+---
+{{#action timestamp "Copy timestamp"}}
+{{@date "%Y-%m-%d %H:%M:%S %z" local}}
+{{/action}}
+
+{{#action greeting "Copy greeting"}}
+{{! Select the name in another app before clicking this button. }}
+Hi {{@selection}}
+{{/action}}
+```
+
+Use distinct IDs. Put the opening and closing tags on their own lines. The body supports literal text, comments, and the built-in variables. Snippets have no form fields. Date variables use the time of the click. Add `local` for the device's local time zone. The default is UTC, and `%z` prints a numeric offset such as `+0000`.
+
+A snippet collection, a template session (Form or Scanner), and Free Scanner can stay open together. Use **Home** to start a different kind of task and the **Open sessions** bar to switch back. Each keeps its own working state. Opening another task of a kind already in use asks before replacing it. Save filled template sessions to Recent Sessions if you need them after quitting.
+
+For selection snippets, select text in another app first. VeraFlow uses desktop Scanner capture, so the same OS permissions apply.
+
+- `{{@selection}}` uses selected text and offers manual input if capture fails.
+- `{{@clipboard}}` reads plain text from the clipboard when the button is clicked.
+- `{{@selection-or-clipboard}}` tries the selection first. If capture fails, **Use clipboard** explicitly reads the current clipboard. You can also enter text manually or cancel.
+
+If a clipboard read is blocked or empty, VeraFlow offers a text box. If it cannot copy the result, it shows the generated text for manual copying. Inserted data stays literal. Snippet clicks do not add entries to Recent Sessions or Recent Outputs.
+
+Try the [Quick snippets example](../examples/source/quick-snippets.veraflow).
+
 ### Sections and delivery
 
 Use `{{#section address "Address"}}` and `{{/section}}` on separate lines. A section has a unique ID, display label, and rendered text. Output follows source order. Once you use a section, put all output inside flat sections. Whitespace between sections is ignored. Text outside the sections is an error. The wrapper lines and the line break immediately before each closing tag are structural. To preserve a trailing break, add a blank line before the close.

@@ -53,11 +53,11 @@
       "name": "comment.block.veraflow"
     },
     "builtin": {
-      "match": "\\{\\{\\s*@(?:timestamp|date|template|output|rows?|csv_file)(?=[ \\t]|\\}\\})[^{}]*\\}\\}",
+      "match": "\\{\\{\\s*@(?:timestamp|date|template|output|rows?|csv_file|selection(?:-or-clipboard)?|clipboard)(?=[ \\t]|\\}\\})[^{}]*\\}\\}",
       "name": "support.variable.veraflow"
     },
     "tag": {
-      "begin": "(\\{\\{)(#output|/output|#section|#when|/when|#for|/for|/section|else if|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
+      "begin": "(\\{\\{)(#output|/output|#action|/action|#section|#when|/when|#for|/for|/section|else if|else(?=\\}\\}))(?=[ \\t]|\\}\\})",
       "end": "(\\}\\})|$",
       "beginCaptures": {
         "1": {

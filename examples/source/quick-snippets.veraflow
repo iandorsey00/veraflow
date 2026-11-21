@@ -1,0 +1,15 @@
+--- veraflow 2
+{"title": "Quick snippets"}
+---
+{{#action timestamp "Copy timestamp"}}
+{{! Format the time at the moment this button is clicked. }}
+{{@date "%Y-%m-%d %H:%M:%S %z" local}}
+{{/action}}
+
+{{#action greeting "Copy greeting"}}
+Hi {{@selection-or-clipboard}}
+{{/action}}
+
+{{#action acknowledgement "Copy acknowledgement"}}
+Thanks for the update. I'll review it and get back to you.
+{{/action}}

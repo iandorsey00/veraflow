@@ -81,6 +81,17 @@ export const zh: Record<keyof typeof en, string> = {
     "可将响应保存到此设备的最近会话或预填模板文件，也可将输出导出为文本。",
   closeSourceIncomplete:
     "可将响应保存到此设备的最近会话或预填模板文件。填写并核对必填项后，即可将输出导出为文本。",
+  openSessions: "打开的会话",
+  sessionHome: "首页",
+  quitParkedConfirm: "退出并放弃其他打开会话中的草稿？",
+  snippetPasteTitle: "输入文本…",
+  snippetPasteLabel: "粘贴或输入要使用的文本",
+  snippetSelectionUnavailable: "无法采集选中的文本",
+  snippetCopyAction: "复制结果",
+  snippetCopyUnavailable: "手动复制结果",
+  snippetOutputLabel: "生成的文本",
+  snippetCollectionHelp:
+    "选择一条片段即可复制其文本。使用选中文本的片段前，请先在其他应用中选择文字。",
   savePrefilled: "保存预填模板",
   returnToFilledForm: "返回表单",
   returnToFilledScanner: "返回扫描器",

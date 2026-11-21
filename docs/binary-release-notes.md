@@ -1,14 +1,14 @@
-VeraFlow 核流 0.17.0 is a public preview for Windows x64, macOS Apple Silicon, and macOS Intel.
+VeraFlow 核流 0.18.0 is a public preview for Windows x64, macOS Apple Silicon, and macOS Intel.
 
-- Choose **Save to Recent Sessions** when closing a filled template. Reopen it with its responses and verification status from the launcher, tray, or menu bar.
-- Each saved record gets its own entry. Resaving a resumed session updates that entry. **Clear recent sessions** removes the local copies.
-- The launcher shows the app version and groups Free Scanner with the other ways to start work.
-- This release includes `VeraFlow_VSCode.vsix`. [English guide](https://github.com/iandorsey00/veraflow/blob/v0.17.0/README.md) · [简体中文指南](https://github.com/iandorsey00/veraflow/blob/v0.17.0/README.zh-CN.md)
+- Open a snippet collection and click a named action to copy text, a timestamp, or a result based on selected text.
+- Keep a snippet collection, one template session, and Free Scanner open in the same window. Switch among them while keeping their drafts.
+- Snippet actions can explicitly use clipboard text or ask after selection capture fails. If automatic copying fails, VeraFlow shows the result for manual copying.
+- The included `VeraFlow_VSCode.vsix` highlights action blocks and clipboard variables. [English guide](https://github.com/iandorsey00/veraflow/blob/v0.18.0/README.md) · [简体中文指南](https://github.com/iandorsey00/veraflow/blob/v0.18.0/README.zh-CN.md)
 
 Packages have VeraFlow updater signatures. Apple notarization and Windows publisher signing are pending. Verify downloads using `SHA256SUMS.txt`.
 
 ### 简体中文
 
-关闭已填写的模板时，可选择 **保存到最近会话**，以后从启动页或托盘菜单恢复响应和核对状态。同一模板的不同记录可分开保存。启动页显示版本号，并将自由扫描器与其他启动按钮放在一起。
+打开片段集合可一键复制文本、时间戳或基于选中文字生成的内容。片段集合、模板会话和自由扫描器可同时打开并保留各自的草稿。无法采集选中文字时，可选择读取剪贴板或手动输入；自动复制失败时可手动复制结果。
 
 安装包具有 VeraFlow 更新签名，尚无 Apple 公证和 Windows 发布者签名。请使用 `SHA256SUMS.txt` 核对下载文件。

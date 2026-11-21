@@ -223,13 +223,11 @@ test("opens a CSV row in Free Scanner or fills a template from a file", async ({
       '--- veraflow 2\n{"workflow":"form"}\n---\nHello {{name}}',
     ),
   });
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Erase session" })
-    .click();
   await expect(page.getByLabel("name", { exact: true })).toHaveValue(
     "Alex Example",
   );
+  await page.locator("#resume-slot-freeScanner").click();
+  await expect(page.locator("#field-0")).toContainText("Drew Example");
 });
 
 test("source labels and text layout follow the field into Scanner", async ({
@@ -1115,4 +1113,146 @@ test("switches four modes without replacing a draft and reviews duplicate CSV ap
       page.evaluate(() => (window as unknown as { vfCSV: string }).vfCSV),
     )
     .toBe("Carrier,ID\nExample Ground,VF-105\nGround,VF-105\n");
+});
+
+test.describe("snippet collections", () => {
+  test.use({ timezoneId: "Asia/Kolkata" });
+  test("copies timestamp and selected text only on the corresponding button click", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.route("**/src/platform.ts*", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        body:
+          (await response.text()) +
+          String.raw`
+          window.snippetReads = 0;
+          platform.mouseTransfer = async (restore) => {
+            if (!restore) throw Error("Expected guarded capture");
+            window.snippetReads++;
+            return "Alex {{name}}";
+          };
+        `,
+      });
+    });
+    await page.clock.setFixedTime(new Date("2026-11-21T09:15:25Z"));
+    await page.goto("/");
+    await pickDocument(
+      page,
+      "quick-snippets.veraflow",
+      (await fixture("quick-snippets.veraflow")).toString(),
+    );
+    await expect(
+      page.getByRole("heading", { name: "Quick snippets" }),
+    ).toBeVisible();
+    await expect(page.locator(".template-form")).toHaveCount(0);
+
+    const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+    await page.getByRole("button", { name: "Copy timestamp" }).click();
+    await expect.poll(clipboard).toBe("2026-11-21 14:45:25 +0530");
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { snippetReads: number }).snippetReads,
+      ),
+    ).toBe(0);
+
+    await page.getByRole("button", { name: "Copy greeting" }).click();
+    await expect.poll(clipboard).toBe("Hi Alex {{name}}");
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { snippetReads: number }).snippetReads,
+      ),
+    ).toBe(1);
+    await page.getByRole("button", { name: "Close session" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Recent sessions" }),
+    ).toBeVisible();
+    await expect(page.locator("[data-recent]")).toHaveCount(0);
+  });
+});
+
+test("keeps a template, Free Scanner, and snippet collection open independently", async ({
+  page,
+}) => {
+  await page.goto("/?workflow=classic");
+  await pickDocument(
+    page,
+    "greeting.veraflow",
+    '--- veraflow 2\n{"title":"Greeting form","workflow":"form"}\n---\nHello {{Name}}',
+  );
+  await page.getByLabel("Name", { exact: true }).fill("Alex");
+  await page.locator("#session-home").click();
+  await page.locator("#nav-scanner").click();
+  await page.locator("#start-scanner").click();
+  await page.locator("#dialog-fields").fill("Reference\nNotes");
+  await page
+    .getByRole("button", { name: "Start Scanner", exact: true })
+    .click();
+  await page.locator("#manual-value").fill("VF-104");
+  await page.locator("#apply-value").click();
+  await page.locator("#manual-value").fill("unfinished scanner entry");
+
+  await page.locator("#session-home").click();
+  await pickDocument(
+    page,
+    "quick-snippets.veraflow",
+    (await fixture("quick-snippets.veraflow")).toString(),
+  );
+  await expect(
+    page.getByRole("button", { name: "Copy timestamp" }),
+  ).toBeVisible();
+  await page.locator("#resume-slot-template").click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Alex");
+  await page.locator("#resume-slot-freeScanner").click();
+  await expect(page.locator(".capture-fields")).toContainText("VF-104");
+  await expect(page.locator("#manual-value")).toHaveValue(
+    "unfinished scanner entry",
+  );
+  await page.locator("#resume-slot-snippet").click();
+  await page.locator("#snippet-close").click();
+  await page.locator("#resume-slot-template").click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Alex");
+});
+
+test("snippet selection fallback asks before reading clipboard and offers manual input and output", async ({
+  page,
+}) => {
+  await page.route("**/src/platform.ts*", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body:
+        (await response.text()) +
+        String.raw`
+      window.snippetReads = 0;
+      platform.mouseTransfer = async () => { throw Error("captureFailed"); };
+      platform.readClipboard = async () => { window.snippetReads++; throw Error("clipboardBusy"); };
+      platform.copy = async () => { throw Error("clipboardBusy"); };
+    `,
+    });
+  });
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "fallback.veraflow",
+    '--- veraflow 2\n{"title":"Fallback"}\n---\n{{#action greet "Copy greeting"}}\nHi {{@selection-or-clipboard}}\n{{/action}}',
+  );
+  await page.getByRole("button", { name: "Copy greeting" }).click();
+  const picker = page.getByRole("dialog", {
+    name: "Could not capture selected text",
+  });
+  await expect(picker).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { snippetReads: number }).snippetReads,
+    ),
+  ).toBe(0);
+  await picker.getByRole("button", { name: "Use clipboard" }).click();
+  await page.getByLabel("Paste or type the text to use").fill("Alex");
+  await page.getByRole("button", { name: "Copy result", exact: true }).click();
+  const output = page.getByRole("dialog", { name: "Copy the result manually" });
+  await expect(output.getByLabel("Generated text")).toHaveValue("Hi Alex");
 });

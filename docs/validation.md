@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.18.0 release preparation
+
+Passed 88 TypeScript unit tests, 92 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, formatting, isolated test configuration, and Clippy passed. Browser tests exercise the three open sessions, timestamp offsets, selection interpolation, confirmation before clipboard fallback, and manual input and output when clipboard access fails. Cross-app selection and OS permission behavior need a packaged desktop check.
+
+Both npm audits reported zero vulnerabilities. RustSec reported zero vulnerability-class advisories and 12 informational warnings. Snippet actions read clipboard content only on a requested clipboard action or after explicit fallback confirmation. An open draft stays in memory unless the user saves it.
+
 ## 0.17.0 release preparation
 
 Passed 87 TypeScript unit tests, 89 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, test-build isolation, formatting, and Clippy checks passed. Browser tests check resuming filled responses, updating the existing entry, discarding unsaved edits, and launcher controls. Native tests check separate records, replacement on resave, and deletion of the saved store. Interactive quit and relaunch on packaged apps remains a manual check.

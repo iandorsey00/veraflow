@@ -23,4 +23,6 @@ Open [Linked service visits](linked-records.veraflow) with [its CSV](linked-reco
 
 Try the [dispatch note](dispatch-note.veraflow) for comments, conditions, loops, formatted dates, and an address field that removes blank lines.
 
+Open [Quick snippets](quick-snippets.veraflow) for one-click clipboard actions, including a local timestamp and a greeting using selected text.
+
 Copy [the shipment template](shipment-log.veraflow) and [its CSV](shipment-log.csv) into the same folder to try all four modes. Use reference `VF-104` to see the duplicate check, or use a new reference to append and start another record.

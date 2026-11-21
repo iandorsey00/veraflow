@@ -91,6 +91,7 @@ type Source = {
   verification: ReadonlyMap<string, VerificationWorkflow>;
   delivery: Delivery;
   outputs: SourceOutput[];
+  snippets: boolean;
   recordOnlyFields: string[];
   filename?: string;
   csv?: CSVSource;
@@ -127,7 +128,7 @@ const inlineElse = new RegExp(String.raw`\s+else\s*:\s*(${quoted})`, "uy");
 type Block = { id: string; label: string; text: string; line: number };
 function namedBlocks(
   text: string,
-  kind: "output" | "section",
+  kind: "output" | "section" | "action",
   startLine: number,
 ): Block[] | undefined {
   const opening = new RegExp(
@@ -916,12 +917,33 @@ export function parseSource(text: string): Source {
   const referenced = new Set<string>();
   const body = header ? source.slice(header[0].length) : source;
   const bodyLine = 1 + lineBreaks(header?.[0] ?? "");
-  const named = advanced ? namedBlocks(body, "output", bodyLine) : undefined;
+  const actions = advanced ? namedBlocks(body, "action", bodyLine) : undefined;
+  if (
+    actions?.some(
+      ({ label }) => !label.trim() || /[\p{Cc}\p{Zl}\p{Zp}]/u.test(label),
+    )
+  )
+    fail("Use a nonblank, single-line button label for each action.");
+  if (
+    actions &&
+    (workflow ||
+      controls.size ||
+      csv ||
+      append ||
+      responses.size ||
+      verification.size ||
+      Object.keys(outputSettings).length)
+  )
+    fail(
+      "Snippet collections use action blocks and built-in variables. Remove fields, workflows, and output settings.",
+    );
+  const named =
+    actions ?? (advanced ? namedBlocks(body, "output", bodyLine) : undefined);
   const definitions = named ?? [
     { id: "main", label: title ?? "Output", text: body, line: bodyLine },
   ];
   const outputs = definitions.map((definition) => {
-    const entries = (advanced
+    const entries = (advanced && !actions
       ? namedBlocks(definition.text, "section", definition.line)
       : undefined) ?? [
       {
@@ -1025,6 +1047,10 @@ export function parseSource(text: string): Source {
       "This template expands to too many operations. Use shorter or fewer nested loops.",
     );
   const fields = new Set([...controls.keys(), ...referenced]);
+  if (actions && fields.size)
+    fail(
+      `Snippet actions cannot reference form fields: ${[...fields].join(", ")}.`,
+    );
   if (
     outputs.reduce((count, output) => count + output.sections.length, 0) >
       100 ||
@@ -1078,6 +1104,7 @@ export function parseSource(text: string): Source {
     : undefined;
   const parsed = {
     outputs,
+    snippets: !!actions,
     csv,
     append,
     csvLabel,
@@ -1225,7 +1252,10 @@ export function sourceParts(
           if (
             value === undefined &&
             (node.variable.name === "date" ||
-              node.variable.name === "timestamp")
+              node.variable.name === "timestamp" ||
+              node.variable.name === "selection" ||
+              node.variable.name === "selection-or-clipboard" ||
+              node.variable.name === "clipboard")
           )
             emit(`{{@${node.variable.name}}}`, true);
           else emit(value ?? "");

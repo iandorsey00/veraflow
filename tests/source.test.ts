@@ -17,6 +17,7 @@ import {
   parseSource,
   prefillSource,
   sourceDefinitionText,
+  sourceParts,
 } from "../src/core/source";
 import {
   exportTemplateArchive,
@@ -535,4 +536,33 @@ Ticket for {{Reference}}`;
     ],
   );
   assert.throws(() => spreadsheetRow(s, ["Ticket"]), /appendMissingColumn/);
+});
+
+test("snippet actions have stable IDs and interpolate literal selection without form fields", () => {
+  const source = readFileSync(
+    new URL("../examples/source/quick-snippets.veraflow", import.meta.url),
+    "utf8",
+  );
+  const parsed = parseSource(source);
+  assert.equal(parsed.snippets, true);
+  assert.deepEqual(parsed.fields, []);
+  assert.deepEqual(
+    parsed.outputs.map(({ id }) => id),
+    ["timestamp", "greeting", "acknowledgement"],
+  );
+  assert.deepEqual(
+    sourceParts(parsed, new Map(), undefined, "greeting", {
+      selectionOrClipboard: "A {{name}}",
+    })[0].parts,
+    [
+      { text: "Hi ", missing: false },
+      { text: "A {{name}}", missing: false },
+    ],
+  );
+  for (const invalid of [
+    source.replace("Hi {{@selection-or-clipboard}}", "Hi {{name}}"),
+    source.replace("#action greeting", "#action timestamp"),
+    source.replace("{{/action}}", "{{/output}}"),
+  ])
+    assert.throws(() => parseSource(invalid), /invalidSource/);
 });

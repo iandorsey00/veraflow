@@ -35,8 +35,8 @@
   ],
   "folding": {
     "markers": {
-      "start": "^\\s*(?:--- veraflow 2\\s*$|\\{\\{#(?:output|section|when|for)\\b)",
-      "end": "^\\s*(?:---|\\{\\{/(?:output|section|when|for)\\}\\})\\s*$"
+      "start": "^\\s*(?:--- veraflow 2\\s*$|\\{\\{#(?:output|section|when|for|action)\\b)",
+      "end": "^\\s*(?:---|\\{\\{/(?:output|section|when|for|action)\\}\\})\\s*$"
     }
   }
 }

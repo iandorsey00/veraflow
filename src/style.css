@@ -1479,3 +1479,25 @@ input.toggle-switch:checked::before {
   margin: 0;
   white-space: pre-wrap;
 }
+
+.snippet-action-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.snippet-action-list button {
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.open-session-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.open-session-bar button {
+  overflow-wrap: anywhere;
+}

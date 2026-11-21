@@ -86,6 +86,17 @@ export const en = {
     "Save your responses to Recent Sessions on this device, save a prefilled template file, or export the output as text.",
   closeSourceIncomplete:
     "Save your responses to Recent Sessions on this device or to a prefilled template file. Finish the required fields and checks to export the output as text.",
+  openSessions: "Open sessions",
+  sessionHome: "Home",
+  quitParkedConfirm: "Quit and discard the drafts in the other open sessions?",
+  snippetPasteTitle: "Enter text…",
+  snippetPasteLabel: "Paste or type the text to use",
+  snippetSelectionUnavailable: "Could not capture selected text",
+  snippetCopyAction: "Copy result",
+  snippetCopyUnavailable: "Copy the result manually",
+  snippetOutputLabel: "Generated text",
+  snippetCollectionHelp:
+    "Choose a snippet to copy its text. For selection snippets, select text in another app first.",
   savePrefilled: "Save prefilled template",
   returnToFilledForm: "Return to Form",
   returnToFilledScanner: "Return to Scanner",
