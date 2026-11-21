@@ -19,6 +19,62 @@ export function verificationRequired(s: Session) {
     ? s.template.typingVerification === true
     : s.template.verificationEnabled;
 }
+export function fieldRequiresVerification(
+  s: Session,
+  field: Session["fields"][number],
+) {
+  if (s.readOnlySource) return false;
+  const source =
+    s.template.placeholderStyle === "source"
+      ? parseSource(s.template.content)
+      : undefined;
+  return (
+    field.verify ??
+    s.controls?.get(field.name)?.verify ??
+    source?.verifyByDefault ??
+    (s.unifiedForm
+      ? source
+        ? source.workflow === "scanner" && s.template.verificationEnabled
+        : s.scanner
+          ? s.template.verificationEnabled
+          : s.template.typingVerification === true
+      : verificationRequired(s))
+  );
+}
+
+export function formAttention(s: Session, row = false, headers?: string[]) {
+  let active: Set<string> | undefined;
+  let missing: Set<string> | undefined;
+  if (s.template.placeholderStyle === "source") {
+    const parsed = parseSource(s.template.content);
+    const output = sourceOutput(parsed, s.outputId);
+    if (row && !output.row) {
+      active = activeSourceFields(s);
+      if (headers)
+        active = new Set(headers.filter((name) => active?.has(name)));
+    } else {
+      active = new Set();
+      missing = new Set();
+      sourceParts(
+        parsed,
+        sessionValues(s),
+        active,
+        output.id,
+        s.sourceContext,
+        row,
+        missing,
+      );
+    }
+  }
+  return s.fields.flatMap((field, index) =>
+    needsCapture(s, field, active) && (!missing || missing.has(field.name))
+      ? [{ index, check: false }]
+      : fieldRequiresVerification(s, field) && needsCheck(s, field, active)
+        ? [{ index, check: true }]
+        : [],
+  );
+}
+
 export function activeSourceFields(s: Session): Set<string> | undefined {
   if (s.template.placeholderStyle !== "source") return;
   const parsed = parseSource(s.template.content);
@@ -29,7 +85,8 @@ export function activeSourceFields(s: Session): Set<string> | undefined {
 function selectedOutputFields(s: Session) {
   if (s.template.placeholderStyle !== "source") return;
   const parsed = parseSource(s.template.content);
-  if (parsed.outputs.length === 1) return activeSourceFields(s);
+  if (parsed.outputs.length === 1 && !s.unifiedForm)
+    return activeSourceFields(s);
   const active = new Set<string>();
   sourceParts(
     parsed,
@@ -134,7 +191,11 @@ export function startSession(template: Template): Session {
 export function prepareWorkflow(s: Session, typing: boolean) {
   s.typing = typing;
   for (const field of s.fields) {
-    if (field.status === "verified" && !!field.checkedByTyping !== typing) {
+    if (
+      !s.unifiedForm &&
+      field.status === "verified" &&
+      !!field.checkedByTyping !== typing
+    ) {
       field.status = "captured";
       delete field.checkedByTyping;
     }
@@ -149,7 +210,7 @@ export function prepareWorkflow(s: Session, typing: boolean) {
   if (first >= 0) {
     s.mode = "capture";
     if (!typing) s.active = first;
-  } else if (verificationRequired(s)) beginVerification(s);
+  } else if (!s.unifiedForm && verificationRequired(s)) beginVerification(s);
   else s.mode = "ready";
 }
 function editable(s: Session) {
@@ -308,7 +369,11 @@ function validateOutput(s: Session) {
   )
     throw Error("incomplete");
   const active = selectedOutputFields(s);
-  if (verificationRequired(s) && s.fields.some((f) => needsCheck(s, f, active)))
+  if (
+    s.fields.some(
+      (f) => fieldRequiresVerification(s, f) && needsCheck(s, f, active),
+    )
+  )
     throw Error("unverified");
 }
 
@@ -533,8 +598,10 @@ export function spreadsheetRow(
   if (validate) {
     validateSourceValues(parsed, values, used);
     if (
-      verificationRequired(s) &&
-      s.fields.some((field) => needsCheck(s, field, used))
+      s.fields.some(
+        (field) =>
+          fieldRequiresVerification(s, field) && needsCheck(s, field, used),
+      )
     )
       throw Error("unverified");
   }

@@ -115,6 +115,7 @@ export type Library = {
   workspace?: import("./workspace").Workspace;
 };
 export type Field = {
+  verify?: boolean;
   removeBlankLines?: boolean;
   name: string;
   value: string | null;
@@ -123,6 +124,8 @@ export type Field = {
   checkedByTyping?: boolean;
 };
 export type Session = {
+  unifiedForm?: boolean;
+  readOnlySource?: boolean;
   scanner?: boolean;
   typing?: boolean;
   controls?: Map<string, import("./form").Control>;

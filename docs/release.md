@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.19.0 forms and field verification
+
+Full release cycle for the combined form workflow and source-file verification rules. On Windows and macOS, open the [address example](../examples/source/address.veraflow). Enter or capture values, use the attention list, and compare a field against a differing value and then a matching value. Prepare output, save a prefilled form, and reopen it to check that verified values return. Test the launcher and tray, and switch between a form from a file, a custom form, and a snippet collection.
+
+To downgrade, close VeraFlow and reinstall [0.18.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.18.0). Export any results you need as text before downgrading. Use copies of form files without 0.19.0-specific settings when using the older app.
+
 ## 0.18.0 snippet collections and open sessions
 
 Full release cycle for snippet clipboard handling and keeping three tasks open. On each packaged platform, open the [Quick snippets example](../examples/source/quick-snippets.veraflow), a filled template, and Free Scanner. Verify the draft in each after switching. Try copying a timestamp and selected text, then exercise clipboard fallback and manual copying. Confirm only the visible session handles capture shortcuts.

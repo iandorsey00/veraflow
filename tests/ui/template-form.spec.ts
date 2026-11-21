@@ -6,7 +6,7 @@ test("Typing workflow previews fields and can restart completed responses when r
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await page.locator("#nav-settings").click();
   await expect(page.locator("#focusedWorkflow")).not.toBeChecked();
   await page.locator("#clearAfterCompletion").uncheck();
@@ -60,7 +60,7 @@ test("Typing repeat verification is independent of Scanner and shares the fields
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await openLegacyLibrary(page);
   await page.locator("#email-enabled").uncheck();
   await page
@@ -95,7 +95,7 @@ test("Typing repeat verification is independent of Scanner and shares the fields
 test("a selection can hide a field, preserve its entry, and change email headers", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?workflow=classic");
   await openLegacyLibrary(page);
   await page.locator("#email-subject").fill("Update");
   await page

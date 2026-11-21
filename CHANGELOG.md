@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.0
+
+- Combine typing, selection capture, and field verification in one Form.
+- Set `"verify-by-default"` for a source form and use `"verify"` to override it on individual fields.
+- Jump to missing values and pending checks from **Needs attention**. Unfilled optional fields start collapsed.
+- Open a custom form with **Create form** and resume saved responses from **Recently opened forms**.
+- Show optional source-file instructions below the form title.
+
 ## 0.18.0
 
 - Add snippet collections with named clipboard actions, selection variables, and local timestamp formatting.

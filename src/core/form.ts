@@ -18,6 +18,7 @@ export type Control = {
   defaultValue?: string;
   when?: { name: string; value: string };
   optional?: boolean;
+  verify?: boolean;
 };
 export type Directive = {
   name: string;

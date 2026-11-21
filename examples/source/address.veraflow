@@ -1,7 +1,7 @@
 --- veraflow 2
 {
   "title": "Address",
-  "workflow": "scanner",
+  "verify-by-default": true,
   "fields": {
     "name": {"type":"text","label":"Recipient"},
     "street": {"type":"text","label":"Street address","multiline":true,"allowBlankLines":false},

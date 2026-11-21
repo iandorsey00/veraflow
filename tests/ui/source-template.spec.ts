@@ -66,8 +66,10 @@ test("source file fills from CSV and retains paste output for retry, grouping an
   await page.locator("#dialog-row").selectOption("1");
   await page.getByRole("dialog").locator('button[type="submit"]').click();
   await expect(
-    page.getByLabel("Dead on arrival?", { exact: true }),
-  ).toHaveValue("true");
+    page
+      .getByRole("group", { name: "Dead on arrival?" })
+      .getByRole("radio", { name: "Yes" }),
+  ).toBeChecked();
   await expect(page.locator("#form-output")).toContainText("Attn: Receiving");
   await page.getByLabel("Attention", { exact: true }).fill("");
   await expect(page.locator("#form-output")).not.toContainText("Attn:");
@@ -122,6 +124,7 @@ test("live preview can be hidden while source forms remain editable", async ({
   await page.locator("#save-settings").click();
   await openSource(page);
   await page.locator("#start-form").click();
+  await page.locator(".form-optional > summary").click();
   await page.getByLabel("Attention", { exact: true }).fill("Receiving");
   await expect(page.locator("#form-output")).toBeHidden();
   await expect(page.locator(".template-form .task-progress")).toBeVisible();
@@ -139,7 +142,7 @@ async function pickDocument(page: Page, name: string, text: string) {
   });
 }
 
-test("opens a source document in its declared mode and can switch modes", async ({
+test("opens a source form with instructions and switches outputs without losing values", async ({
   page,
 }) => {
   await page.goto("/");
@@ -147,7 +150,17 @@ test("opens a source document in its declared mode and can switch modes", async 
   await pickDocument(
     page,
     "Greeting.veraflow",
-    '--- veraflow 2\n{"workflow":"form"}\n---\n{{#output greeting "Greeting"}}\nHello {{name}}\n{{/output}}\n{{#output farewell "Farewell"}}\nBye {{name}}\n{{/output}}',
+    '--- veraflow 2\n{"workflow":"form","instructions":"Check the booking.\\nUse <reference> exactly."}\n---\n{{#output greeting "Greeting"}}\nHello {{name}}\n{{/output}}\n{{#output farewell "Farewell"}}\nBye {{name}}\n{{/output}}',
+  );
+  const instructions = page.getByRole("complementary", {
+    name: "Form instructions",
+  });
+  await expect(instructions).toHaveJSProperty(
+    "textContent",
+    "Check the booking.\nUse <reference> exactly.",
+  );
+  await expect(page.locator("#form-output")).not.toContainText(
+    "Check the booking.",
   );
   await page.getByLabel("name", { exact: true }).fill("Alex Example");
   const output = page.getByLabel("Output", { exact: true });
@@ -155,19 +168,18 @@ test("opens a source document in its declared mode and can switch modes", async 
     .getByRole("button", { name: "Next output", exact: true })
     .press("Enter");
   await expect(output).toHaveValue("farewell");
-  await page.locator("#switch-scanner").click();
-  await expect(page.locator(".capture-field")).toContainText("Alex Example");
+  await expect(instructions).toBeVisible();
+  await expect(page.locator("#form-output")).toContainText("Bye Alex Example");
   await page
     .getByRole("button", { name: "Previous output", exact: true })
     .click();
   await expect(output).toHaveValue("greeting");
-  await page.locator("#switch-form").click();
   await expect(page.getByLabel("name", { exact: true })).toHaveValue(
     "Alex Example",
   );
 });
 
-test("queues desktop open events and asks for a mode when the source omits one", async ({
+test("queues desktop open events and opens both plain and legacy workflow files as forms", async ({
   page,
 }) => {
   await page.route("**/src/platform.ts*", async (route) => {
@@ -188,18 +200,14 @@ test("queues desktop open events and asks for a mode when the source omits one",
     });
   });
   await page.goto("/");
-  await expect(page.getByRole("dialog")).toContainText("first");
-  await page.locator("#dialog-workflow").selectOption("form");
-  await page.getByRole("dialog").locator('button[type="submit"]').click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Erase session" })
     .click();
-  await expect(page.locator(".capture-field")).toContainText("booking");
-  await expect(page.locator("#switch-form")).toBeVisible();
+  await expect(page.getByLabel("booking", { exact: true })).toBeVisible();
 });
 
-test("opens a CSV row in Free Scanner or fills a template from a file", async ({
+test("opens a CSV row in a custom form or fills a form from a file", async ({
   page,
 }) => {
   await page.goto("/");
@@ -207,9 +215,11 @@ test("opens a CSV row in Free Scanner or fills a template from a file", async ({
   await pickDocument(page, "Bookings.csv", csv);
   await page.locator("#dialog-row").selectOption("1");
   await page.getByRole("dialog").locator('button[type="submit"]').click();
-  await expect(page.locator("#field-0")).toContainText("Drew Example");
-  await expect(page.locator("#field-1")).toContainText("002");
-  await page.locator("#session-back").click();
+  await expect(page.getByLabel("name", { exact: true })).toHaveValue(
+    "Drew Example",
+  );
+  await expect(page.getByLabel("booking", { exact: true })).toHaveValue("002");
+  await page.locator("#session-home").click();
   await pickDocument(page, "Bookings.csv", csv);
   await page.locator("#dialog-template").selectOption("file");
   const picker = page.waitForEvent("filechooser");
@@ -227,12 +237,12 @@ test("opens a CSV row in Free Scanner or fills a template from a file", async ({
     "Alex Example",
   );
   await page.locator("#resume-slot-freeScanner").click();
-  await expect(page.locator("#field-0")).toContainText("Drew Example");
+  await expect(page.getByLabel("name", { exact: true })).toHaveValue(
+    "Drew Example",
+  );
 });
 
-test("source labels and text layout follow the field into Scanner", async ({
-  page,
-}) => {
+test("form fields use source labels and text layout", async ({ page }) => {
   await page.goto("/");
   await pickDocument(
     page,
@@ -259,16 +269,6 @@ test("source labels and text layout follow the field into Scanner", async ({
   );
   await ticket.focus();
   await expect(address).toHaveValue("100 Example Way\nExample City");
-  await page.locator("#switch-scanner").click();
-  await expect(page.locator("#field-0 strong")).toHaveText("Ticket #");
-  await expect(page.locator("#field-1 strong")).toHaveText(
-    "Ship to · full address",
-  );
-  await page.locator("#field-1").click();
-  await expect(page.locator("#scanner-control")).toHaveJSProperty(
-    "tagName",
-    "TEXTAREA",
-  );
 });
 
 test("saves incomplete responses as a file and reopens an editable copy", async ({
@@ -276,8 +276,6 @@ test("saves incomplete responses as a file and reopens an editable copy", async 
 }) => {
   await page.goto("/");
   await pickDocument(page, "Greeting.vf", "Hello {{name}} from {{place}}.");
-  await page.locator("#dialog-workflow").selectOption("form");
-  await page.getByRole("dialog").locator('button[type="submit"]').click();
   await page.getByLabel("name", { exact: true }).fill("Alex");
   await page.locator("#cancel-session").click();
   const dialog = page.getByRole("dialog", { name: "Save before closing?" });
@@ -288,7 +286,7 @@ test("saves incomplete responses as a file and reopens an editable copy", async 
   await expect(page.getByLabel("name", { exact: true })).toHaveValue("Alex");
   await page.locator("#cancel-session").click();
   const download = page.waitForEvent("download");
-  await dialog.getByRole("button", { name: "Save prefilled template" }).click();
+  await dialog.getByRole("button", { name: "Save prefilled form" }).click();
   const snapshot = await download;
   expect(snapshot.suggestedFilename()).toMatch(
     /^.+-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.veraflow$/,
@@ -333,7 +331,7 @@ test("canceling a save leaves the source session open", async ({ page }) => {
   );
   await page.getByLabel("name", { exact: true }).fill("Alex");
   await page.locator("#cancel-session").click();
-  await page.getByRole("button", { name: "Save prefilled template" }).click();
+  await page.getByRole("button", { name: "Save prefilled form" }).click();
   await expect(page.getByLabel("name", { exact: true })).toHaveValue("Alex");
   await page.locator("#cancel-session").click();
   await page.getByRole("button", { name: "Close without saving" }).click();
@@ -491,12 +489,12 @@ test("keyboard section reordering uses single-step paste without keys and keeps 
 test("recent sessions restore filled values and choices", async ({ page }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Recent sessions" }),
+    page.getByRole("heading", { name: "Recently opened forms" }),
   ).toBeVisible();
   await expect(page.locator("footer")).toContainText(/VeraFlow \d+\.\d+\.\d+/);
   await expect(
     page.locator(".recent-documents .toolbar #nav-scanner"),
-  ).toHaveText("Free Scanner");
+  ).toHaveText("Create form");
   await pickDocument(
     page,
     "conditional-booking.vf",
@@ -513,34 +511,40 @@ test("recent sessions restore filled values and choices", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Booking intake" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Full name")).toBeHidden();
+  await expect(page.getByLabel("Full name", { exact: true })).toBeHidden();
   await expect(page.getByRole("radio", { name: "Standard" })).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("radio", { name: "Express" })).toBeChecked();
-  await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Full name")).toBeFocused();
-  await page.getByLabel("Full name").fill("Alex Example");
+  await page.keyboard.press("Alt+Shift+n");
+  await expect(page.getByLabel("Full name", { exact: true })).toBeFocused();
+  await page.getByLabel("Full name", { exact: true }).fill("Alex Example");
   await page.locator("#cancel-session").click();
-  await page.getByRole("button", { name: "Save to Recent Sessions" }).click();
+  await page.getByRole("button", { name: "Save to recent forms" }).click();
   await page
     .getByRole("button", { name: /Booking intake.*conditional-booking/ })
     .click();
   await expect(
     page.getByRole("heading", { name: "Booking intake" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Full name")).toHaveValue("Alex Example");
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue(
+    "Alex Example",
+  );
   await expect(page.getByRole("radio", { name: "Express" })).toBeChecked();
-  await page.getByLabel("Full name").fill("Edited draft");
+  await page.getByLabel("Full name", { exact: true }).fill("Edited draft");
   await page.locator("#cancel-session").click();
   await page.getByRole("button", { name: "Close without saving" }).click();
   await page.locator("[data-recent]").click();
-  await expect(page.getByLabel("Full name")).toHaveValue("Alex Example");
-  await page.getByLabel("Full name").fill("Alex Updated");
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue(
+    "Alex Example",
+  );
+  await page.getByLabel("Full name", { exact: true }).fill("Alex Updated");
   await page.locator("#cancel-session").click();
-  await page.getByRole("button", { name: "Save to Recent Sessions" }).click();
+  await page.getByRole("button", { name: "Save to recent forms" }).click();
   await expect(page.locator("[data-recent]")).toHaveCount(1);
   await page.locator("[data-recent]").click();
-  await expect(page.getByLabel("Full name")).toHaveValue("Alex Updated");
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue(
+    "Alex Updated",
+  );
 });
 
 test("CSV picker pages through rows and searches columns outside the row summary", async ({
@@ -571,7 +575,9 @@ test("CSV picker pages through rows and searches columns outside the row summary
   );
   await expect(page.locator("#dialog-row")).toHaveValue("143");
   await submit.click();
-  await expect(page.locator("#field-3")).toContainText("Unique search phrase");
+  await expect(page.getByLabel("notes", { exact: true })).toHaveValue(
+    "Unique search phrase",
+  );
 });
 
 test("default Tab applies between sections and respects an explicit empty key list", async ({
@@ -668,7 +674,58 @@ test("recent outputs keep five transferred results, support copy, and clear when
   await expect(page.locator("[data-output]")).toHaveCount(0);
 });
 
-test("CSV verification advances through populated cells and skips blank ones", async ({
+test("form attention follows field-level verification rules and active output", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "intake.vf",
+    `--- veraflow 2
+{"verify-by-default":true,"fields":{
+  "Reference":{"type":"text"},
+  "Contact":{"type":"text","verify":false},
+  "Notes":{"type":"text","optional":true}
+}}
+---
+{{#output main "Summary"}}
+{{Reference}} / {{Contact}}
+{{when Notes is not blank: ' ({{Notes}})'}}
+{{/output}}
+{{#output alternate "Contact only"}}
+{{Contact}}
+{{/output}}`,
+  );
+  const summary = page.getByRole("region", { name: "Needs attention" });
+  const reference = page.getByLabel("Reference", { exact: true });
+  const contact = page.getByLabel("Contact", { exact: true });
+  await expect(page.getByLabel("Notes", { exact: true })).toBeHidden();
+  await summary
+    .getByRole("button", { name: "Reference · Missing value" })
+    .click();
+  await expect(reference).toBeFocused();
+  await reference.fill("VF-104");
+  await page.keyboard.press("Alt+Shift+n");
+  await expect(contact).toBeFocused();
+  await contact.fill("Alex");
+
+  await expect(
+    summary.getByRole("button", { name: "Reference · Needs verification" }),
+  ).toBeVisible();
+  await expect(summary).not.toContainText("Contact");
+  await page.getByLabel("Output", { exact: true }).selectOption("alternate");
+  await expect(summary).toBeHidden();
+  await page.getByLabel("Output", { exact: true }).selectOption("main");
+  await verifyFormValue(page, "Reference", "VF-104");
+  await expect(summary).toBeHidden();
+  await reference.fill("VF-105");
+  await expect(summary).toContainText("Reference · Needs verification");
+  await verifyFormValue(page, "Reference", "VF-105");
+  await page.getByRole("button", { name: "Prepare output sections" }).click();
+  await expect(page.locator(".output")).toHaveText("VF-105 / Alex");
+});
+
+test("CSV values in a custom form can be verified individually", async ({
   page,
 }) => {
   await page.goto("/");
@@ -678,25 +735,42 @@ test("CSV verification advances through populated cells and skips blank ones", a
     "recipient,optional,reference\nAlex,,AB-104",
   );
   await page.getByRole("dialog").locator('button[type="submit"]').click();
-  await expect(page.locator("#field-0")).toHaveAttribute(
-    "aria-current",
-    "step",
+  await expect(page.getByLabel("recipient", { exact: true })).toHaveValue(
+    "Alex",
   );
-  await page.locator("#manual-value").fill("Alex");
-  await page.locator("#apply-value").click();
-  await expect(page.locator("#field-0")).toHaveClass(/verified/);
-  await expect(page.locator("#field-2")).toHaveAttribute(
-    "aria-current",
-    "step",
+  await expect(page.getByLabel("reference", { exact: true })).toHaveValue(
+    "AB-104",
   );
-  await expect(page.locator("#manual-value")).toBeFocused();
-  await page.locator("#manual-value").fill("AB-104");
-  await page.locator("#apply-value").click();
-  await expect(page.locator("#field-2")).toHaveClass(/verified/);
-  await expect(page.locator("#field-1")).not.toHaveClass(/verified/);
+  await expect(
+    page.getByRole("button", { name: "Verify field · optional" }),
+  ).toBeDisabled();
+  await verifyFormValue(page, "recipient", "Alex");
+  await expect(
+    page.getByRole("button", { name: "Verify again · recipient" }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Verify field · reference" }),
+  ).toBeEnabled();
 });
 
-test("source Scanner gives its title room and puts its preview beside the fields when widened", async ({
+async function verifyFormValue(
+  page: Page,
+  field: string,
+  value: string,
+  again = false,
+) {
+  await page
+    .getByRole("button", {
+      name: `${again ? "Verify again" : "Verify field"} · ${field}`,
+      exact: true,
+    })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.locator("#dialog-original").fill(value);
+  await dialog.getByRole("button", { name: "Compare value" }).click();
+}
+
+test("form gives its title room and puts its preview beside the fields when widened", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 690 });
@@ -711,9 +785,8 @@ test("source Scanner gives its title room and puts its preview beside the fields
   await expect(title).toBeVisible();
   const heading = await title.boundingBox();
   expect(heading?.width).toBeGreaterThan(240);
-  await expect(page.locator("#task-tools")).not.toHaveAttribute("open");
-  const work = page.locator(".scanner-work");
-  const preview = page.locator(".scanner-preview");
+  const work = page.locator(".template-form-grid > div").first();
+  const preview = page.locator("#form-output");
   expect((await preview.boundingBox())!.y).toBeGreaterThan(
     (await work.boundingBox())!.y,
   );
@@ -723,8 +796,7 @@ test("source Scanner gives its title room and puts its preview beside the fields
   expect((await preview.boundingBox())!.x).toBeGreaterThan(
     (await work.boundingBox())!.x,
   );
-  await page.locator("#scanner-control").fill("Alex Example");
-  await page.locator("#use-scanner-control").click();
+  await page.getByLabel("Recipient", { exact: true }).fill("Alex Example");
   await expect(preview).toContainText("Alex Example");
 });
 
@@ -771,7 +843,7 @@ test("opens a nested template from a selected folder and keeps the folder after 
     const picker = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Open folder…" }).click();
     await (await picker).setFiles(folder);
-    const search = page.getByRole("searchbox", { name: "Find a template" });
+    const search = page.getByRole("searchbox", { name: "Find a form" });
     const nested = page.getByRole("button", {
       name: "nested/Greeting.veraflow",
       exact: true,
@@ -809,6 +881,7 @@ test("prepared form output enters history and the close dialog resumes filled re
   );
   const fields = page.locator(".template-form [data-form-row]");
   await expect(fields.first()).toContainText("formal");
+  await page.locator(".form-optional > summary").click();
   await page.getByLabel("Name", { exact: true }).fill("Alex");
   await page.locator("#finish").click();
   await page.locator("#paste-options summary").click();
@@ -849,7 +922,7 @@ test("prepared form output enters history and the close dialog resumes filled re
   );
 });
 
-test("source Scanner uses choices directly rather than the clipboard", async ({
+test("legacy Scanner files open as forms and can verify a choice by its ID", async ({
   page,
   context,
 }) => {
@@ -860,33 +933,26 @@ test("source Scanner uses choices directly rather than the clipboard", async ({
     .replace('"workflow": "form"', '"workflow": "scanner"')
     .replace(', "default": false', "");
   await pickDocument(page, "inline-greeting.veraflow", source);
-  await expect(page.locator("#scanner-control legend")).toHaveText("formal");
-  await expect(page.locator("#manual-entry")).toHaveCount(0);
-  const yes = page.getByRole("radio", { name: "Yes" });
-  await yes.check();
-  await yes.press("Enter");
-  await expect(
-    page.getByRole("button", { name: "Compare value" }),
-  ).toBeVisible();
-  await yes.check();
-  await yes.press("Enter");
+  await page.getByRole("radio", { name: "Yes" }).check();
+  const copy = page.getByRole("button", {
+    name: "Copy field · formal",
+    exact: true,
+  });
+  await expect(copy).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Verify field · formal", exact: true })
+    .click();
+  await page.locator("#dialog-original").selectOption("true");
+  await page.getByRole("button", { name: "Compare value" }).click();
   await page.locator("#finish").click();
   await expect(page.locator(".output")).toHaveText(
     '"Joe Sample" <joe.sample@example.com>',
   );
   await page.locator("#section-edit").click();
-  const field = page.getByRole("button", { name: /formal.*true/ });
-  await expect(field).toBeFocused();
-  await page.getByRole("button", { name: "Copy field", exact: true }).click();
-  const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
-  await expect.poll(clipboard).toBe("true");
-
-  await page.evaluate(() => navigator.clipboard.writeText("sentinel"));
-  await page.locator("#pause-task").focus();
-  await field.click();
-  await expect(field).toBeFocused();
-  await page.keyboard.press("ControlOrMeta+c");
-  await expect.poll(clipboard).toBe("true");
+  await copy.click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("true");
 });
 
 test("switching named outputs retains values and JSON saves the shared record", async ({
@@ -901,6 +967,7 @@ test("switching named outputs retains values and JSON saves the shared record", 
   );
   await page.getByLabel("Reference", { exact: true }).fill("VF-104");
   await page.getByLabel("Contact", { exact: true }).fill("Alex");
+  await page.locator(".form-optional > summary").click();
   await page
     .getByLabel("InternalNote", { exact: true })
     .fill("Private example");
@@ -992,7 +1059,7 @@ test("linked CSV opens at output and walks row-output pairs in both directions",
   }
 });
 
-test("Scanner normalizes a comparison and reopens a verified prefilled response", async ({
+test("form normalizes a comparison and reopens a verified prefilled response", async ({
   page,
 }) => {
   await page.goto("/");
@@ -1006,24 +1073,25 @@ test("Scanner normalizes a comparison and reopens a verified prefilled response"
 ---
 {{Address}}`,
   );
-  await page.locator("#scanner-control").fill("12 Sample Way\n\nPortland");
-  await page.locator("#use-scanner-control").click();
-  const field = page.locator("#field-0");
-  await expect(field).toContainText("Matched source");
+  await verifyFormValue(page, "Address", "12 Sample Way\n\nPortland");
+  const field = page.locator("#form-state-0");
+  await expect(field).toHaveText("Verified");
   await page.locator("#cancel-session").click();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save prefilled template" }).click();
+  await page.getByRole("button", { name: "Save prefilled form" }).click();
   const snapshot = await download;
   const content = await readFile((await snapshot.path())!, "utf8");
   expect(content).toContain('"verification"');
   await pickDocument(page, snapshot.suggestedFilename(), content);
-  await expect(field).toContainText("Matched source");
-  await page.locator("#task-tools summary").click();
-  await page.locator("#reverify-field").click();
-  await expect(field).toContainText("Captured");
+  await expect(field).toHaveText("Verified");
+  await verifyFormValue(page, "Address", "12 Sample Way\nSeattle", true);
+  await expect(field).toHaveText("Mismatch");
+  await expect(page.getByLabel("Address", { exact: true })).toHaveValue(
+    "12 Sample Way\nPortland",
+  );
 });
 
-test("switches four modes without replacing a draft and reviews duplicate CSV appends", async ({
+test("switches Form, CSV, and Append without replacing a draft and reviews duplicate CSV appends", async ({
   page,
 }) => {
   await page.route("**/src/platform.ts*", async (route) => {
@@ -1057,9 +1125,6 @@ test("switches four modes without replacing a draft and reviews duplicate CSV ap
   const carrier = page.getByLabel("Carrier", { exact: true });
   await ref.fill("draft");
   await carrier.fill("Ground");
-  await page.locator("#switch-scanner").click();
-  await expect(page.locator(".capture-fields")).toContainText("draft");
-  await page.locator("#switch-form").click();
 
   const picker = page.waitForEvent("filechooser");
   await page.locator("#switch-csv").click();
@@ -1168,16 +1233,16 @@ test.describe("snippet collections", () => {
     ).toBe(1);
     await page.getByRole("button", { name: "Close session" }).click();
     await expect(
-      page.getByRole("heading", { name: "Recent sessions" }),
+      page.getByRole("heading", { name: "Recently opened forms" }),
     ).toBeVisible();
     await expect(page.locator("[data-recent]")).toHaveCount(0);
   });
 });
 
-test("keeps a template, Free Scanner, and snippet collection open independently", async ({
+test("keeps a source form, a custom form, and a snippet collection open independently", async ({
   page,
 }) => {
-  await page.goto("/?workflow=classic");
+  await page.goto("/");
   await pickDocument(
     page,
     "greeting.veraflow",
@@ -1188,12 +1253,11 @@ test("keeps a template, Free Scanner, and snippet collection open independently"
   await page.locator("#nav-scanner").click();
   await page.locator("#start-scanner").click();
   await page.locator("#dialog-fields").fill("Reference\nNotes");
+  await page.getByRole("button", { name: "Open form", exact: true }).click();
+  await page.getByLabel("Reference", { exact: true }).fill("VF-104");
   await page
-    .getByRole("button", { name: "Start Scanner", exact: true })
-    .click();
-  await page.locator("#manual-value").fill("VF-104");
-  await page.locator("#apply-value").click();
-  await page.locator("#manual-value").fill("unfinished scanner entry");
+    .getByLabel("Notes", { exact: true })
+    .fill("unfinished custom form entry");
 
   await page.locator("#session-home").click();
   await pickDocument(
@@ -1207,9 +1271,11 @@ test("keeps a template, Free Scanner, and snippet collection open independently"
   await page.locator("#resume-slot-template").click();
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Alex");
   await page.locator("#resume-slot-freeScanner").click();
-  await expect(page.locator(".capture-fields")).toContainText("VF-104");
-  await expect(page.locator("#manual-value")).toHaveValue(
-    "unfinished scanner entry",
+  await expect(page.getByLabel("Reference", { exact: true })).toHaveValue(
+    "VF-104",
+  );
+  await expect(page.getByLabel("Notes", { exact: true })).toHaveValue(
+    "unfinished custom form entry",
   );
   await page.locator("#resume-slot-snippet").click();
   await page.locator("#snippet-close").click();

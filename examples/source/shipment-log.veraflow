@@ -2,6 +2,7 @@
 {
   "title": "Shipment log",
   "workflow": "form",
+  "instructions": "Confirm the recipient and carrier before logging this shipment.",
   "fields": {
     "Notes": {"type": "textarea", "optional": true},
     "Carrier": {"type": "text", "default": "Example Ground"}

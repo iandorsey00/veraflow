@@ -86,6 +86,8 @@ function deliverySettings(raw: unknown): Delivery {
 }
 type Source = {
   title?: string;
+  instructions?: string;
+  verifyByDefault?: boolean;
   workflow?: SourceWorkflow;
   responses: ReadonlyMap<string, string | null>;
   verification: ReadonlyMap<string, VerificationWorkflow>;
@@ -285,6 +287,8 @@ function metadata(text: string) {
     (key) =>
       ![
         "title",
+        "instructions",
+        "verify-by-default",
         "fields",
         "workflow",
         "responses",
@@ -307,6 +311,13 @@ function metadata(text: string) {
     (!title || title.length > 250 || /[\p{Cc}\p{Zl}\p{Zp}]/u.test(title))
   )
     fail('"title" must be a single line of 1–250 characters.');
+  const instructions =
+    header.instructions === undefined
+      ? undefined
+      : string(header.instructions, '"instructions"').trim() || undefined;
+  const verifyByDefault = header["verify-by-default"];
+  if (verifyByDefault !== undefined && typeof verifyByDefault !== "boolean")
+    fail('"verify-by-default" must be true or false.');
   const syntax = header.syntax;
   if (syntax !== undefined && syntax !== "plain")
     fail('"syntax" must be "plain" when present.');
@@ -341,6 +352,7 @@ function metadata(text: string) {
           "options",
           "multiline",
           "allowBlankLines",
+          "verify",
         ].includes(key),
     );
     if (extra) fail(`Unknown property "${extra}" on field "${name}".`);
@@ -362,7 +374,13 @@ function metadata(text: string) {
       );
     if (field.optional !== undefined && typeof field.optional !== "boolean")
       fail(`"${name}.optional" must be true or false.`);
-    const control: Control = { kind, optional: field.optional === true };
+    if (field.verify !== undefined && typeof field.verify !== "boolean")
+      fail(`"${name}.verify" must be true or false.`);
+    const control: Control = {
+      kind,
+      optional: field.optional === true,
+      verify: field.verify,
+    };
     if (field.label !== undefined)
       control.label = string(field.label, `"${name}.label"`);
     if (kind === "text" || kind === "textarea") {
@@ -468,6 +486,8 @@ function metadata(text: string) {
   return {
     controls,
     title,
+    instructions,
+    verifyByDefault,
     workflow,
     syntax,
     responses,
@@ -485,6 +505,8 @@ function metadata(text: string) {
     Source,
     | "controls"
     | "title"
+    | "instructions"
+    | "verifyByDefault"
     | "workflow"
     | "responses"
     | "verification"
@@ -888,6 +910,8 @@ export function parseSource(text: string): Source {
   const {
     controls,
     title,
+    instructions,
+    verifyByDefault,
     workflow,
     syntax,
     responses,
@@ -902,6 +926,8 @@ export function parseSource(text: string): Source {
     : {
         controls: new Map<string, Control>(),
         title: undefined,
+        instructions: undefined,
+        verifyByDefault: undefined,
         workflow: undefined,
         syntax: undefined,
         delivery: defaultDelivery,
@@ -1116,6 +1142,8 @@ export function parseSource(text: string): Source {
       outputs.flatMap((output) => [...output.sections, ...(output.row ?? [])]),
     ),
     title,
+    instructions,
+    verifyByDefault,
     workflow,
     responses,
     verification,
@@ -1157,6 +1185,7 @@ export function prefillSource(
   workflow: SourceWorkflow,
   title?: string,
   verification: ReadonlyMap<string, VerificationWorkflow> = new Map(),
+  legacyVerifyDefault?: boolean,
 ) {
   const source = text.replace(/^\uFEFF/, "");
   const header = sourceHeader.exec(source);
@@ -1168,6 +1197,10 @@ export function prefillSource(
       ...original,
       ...(title ? { title } : {}),
       workflow,
+      ...(legacyVerifyDefault !== undefined &&
+      original["verify-by-default"] === undefined
+        ? { "verify-by-default": legacyVerifyDefault }
+        : {}),
       responses: Object.fromEntries(responses),
       ...(verification.size
         ? { verification: Object.fromEntries(verification) }
@@ -1205,6 +1238,7 @@ export function sourceParts(
   outputId?: string,
   context?: TemplateContext,
   row = false,
+  missingFields?: Set<string>,
 ) {
   let length = 0;
   const local = new Map<string, string>();
@@ -1237,7 +1271,11 @@ export function sourceParts(
           if (!used) emit(node);
         } else if ("field" in node) {
           if (used) {
-            if (!local.has(node.field)) used.add(node.field);
+            if (!local.has(node.field)) {
+              used.add(node.field);
+              if (valueOf(node.field) === undefined)
+                missingFields?.add(node.field);
+            }
             continue;
           }
           const value = valueOf(node.field);
@@ -1273,6 +1311,7 @@ export function sourceParts(
             !actual &&
             ["boolean", "notBoolean", "option"].includes(condition.test)
           ) {
+            missingFields?.add(condition.name);
             if (!used) emit(`{{${condition.name}}}`, true);
           } else {
             visit(conditionMatches(condition, actual) ? node.yes : node.no);

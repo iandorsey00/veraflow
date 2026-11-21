@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.19.0 release preparation
+
+Passed 88 TypeScript unit tests, 93 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, isolated test configuration, formatting, and Clippy passed. Browser coverage includes the two verification levels, keyboard navigation to outstanding fields, persisted checks in prefilled forms, and switching among the three open sessions. Cross-app capture and the native menu still need packaged acceptance on Windows and macOS.
+
+The dependency lockfiles changed only for the VeraFlow version. npm reported zero vulnerabilities. The locally cached RustSec database reported no vulnerability-class advisories and 11 informational warnings.
+
 ## 0.18.0 release preparation
 
 Passed 88 TypeScript unit tests, 92 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Version consistency, formatting, isolated test configuration, and Clippy passed. Browser tests exercise the three open sessions, timestamp offsets, selection interpolation, confirmation before clipboard fallback, and manual input and output when clipboard access fails. Cross-app selection and OS permission behavior need a packaged desktop check.

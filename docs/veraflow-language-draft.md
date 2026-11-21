@@ -2,13 +2,13 @@
 
 English · [简体中文](veraflow-language-draft.zh-CN.md)
 
-Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a session. Install the desktop bundle first. If your system already uses another app for that extension, choose VeraFlow once in **Open With** and set it as the default if desired. You can also select **Open file…** on the **Recent sessions** page.
+Double-click a UTF-8 `.veraflow` or `.vf` file to launch VeraFlow and start a session. Install the desktop bundle first. If your system already uses another app for that extension, choose VeraFlow once in **Open With** and set it as the default if desired. You can also select **Open file…** on the **Recently opened forms** page.
 
-When closing a filled template, choose **Save to Recent Sessions** to reopen its editable responses later from the launcher, tray, or menu bar. VeraFlow keeps up to 12 saved sessions locally, including separate records from the same template. Resaving a resumed session updates its entry. **Close without saving** discards the current changes. **Clear recent sessions** removes these local copies. Responses are stored in plain text in `recent-sessions.json` in the app data directory.
+When closing a filled form, choose **Save to recent forms** to reopen its editable responses later from the launcher, tray, or menu bar. VeraFlow keeps up to 12 saved sessions locally, including separate records from the same template. Resaving a resumed session updates its entry. **Close without saving** discards the current changes. **Clear recent forms** removes these local copies. Responses are stored in plain text in `recent-sessions.json` in the app data directory.
 
 **Settings → Legacy template library → Templates → Import template file** creates a library copy for editing. This picker also accepts `.txt`. **Export .veraflow** saves the definition. Responses stay separate.
 
-Open a CSV from Finder or File Explorer with **Open With → VeraFlow**, or use **Open file…** on the launcher. Use the first row for column names. Search all columns or enter a data row number. Use Previous and Next to browse groups of rows. The preview shows the selected row’s columns before you open it in Free Scanner or use it to fill a source template. When verification is enabled, Free Scanner checks the imported row in order and advances after each match. Blank cells are skipped. Select a template from your library or open one from disk. CSV columns match template fields by exact name. Values stay in the session unless you explicitly save them.
+Open a CSV from Finder or File Explorer with **Open With → VeraFlow**, or use **Open file…** on the launcher. Use the first row for column names. Search all columns or enter a data row number. Use Previous and Next to browse groups of rows. The preview shows the selected row’s columns before you open it in a custom form or use it to fill another form. Use **Verify field** for any imported value that needs checking. CSV columns match template fields by exact name. Values stay in the session unless you explicitly save them.
 
 A header-free file uses the [plain brace rules](portable-templates.md#plain-text) and produces one Body section:
 
@@ -20,7 +20,7 @@ Hello {{name}},
 
 Start with the exact first line `--- veraflow 2`, followed by a JSON object and a line containing only `---`. Use LF or CRLF header lines. This is a source-language version, separate from the JSON exchange envelope version. An unsupported explicit version yields an error.
 
-Set the optional top-level `"workflow"` property to `"form"` for **Fill form**, `"scanner"` for **Scanner**, `"csv"` for [linked CSV](#linked-csv), or `"append"` for [Append row](#append-row). If the property is absent, opening the file prompts for a workflow. Form and Scanner have a button to switch modes with values intact. This property controls how VeraFlow obtains input. Renderers that already have values can ignore it.
+Set the optional top-level `"workflow"` property to `"form"` (the default), `"csv"` for [linked CSV](#linked-csv), or `"append"` for [Append row](#append-row). Older files with `"workflow": "scanner"` open as forms with the app’s existing verification preference unless they declare a default. This property controls how VeraFlow obtains input. Renderers that already have values can ignore it.
 
 ```text
 --- veraflow 2
@@ -31,12 +31,20 @@ Hello {{name}},
 
 Set `title` to a readable name for the session and Recent list. It takes up to 250 characters on one line. Files without a title use the filename. When a template fails to open, the notice identifies the invalid setting or reports a source line for malformed JSON and block tags.
 
+Add an optional `"instructions"` string to show guidance below the form title. Use `\n` for a line break. Instructions are displayed as plain text and stay out of the rendered output.
+
+```json
+{
+  "instructions": "Confirm the recipient before copying.\nUse the tracking number exactly as shown."
+}
+```
+
 Declare fields under `fields`. Declarations emit no text. Field names are case-sensitive and can contain spaces, Unicode, and punctuation. For names with braces or other characters that would be interpreted as syntax, use a JSON-quoted reference such as `{{"Location {code}"}}`. Conditions accept quoted field names too, as in `{{when "Location {code}" is not blank: 'Ready'}}`. Undeclared references are inferred as text fields.
 
 | Field property    | Meaning                                                                                                                                                                               |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `type`            | `boolean`, `text`, `textarea`, `email`, `date`, `number`, `radio`, or `dropdown`                                                                                                      |
-| `label`           | Optional display label in Fill form and Scanner. Accepts Unicode and punctuation                                                                                                      |
+| `label`           | Optional display label in the form. Accepts Unicode and punctuation                                                                                                                   |
 | `multiline`       | Text only. Defaults to `false` for `text` and `true` for `textarea`                                                                                                                   |
 | `allowBlankLines` | Text only. Defaults to `true` for multiline fields. Set to `false` to remove empty or whitespace-only lines automatically                                                             |
 | `optional`        | Boolean flag. An unset optional field contributes empty text                                                                                                                          |
@@ -45,7 +53,21 @@ Declare fields under `fields`. Declarations emit no text. Field names are case-s
 
 Boolean fields accept `true` and `false` as values, represented as the strings `true` and `false` in CSV and VeraFlow's value-map API. They have no implicit default. Selections default to their first option when the header supplies no default. Typed fields reuse the portable format checks. A present blank optional text value can pass a blank test.
 
-Labels are literal text. Keep the field ID in placeholders, conditions, and CSV headers. An inferred field uses a single-line editor initially. Declare the field to enforce its line rules for captured, pasted, or imported values as well. With `allowBlankLines: false`, VeraFlow strips blank lines from defaults, saved responses, CSV values, and text accepted in Form or Scanner. This includes leading and trailing blank lines. A form editor cleans up the visible text when you leave the field. Scanner applies the same cleanup when comparing original text. Single-line fields still reject line breaks.
+Labels are literal text. Keep the field ID in placeholders, conditions, and CSV headers. An inferred field uses a single-line editor initially. Declare the field to enforce its line rules for captured, pasted, or imported values as well. With `allowBlankLines: false`, VeraFlow strips blank lines from defaults, saved responses, CSV values, and text accepted in the form. This includes leading and trailing blank lines. A form editor cleans up the visible text when you leave the field. VeraFlow applies the same cleanup when comparing original text. Single-line fields still reject line breaks.
+
+Set `"verify-by-default": true` to require checks for populated fields used by the selected output. New forms default to `false`. Set a field's `"verify"` to `true` or `false` to override the form setting. You can still verify a field manually when a check is optional. Editing a checked value clears its verification.
+
+```json
+{
+  "verify-by-default": true,
+  "fields": {
+    "Reference": { "type": "text" },
+    "Notes": { "type": "textarea", "optional": true, "verify": false }
+  }
+}
+```
+
+**Needs attention** links to missing values and required checks. **Alt+Shift+N** (**Option+Shift+N** on macOS) moves to the next item. Unfilled optional fields start under **Optional details**.
 
 Use `default` for reusable values. Save case-specific responses in a prefilled copy or supply them from a CSV row.
 
@@ -94,7 +116,7 @@ Attn: {{attn}}
 
 Use `{{when Route equals "Express": 'Priority'}}` to compare the whole field and `{{when Address contains 'Suite': 'Check access'}}` to find a substring. Both comparisons are case-sensitive and use the raw value, including an option ID when comparing a choice. A missing value fails either comparison. An explicitly empty value matches `equals ""`. These operators also work in block tags and `else if`.
 
-Fill form places choices above text fields. Fields that control a condition come first within each group. In Scanner, choose a Boolean or other option in VeraFlow and apply it. Short lists use radio buttons. When verification is required, choose the value again to compare it. Legacy template archives have a separate directive grammar.
+Fill form places choices above text fields. Fields that control a condition come first within each group. Short lists of condition-driving choices use radio buttons. When verification is required, choose the value again to compare it. Legacy template archives have a separate directive grammar.
 
 ### Comments and loops
 
@@ -143,15 +165,15 @@ Hi {{@selection}}
 
 Use distinct IDs. Put the opening and closing tags on their own lines. The body supports literal text, comments, and the built-in variables. Snippets have no form fields. Date variables use the time of the click. Add `local` for the device's local time zone. The default is UTC, and `%z` prints a numeric offset such as `+0000`.
 
-A snippet collection, a template session (Form or Scanner), and Free Scanner can stay open together. Use **Home** to start a different kind of task and the **Open sessions** bar to switch back. Each keeps its own working state. Opening another task of a kind already in use asks before replacing it. Save filled template sessions to Recent Sessions if you need them after quitting.
+A snippet collection, a form from a file, and a custom form can stay open together. Use **Home** to start a different kind of task and the **Open sessions** bar to switch back. Each keeps its own working state. Opening another task of a kind already in use asks before replacing it. Save filled forms to the recent forms list if you need them after quitting.
 
-For selection snippets, select text in another app first. VeraFlow uses desktop Scanner capture, so the same OS permissions apply.
+For selection snippets, select text in another app first. VeraFlow captures the selection on the desktop, so the same OS permissions apply.
 
 - `{{@selection}}` uses selected text and offers manual input if capture fails.
 - `{{@clipboard}}` reads plain text from the clipboard when the button is clicked.
 - `{{@selection-or-clipboard}}` tries the selection first. If capture fails, **Use clipboard** explicitly reads the current clipboard. You can also enter text manually or cancel.
 
-If a clipboard read is blocked or empty, VeraFlow offers a text box. If it cannot copy the result, it shows the generated text for manual copying. Inserted data stays literal. Snippet clicks do not add entries to Recent Sessions or Recent Outputs.
+If a clipboard read is blocked or empty, VeraFlow offers a text box. If it cannot copy the result, it shows the generated text for manual copying. Inserted data stays literal. Snippet clicks do not add entries to recent forms or recent outputs.
 
 Try the [Quick snippets example](../examples/source/quick-snippets.veraflow).
 
@@ -161,9 +183,9 @@ Use `{{#section address "Address"}}` and `{{/section}}` on separate lines. A sec
 
 Try the [RMA template](../examples/source/rma.veraflow). Its Boolean controls the To and Subject text. An empty Attention field omits the entire attention line. A whole address captured as one field stays literal, including any existing `ATTN:` spelling.
 
-1. Fill the form and choose **Prepare output sections**. Widen the window to keep the preview beside the fields while scrolling. Scanner also moves its preview to the right in a wide window. **Settings → Hide live output preview** turns off live rendering in the form. Focused view adds progress to Fill form and retains the focused Scanner layout.
+1. Fill the form and choose **Prepare output sections**. Widen the window to keep the preview beside the fields while scrolling. **Settings → Hide live output preview** turns off live rendering in the form. **Focused view** adds a progress line.
 2. Focus the destination and press the output shortcut. The Windows default is **Ctrl+Alt+X**. VeraFlow pastes one section at a time. **Press Tab where the template has no keys** is opt-in. **Paste sections together** joins section text with one newline by default. To use a blank line or another separator, set `"delivery": {"separator": "\n\n"}` in the header. This separator applies to the grouped block, including when you save it as text.
-3. A failed paste keeps the section selected. Check the destination before retrying, or use **Copy current section** and paste manually. Previous and next move within the prepared output. **Save output as text** saves plain text, with section labels when exporting several separate sections. **Return to Form** or **Return to Scanner** takes you back to your filled responses. Prepared output stays in memory until you close, replace, or edit the session.
+3. A failed paste keeps the section selected. Check the destination before retrying, or use **Copy current section** and paste manually. Previous and next move within the prepared output. **Save output as text** saves plain text, with section labels when exporting several separate sections. **Return to Form** takes you back to your filled responses. Prepared output stays in memory until you close, replace, or edit the session.
 
 ### Change the paste order for a session
 
@@ -193,7 +215,7 @@ Try both modes with the [example files and local test form](../examples/source/R
 
 ## Save and reopen a session
 
-Choose **Close session** and select **Save prefilled template**, **Save output as text**, or **Close without saving**. **Keep working** and canceling the save picker leave your session open. From prepared output, **Return to Form** or **Return to Scanner** brings you back to your responses.
+Choose **Close session** and select **Save prefilled form**, **Save output as text**, or **Close without saving**. **Keep working** and canceling the save picker leave your session open. From prepared output, **Return to Form** brings you back to your responses.
 
 A prefilled `.veraflow` copy opens in the workflow you used. It includes the template and the responses you entered, even if required fields remain unanswered. Checked fields reopen as verified in the workflow that checked them. Editing a field clears its check, and you can reverify at any time. The suggested filename uses the template title and a UTC timestamp. The file contains your responses in plain text. Use **Open file…** or double-click it to resume. **Import template file** and standard template exports carry the reusable definition and omit the saved responses and checks. **Save output as text** is available once the required fields and checks are complete and writes the rendered output.
 
@@ -201,7 +223,7 @@ Prefilled files use a top-level `responses` object keyed by field ID. String val
 
 ## Recent outputs
 
-Find **Recent outputs** on the launcher or in the tray menu. The desktop app keeps five rendered template results locally by default as soon as you prepare source output. Legacy template results enter the list on copy, paste, or export. Recent outputs hold rendered text. Save a prefilled template to reopen the editable responses. Select an entry to copy it again or save it as text. A rendered result with several sections is saved as one history entry. The history skips unfinished inputs and Free Scanner field transfers.
+Find **Recent outputs** on the launcher or in the tray menu. The desktop app keeps five rendered template results locally by default as soon as you prepare source output. Legacy template results enter the list on copy, paste, or export. Recent outputs hold rendered text. Save a prefilled template to reopen the editable responses. Select an entry to copy it again or save it as text. A rendered result with several sections is saved as one history entry. The history contains prepared output.
 
 Set **Settings → Number of recent outputs to keep** from 0 to 20. Setting it to 0 clears the history and turns it off. **Clear output history** removes saved entries while keeping the current setting. Outputs are stored in plain text. The history has a 32 MiB storage limit and removes older entries first.
 
@@ -229,7 +251,7 @@ Hello {{Contact name}}, your reference is {{Reference}}.
 
 The CSV uses UTF-8 and nonblank, unique column headers. Headers match field names exactly, including case and spaces. An empty cell supplies an empty string. A field with no matching column uses the template’s default if it has one. The optional `rowLabel` uses literal text, placeholders for CSV columns, and built-in variables. Every label starts with the row number. Without `rowLabel`, VeraFlow summarizes the first few cells. The CSV limit is 64 MiB and 100,000 data rows. The row dropdown groups large files into pages of 500 rows.
 
-Use the **Row** dropdown above **Output** to select any combination. The row arrows move through rows for the current output and cross into the next or previous output at the ends. The output arrows keep the current row. Use Tab to focus the selectors or buttons, then use the dropdown’s native keyboard controls or press Enter or Space on an arrow button. In Form and Scanner, the output selector has the same output arrows when multiple outputs exist. Try the [linked template](../examples/source/linked-records.veraflow) with its [companion CSV](../examples/source/linked-records.csv).
+Use the **Row** dropdown above **Output** to select any combination. The row arrows move through rows for the current output and cross into the next or previous output at the ends. The output arrows keep the current row. Use Tab to focus the selectors or buttons, then use the dropdown’s native keyboard controls or press Enter or Space on an arrow button. In Form, the output selector has the same output arrows when multiple outputs exist. Try the [linked template](../examples/source/linked-records.veraflow) with its [companion CSV](../examples/source/linked-records.csv).
 
 Use **Open folder…** to browse and search a directory of `.veraflow` and `.vf` files, including subfolders. Relative paths distinguish templates with the same name. Put CSV files alongside templates if useful, then open them with **Open file…**. Use **Refresh folder** to pick up changes made outside VeraFlow.
 
@@ -237,7 +259,7 @@ Existing Email Mode templates retain their separate workflow and email-specific 
 
 ### Append row
 
-Choose **Append row** from Form, Scanner, or CSV mode. Review the destination and cells, then write to the end of the file. The desktop app accepts an existing UTF-8 CSV with unique headers, including a file with only a header. If the file was changed or locked by another app, your record stays open. Use **Change or reload CSV…** and review the row again. Use one writer at a time for shared logs.
+Choose **Append row** from Form or CSV mode. Review the destination and cells, then write to the end of the file. The desktop app accepts an existing UTF-8 CSV with unique headers, including a file with only a header. If the file was changed or locked by another app, your record stays open. Use **Change or reload CSV…** and review the row again. Use one writer at a time for shared logs.
 
 Use `outputs.<id>.row` to map destination column headers to cell templates. Use `main` for the implicit output. Each cell supports placeholders, conditions, variables, and block loops. A loop builds text in one cell. When the mapping is omitted, fields match headers by exact name. With a mapping, VeraFlow requires every named destination column. Additional columns are left empty. Written cells follow the destination's column order.
 
@@ -264,7 +286,7 @@ All three `append` settings are optional. `file` is relative to the template and
 
 **Copy as spreadsheet row** prepares a tab-delimited row for pasting into Excel. It works without a destination and uses the mapping order in that case. If the mapping fits the selected CSV, copy follows the destination order. Text that looks like a spreadsheet formula gets a leading apostrophe, shown in the preview.
 
-Form, Scanner, and Append share the working record. CSV browsing keeps the draft and remembers the selected row. **Use this row in Form** asks before it replaces an existing draft. If a session starts in CSV with no draft, switching away loads the selected row as unverified. A `csv` link can appear regardless of the startup workflow.
+Form and Append share the working record. CSV browsing keeps the draft and remembers the selected row. **Use this row in Form** asks before it replaces an existing draft. If a session starts in CSV with no draft, switching away loads the selected row as unverified. A `csv` link can appear regardless of the startup workflow.
 
 Try the [shipment log template](../examples/source/shipment-log.veraflow) with a copy of the [sample CSV](../examples/source/shipment-log.csv).
 
@@ -276,7 +298,7 @@ The [VeraFlow extension](../editors/vscode/README.md) adds highlighting, folding
 
 Place each independent output between `{{#output id "Label"}}` and `{{/output}}` on their own lines. Use unique output IDs and put all rendered text inside the blocks. Each output can contain ordinary text or its own `section` blocks. Declare shared fields once in the header. A declared field can exist solely in the record.
 
-Choose an output in the form or Scanner to preview and prepare it. Changing the selection keeps the record and shows just the chosen output. In the output view, copy one paste section or use **Copy entire output**. Switch outputs directly on the Output screen. Switching starts at the first section. If an output has missing or unverified fields, VeraFlow keeps the current output available and shows an error. Use literal tabs in a body to make a row that can be pasted into a spreadsheet. Keep each value on one line when the destination treats a newline as a new row. See the [shared-record example](../examples/source/shared-record.veraflow).
+Choose an output in the form to preview and prepare it. Changing the selection keeps the record and shows just the chosen output. In the output view, copy one paste section or use **Copy entire output**. Switch outputs directly on the Output screen. Switching starts at the first section. If an output has missing or unverified fields, VeraFlow keeps the current output available and shows an error. Use literal tabs in a body to make a row that can be pasted into a spreadsheet. Keep each value on one line when the destination treats a newline as a new row. See the [shared-record example](../examples/source/shared-record.veraflow).
 
 An optional `"outputs"` object keys settings by output ID. Put paste settings under that output’s `"delivery"` object. Omitted delivery properties inherit the top-level defaults. If specified, `after` replaces the default navigation map. Section IDs and navigation apply within one output.
 
@@ -293,10 +315,10 @@ An optional `"outputs"` object keys settings by output ID. Put paste settings un
 
 Existing files with delivery properties directly under an output ID continue to work.
 
-Use **Save record as JSON…** to store field IDs with their raw values. Unanswered values are `null`. **Save prefilled template** saves the source and values together for reopening. The optional header property `"filename"` sets the suggested filename stem for saves. It can use `{{timestamp}}`, `{{template_name}}`, `{{workflow_name}}`, `{{output_name}}`, and `{{field.Reference}}`. It also accepts built-ins such as `{{@date "%Y-%m-%d"}}` and `{{@row}}`. An unanswered field inserts nothing. The app sanitizes the stem, adds the extension, and lets you choose whether to replace an existing file in the native save dialog.
+Use **Save record as JSON…** to store field IDs with their raw values. Unanswered values are `null`. **Save prefilled form** saves the source and values together for reopening. The optional header property `"filename"` sets the suggested filename stem for saves. It can use `{{timestamp}}`, `{{template_name}}`, `{{workflow_name}}`, `{{output_name}}`, and `{{field.Reference}}`. It also accepts built-ins such as `{{@date "%Y-%m-%d"}}` and `{{@row}}`. An unanswered field inserts nothing. The app sanitizes the stem, adds the extension, and lets you choose whether to replace an existing file in the native save dialog.
 
 ## Conditions and source evidence
 
 Use `not ready` with a declared Boolean to test explicitly for false. An unanswered Boolean stays unresolved. Add `else if` before the final `else` to test alternatives in order. For a block use `{{else if review}}` on its own line. For inline output write `{{when not ready: 'Hold' else if review: 'Review' else: 'Ready'}}`.
 
-**Compare source text…** in a form or Scanner compares filled fields with a pasted block. It checks lines such as `Reference: VF-104` against the field ID or label. A whole matching line without a label is weaker evidence. Multiple candidates, conflicts, and missing lines are reported separately. Batch comparison leaves verification status unchanged. Use the individual source check to verify a field. A requested paste is separate from proof of accurate transfer or completion in the destination app.
+**Compare source text…** in a form compares filled fields with a pasted block. It checks lines such as `Reference: VF-104` against the field ID or label. A whole matching line without a label is weaker evidence. Multiple candidates, conflicts, and missing lines are reported separately. Batch comparison leaves verification status unchanged. Use the individual source check to verify a field. A requested paste is separate from proof of accurate transfer or completion in the destination app.
