@@ -4,6 +4,10 @@ const strings = {
   language: ["Interface language", "界面语言"],
   createdWith: ["Created with", "由"],
   createdEnd: [".", " 创建。"],
+  licenseNotice: [
+    "Open source under the MIT license.",
+    "采用 MIT 许可证开源。",
+  ],
   choose: ["Choose…", "请选择…"],
   chooseFile: ["Choose template", "选择模板"],
   replaceFile: ["Change template", "更换模板"],
