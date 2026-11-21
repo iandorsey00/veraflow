@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./style.css" />
+    <title>VeraFlow Web</title>
+    <script defer src="./web.js"></script>
+  </head>
+  <body class="authoring">
+    <div class="topbar">
+      <span class="wordmark">VeraFlow Web</span>
+      <div class="topbar-actions">
+        <a id="update" href="./" data-text="update" hidden>Update now…</a>
+        <div id="language"></div>
+      </div>
+    </div>
+    <main>
+      <header class="page-header">
+        <h1 data-text="title">Export a standalone form</h1>
+        <p class="lead" data-text="lead">
+          Turn a VeraFlow template into one HTML file that works offline.
+        </p>
+      </header>
+      <section class="export-panel" aria-labelledby="source-label">
+        <h2 id="source-label" data-text="source">VeraFlow template</h2>
+        <div class="file-picker">
+          <p id="selected-file" class="filename" data-text="chooseSource">
+            Choose a .veraflow or .vf file.
+          </p>
+          <input
+            type="file"
+            id="source"
+            class="sr-only"
+            tabindex="-1"
+            accept=".veraflow,.vf"
+            aria-labelledby="source-label"
+          />
+          <button
+            type="button"
+            id="choose"
+            data-text="chooseFile"
+            aria-describedby="selected-file"
+          >
+            Choose template
+          </button>
+        </div>
+        <div class="export-options" id="export-options" hidden>
+          <dl class="details-list">
+            <div>
+              <dt data-text="outputFile">HTML file</dt>
+              <dd id="export-filename" class="filename"></dd>
+            </div>
+          </dl>
+          <label class="checkbox">
+            <input type="checkbox" id="include-source" />
+            <span data-text="provenanceOption"
+              >Include the source filename in Form details</span
+            >
+          </label>
+        </div>
+        <div id="export-error" role="alert" class="error">
+          <p id="error-summary"></p>
+          <p id="error-detail"></p>
+        </div>
+        <div class="actions export-actions">
+          <button
+            type="button"
+            id="export"
+            class="primary"
+            data-text="downloadHtml"
+            disabled
+          >
+            Download HTML form
+          </button>
+          <p id="message" role="status"></p>
+        </div>
+        <p class="help" data-text="localFile">
+          Your template stays in this browser.
+        </p>
+      </section>
+      <noscript
+        >Enable JavaScript to export a form. / 请启用 JavaScript
+        后导出表单。</noscript
+      >
+    </main>
+    <footer id="footer"></footer>
+  </body>
+</html>
