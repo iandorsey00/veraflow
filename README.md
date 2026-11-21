@@ -4,17 +4,25 @@ Export a VeraFlow template as one interactive HTML file. Open the file in a brow
 
 ## Run the exporter
 
-Use Node.js 22 or later.
+Use Node.js 22 or later. To open the authoring page locally, run:
 
 ```sh
 npm ci
+npm start
+```
+
+Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) and press Control-C in Terminal when you are done. The command builds and serves the site on your Mac or PC. To serve a prebuilt release, use a static web server with the extracted release directory as its root.
+
+To export from the command line:
+
+```sh
 npm run build
 npm run export:html -- examples/service-case.veraflow dist/service-case.html
 ```
 
 The command accepts `.veraflow` and `.vf`. If you omit the destination, it adds an `.html` file next to the source. It reports a conflict if the destination already exists. The editable source is the VeraFlow template.
 
-To use the authoring page, serve `dist/` with a static web server and open its index. Choose the template and click **Download HTML form**. The page reads the template locally and shows the name of the HTML file before download. Both the authoring page and exported forms can switch between English and Simplified Chinese. Template titles, field labels, instructions, and output text come from the template and stay in the language in which they were authored. Publish the build's `index.html`, fingerprinted JavaScript and CSS, and `version.json` together. The page offers **Update now…** when the same site advertises a higher version. Keep `index.html` and `version.json` revalidatable, and bump the package version for each release.
+On the authoring page, choose the template and click **Download HTML form**. The page reads the template locally and shows the name of the HTML file before download. Both the authoring page and exported forms can switch between English and Simplified Chinese. Template titles, field labels, instructions, and output text come from the template and stay in the language in which they were authored. Publish the build's `index.html`, fingerprinted JavaScript and CSS, and `version.json` together. The page offers **Update now…** when the same site advertises a higher version. Keep `index.html` and `version.json` revalidatable, and bump the package version for each release.
 
 ### Desktop command
 
@@ -49,7 +57,7 @@ The macOS Safari run used three manual field entries, one default, two compariso
 
 ## Releases
 
-Build from a clean checkout and publish the static output as one version. Verify that the published `version.json` matches the version shown in the footer. Roll back by redeploying the previous static version, including its original version manifest and assets. Published forms are self-contained files and should be re-exported when they need a newer runtime.
+Build from a clean checkout and publish the static output as one version. Verify that the published `version.json` matches the version shown in a newly exported form’s footer. Roll back by redeploying the previous static version, including its original version manifest and assets. Published forms are self-contained files and should be re-exported when they need a newer runtime.
 
 ## Development
 

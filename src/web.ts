@@ -1,4 +1,4 @@
-import { footer, version } from "./branding";
+import { version } from "./branding";
 import { createDefinition, ExportError, sourceName } from "./definition";
 import { download } from "./dom";
 import { exportHtml } from "./export";
@@ -17,7 +17,6 @@ const message = document.getElementById("message")!;
 const error = document.getElementById("error-summary")!;
 const detail = document.getElementById("error-detail")!;
 const update = document.querySelector<HTMLAnchorElement>("#update")!;
-document.getElementById("footer")!.innerHTML = footer;
 
 const languageKey = "veraflow-web-language";
 let savedLanguage: Language | undefined;
