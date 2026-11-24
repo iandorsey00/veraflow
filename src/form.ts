@@ -20,6 +20,7 @@ import {
   sourceParts,
 } from "../vendor/veraflow/core/source";
 import { button, download, element } from "./dom";
+import { timestampedFilename } from "./filenames";
 import { coreVersion } from "./branding";
 import { setLabel, setText, setupLanguage, text } from "./locale";
 import { type Message } from "./strings";
@@ -73,7 +74,7 @@ warnings.append(warningTitle, warningList);
 const attention = element("section");
 attention.setAttribute("aria-labelledby", "attention-title");
 const attentionTitle = text("h2", "attention");
-attention.className = "attention";
+attention.className = "attention field-attention";
 attentionTitle.id = "attention-title";
 const attentionList = element("ul");
 attention.append(attentionTitle, attentionList);
@@ -103,6 +104,11 @@ selector.addEventListener("change", () => {
 const result = element("section");
 result.className = "result";
 result.hidden = true;
+const timestampText = element("input");
+timestampText.type = "checkbox";
+const timestampOption = element("label");
+timestampOption.className = "checkbox";
+timestampOption.append(timestampText, text("span", "timestampFilename"));
 const feedback = element("p");
 feedback.setAttribute("role", "status");
 const error = element("p");
@@ -150,12 +156,12 @@ outputPanel.append(
 main.append(
   stepHeader,
   warnings,
-  attention,
-  attentionStatus,
   earlier,
   required,
   optional,
   outputPanel,
+  attention,
+  attentionStatus,
   stepActions,
 );
 refreshOutputInfo();
@@ -592,16 +598,21 @@ function createOutput() {
       title.setAttribute("aria-describedby", outputInstructions.id);
     const actions = element("div");
     actions.className = "actions";
+    const filename = `${output.id}.txt`;
     actions.append(
       action("copyFull", () => void copy(full, complete, () => transferred())),
       action("downloadText", () =>
-        download(`${output.id}.txt`, full, "text/plain;charset=utf-8"),
+        download(
+          timestampText.checked ? timestampedFilename(filename) : filename,
+          full,
+          "text/plain;charset=utf-8",
+        ),
       ),
     );
     const complete = textArea("", full, () => transferred());
     setLabel(complete.value, "entireOutput");
     complete.value.hidden = true;
-    result.append(title, actions);
+    result.append(title, actions, timestampOption);
     for (const { id, label, text } of sections) {
       const onCopy = () => transferred(id);
       const section = textArea(label, text, onCopy);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Add optional UTC timestamps to HTML export and text download filenames. The HTML exporter CLI supports `--timestamp`.
+- Move Needs attention below the output controls.
+
 ## 0.2.0
 
 - Export stepped forms with one shared record, earlier-field review, and separate copy and navigation controls.

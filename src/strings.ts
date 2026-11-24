@@ -23,6 +23,10 @@ const strings = {
   ],
   source: ["VeraFlow template", "VeraFlow 模板"],
   outputFile: ["HTML file", "HTML 文件"],
+  timestampFilename: [
+    "Add a timestamp to the filename",
+    "在文件名中添加时间戳",
+  ],
   provenanceOption: [
     "Include the source filename in Form details",
     "在表单详情中包含源文件名",

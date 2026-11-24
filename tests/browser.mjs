@@ -132,7 +132,18 @@ test("moved and renamed form, offline entry, verification and blocked clipboard 
   );
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download text" }).click();
-  assert.equal(await readFile(await (await downloading).path(), "utf8"), full);
+  const plainText = await downloading;
+  assert.equal(plainText.suggestedFilename(), "email.txt");
+  assert.equal(await readFile(await plainText.path(), "utf8"), full);
+  await page
+    .getByRole("checkbox", { name: "Add a timestamp to the filename" })
+    .check();
+  const downloadingAgain = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download text" }).click();
+  assert.match(
+    (await downloadingAgain).suggestedFilename(),
+    /^email-\d{4}-\d{2}-\d{2}_.*Z\.txt$/,
+  );
 
   await page.getByLabel("Output", { exact: true }).selectOption("ticket");
   await page.getByRole("button", { name: "Create output" }).click();
@@ -185,6 +196,19 @@ test("the authoring page exposes a newer deployed version and downloads an HTML 
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download HTML form" }).click();
   assert.equal((await downloading).suggestedFilename(), "service-case.html");
+  await page
+    .getByRole("checkbox", { name: "Add a timestamp to the filename" })
+    .check();
+  assert.match(
+    await page.locator("#export-filename").textContent(),
+    /^service-case-\d{4}-\d{2}-\d{2}_.*Z\.html$/,
+  );
+  const downloadingAgain = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download HTML form" }).click();
+  assert.equal(
+    (await downloadingAgain).suggestedFilename(),
+    await page.locator("#export-filename").textContent(),
+  );
 });
 
 test("offline shipment steps preserve later inputs and require recopy after a revision", async (t) => {

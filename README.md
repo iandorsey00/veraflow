@@ -20,9 +20,9 @@ npm run build
 npm run export:html -- examples/service-case.veraflow dist/service-case.html
 ```
 
-The command accepts `.veraflow` and `.vf`. If you omit the destination, it adds an `.html` file next to the source. It reports a conflict if the destination already exists. The editable source is the VeraFlow template.
+The command accepts `.veraflow` and `.vf`. Pass `--timestamp` to append the current UTC timestamp to the HTML filename, including when you provide the destination. If you omit the destination, it adds an `.html` file next to the source. It reports a conflict if the destination already exists. The editable source is the VeraFlow template.
 
-On the authoring page, choose the template and click **Download HTML form**. The page reads the template locally and shows the name of the HTML file before download. Both the authoring page and exported forms can switch between English and Simplified Chinese. Template titles, field labels, instructions, and output text come from the template and stay in the language in which they were authored. Publish the build's `index.html`, fingerprinted JavaScript and CSS, and `version.json` together. The page offers **Update now…** when the same site advertises a higher version. Keep `index.html` and `version.json` revalidatable, and bump the package version for each release.
+On the authoring page, choose the template and click **Download HTML form**. The page reads the template locally and shows the name of the HTML file before download. Turn on **Add a timestamp to the filename** to keep successive exports, for example `service-case-2026-11-24_13-05-22.410Z.html`. Both the authoring page and exported forms can switch between English and Simplified Chinese. Template titles, field labels, instructions, and output text come from the template and stay in the language in which they were authored. Publish the build's `index.html`, fingerprinted JavaScript and CSS, and `version.json` together. The page offers **Update now…** when the same site advertises a higher version. Keep `index.html` and `version.json` revalidatable, and bump the package version for each release.
 
 ### Desktop command
 
@@ -40,7 +40,7 @@ For another checkout layout, set `VERAFLOW_WEB_DIR` to the VeraFlow Web project 
 
 - The form uses the saved template definitions and defaults. Standard exports omit saved responses and verification marks. In-progress responses are held in memory until the tab closes or reloads.
 - **Needs attention** links to fields and required checks for the selected output and clears once those checks pass. **Preview output** shows the exact generated sections after the checks pass. Enter the independent value under **Verify field**. A mismatch preserves the original, and editing the original clears the verification.
-- Copy individual sections or copy the whole output using the template's delivery separator. When clipboard access is blocked, the form selects the requested text for manual copy. **Download text** saves the complete output.
+- Copy individual sections or copy the whole output using the template's delivery separator. When clipboard access is blocked, the form selects the requested text for manual copy. **Download text** saves the complete output. Use **Add a timestamp to the filename** to distinguish successive text downloads.
 - The footer shows the VeraFlow Web version. Expand **Form details** for the VeraFlow core version and, if you opted in at export, the source filename. The CLI equivalent is `npm run export:html -- --include-source-name <template>`. A template without its own title still uses its filename stem as the title. It makes no automatic network requests. The footer link can open the GitHub repository when selected.
 - Linked CSV, CSV append, CSV context variables, clipboard and selection variables, and snippet action collections produce an export error. Desktop paste-navigation settings have no effect in a standalone form.
 

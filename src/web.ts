@@ -2,6 +2,7 @@ import { version } from "./branding";
 import { createDefinition, ExportError, sourceName } from "./definition";
 import { download } from "./dom";
 import { exportHtml } from "./export";
+import { timestampedFilename } from "./filenames";
 import { getLanguage, setText, setupLanguage } from "./locale";
 import { type Language } from "./strings";
 
@@ -10,6 +11,9 @@ const choose = document.querySelector<HTMLButtonElement>("#choose")!;
 const exportButton = document.querySelector<HTMLButtonElement>("#export")!;
 const includeSource =
   document.querySelector<HTMLInputElement>("#include-source")!;
+const timestampFilename = document.querySelector<HTMLInputElement>(
+  "#timestamp-filename",
+)!;
 const selectedFile = document.getElementById("selected-file")!;
 const exportOptions = document.getElementById("export-options")!;
 const exportFilename = document.getElementById("export-filename")!;
@@ -67,7 +71,7 @@ input.addEventListener("change", async () => {
     if (current !== selection) return;
     createDefinition(content, file.name);
     prepared = { file, name, content };
-    exportFilename.textContent = `${name}.html`;
+    updateFilename();
     exportOptions.hidden = false;
     exportButton.disabled = false;
   } catch (failure) {
@@ -76,9 +80,18 @@ input.addEventListener("change", async () => {
     if (current === selection) setText(message);
   }
 });
+function updateFilename() {
+  if (!prepared) return;
+  const filename = `${prepared.name}.html`;
+  exportFilename.textContent = timestampFilename.checked
+    ? timestampedFilename(filename)
+    : filename;
+}
+
+timestampFilename.addEventListener("change", updateFilename);
 exportButton.addEventListener("click", () => {
   if (!prepared) return;
-  const { file, name, content } = prepared;
+  const { file, content } = prepared;
   setText(error);
   detail.textContent = "";
   try {
@@ -86,7 +99,8 @@ exportButton.addEventListener("click", () => {
       language: getLanguage(),
       includeSourceName: includeSource.checked,
     });
-    download(`${name}.html`, html, "text/html;charset=utf-8");
+    updateFilename();
+    download(exportFilename.textContent!, html, "text/html;charset=utf-8");
     setText(message, "downloadRequested");
   } catch (failure) {
     setText(message);

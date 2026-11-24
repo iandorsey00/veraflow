@@ -1,26 +1,35 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { parseArgs } from "node:util";
 import { exportHtml } from "./export";
-
-const args = process.argv.slice(2);
-const includeSourceName = args[0] === "--include-source-name";
-if (includeSourceName) args.shift();
-const [source, destination, ...extra] = args;
+import { timestampedFilename } from "./filenames";
 
 try {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: {
+      "include-source-name": { type: "boolean" },
+      timestamp: { type: "boolean" },
+    },
+  });
+  const [source, destination, ...extra] = positionals;
   if (!source || extra.length) {
     throw new Error(
-      "Usage: export-html [--include-source-name] <template.veraflow|template.vf> [form.html]",
+      "Usage: export-html [--include-source-name] [--timestamp] <template.veraflow|template.vf> [form.html]",
     );
   }
   const filename = basename(source);
   const html = exportHtml(await readFile(source, "utf8"), filename, {
-    includeSourceName,
+    includeSourceName: values["include-source-name"],
   });
-  const target =
+  const outputPath =
     destination ??
     join(dirname(source), filename.replace(/\.(veraflow|vf)$/i, ".html"));
-  if (!/\.html$/i.test(target)) throw new Error("Use an .html output path.");
+  if (!/\.html$/i.test(outputPath))
+    throw new Error("Use an .html output path.");
+  const target = values.timestamp
+    ? join(dirname(outputPath), timestampedFilename(basename(outputPath)))
+    : outputPath;
   await writeFile(target, html, { encoding: "utf8", flag: "wx" });
   console.log(target);
 } catch (error) {

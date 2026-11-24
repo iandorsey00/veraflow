@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -95,6 +95,34 @@ test("the source filename is opt-in and remains literal in embedded provenance",
   assert.deepEqual(await metadata(withProvenance), {
     sourceName: "内部工单 & source.vf",
   });
+});
+
+test("timestamps HTML destinations on request and preserves long Unicode filenames", async (t) => {
+  const directory = await sandbox(t);
+  const input = join(directory, "工".repeat(80) + ".vf");
+  await writeFile(input, source);
+  const timestamp = String.raw`\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d{3}Z`;
+  run(input, join(directory, "report.html"), [
+    "--timestamp",
+    "--include-source-name",
+  ]);
+  execFileSync(
+    process.execPath,
+    [fileURLToPath(script), "--timestamp", input],
+    { stdio: "pipe" },
+  );
+  const files = await readdir(directory);
+  const report = files.find((file) => file.startsWith("report"));
+  assert.match(report, new RegExp(`^report-${timestamp}\\.html$`));
+  assert.match(
+    await readFile(join(directory, report), "utf8"),
+    /"sourceName":"工+/,
+  );
+  const longExport = files.find(
+    (file) => file.endsWith(".html") && file !== report,
+  );
+  assert.match(longExport, new RegExp(`^工+-${timestamp}\\.html$`));
+  assert.ok(Buffer.byteLength(longExport) <= 255);
 });
 
 test("rejects runtime-only workflows and variables, including inside unused branches", async (t) => {
