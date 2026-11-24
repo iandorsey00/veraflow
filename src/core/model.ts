@@ -136,6 +136,14 @@ export type Session = {
   active: number;
   mode: "capture" | "verify" | "ready" | "delivery" | "review" | "complete";
   outputId?: string;
+  stepOutputs?: Map<
+    string,
+    {
+      needsReview: boolean;
+      transferred: Set<string>;
+      staleSections: Set<string>;
+    }
+  >;
   sourceContext?: import("./variables").TemplateContext;
   verificationOutputOnly?: boolean;
   deliveryIndex?: number;

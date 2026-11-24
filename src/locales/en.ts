@@ -99,6 +99,13 @@ export const en = {
   createFormIntro:
     "Define the fields you need for this task, or import a saved field list.",
   startAdHocForm: "Open form",
+  formStep: "Step",
+  formStepPrevious: "Previous step",
+  formStepNext: "Next step",
+  formStepReused: "Fields from earlier steps",
+  formStepOutputStale: "Inputs changed. Review this output again.",
+  formStepCopiedStale:
+    "Inputs changed after transfer. Review and replace any affected copies.",
   formAttention: "Needs attention",
   formNextAttention: "Next item needing attention",
   fieldNeedsVerification: "Needs verification",

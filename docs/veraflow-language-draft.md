@@ -301,13 +301,14 @@ Place each independent output between `{{#output id "Label"}}` and `{{/output}}`
 
 Choose an output in the form to preview and prepare it. Changing the selection keeps the record and shows just the chosen output. In the output view, copy one paste section or use **Copy entire output**. Switch outputs directly on the Output screen. Switching starts at the first section. If an output has missing or unverified fields, VeraFlow keeps the current output available and shows an error. Use literal tabs in a body to make a row that can be pasted into a spreadsheet. Keep each value on one line when the destination treats a newline as a new row. See the [shared-record example](../examples/source/shared-record.veraflow).
 
-An optional `"outputs"` object keys settings by output ID. Put paste settings under that output’s `"delivery"` object. Omitted delivery properties inherit the top-level defaults. If specified, `after` replaces the default navigation map. Section IDs and navigation apply within one output.
+An optional `"outputs"` object keys settings by output ID. Use an `"instructions"` string for guidance shown in the preview and above the output. Use `\n` for a line break. This plain text stays out of the generated sections. Put paste settings under that output’s `"delivery"` object. Omitted delivery properties inherit the top-level defaults. If specified, `after` replaces the default navigation map. Section IDs and navigation apply within one output.
 
 ```json
 {
   "delivery": { "mode": "step" },
   "outputs": {
     "email": {
+      "instructions": "Paste these sections into a new dispatch email.",
       "delivery": { "mode": "sequence", "after": { "subject": ["Tab"] } }
     }
   }
@@ -317,6 +318,31 @@ An optional `"outputs"` object keys settings by output ID. Put paste settings un
 Existing files with delivery properties directly under an output ID continue to work.
 
 Use **Save record as JSON…** to store field IDs with their raw values. Unanswered values are `null`. **Save prefilled form** saves the source and values together for reopening. The optional header property `"filename"` sets the suggested filename stem for saves. It can use `{{timestamp}}`, `{{template_name}}`, `{{workflow_name}}`, `{{output_name}}`, and `{{field.Reference}}`. It also accepts built-ins such as `{{@date "%Y-%m-%d"}}` and `{{@row}}`. An unanswered field inserts nothing. The app sanitizes the stem, adds the extension, and lets you choose whether to replace an existing file in the native save dialog.
+
+## Form steps
+
+Add a top-level `"steps"` list when information arrives in stages. Each step collects its own fields and prepares one named text output. Earlier values and checks remain in the same record. A step can reference its own fields and any fields assigned to earlier steps.
+
+```json
+{
+  "steps": [
+    {
+      "title": "Prepare shipment",
+      "fields": ["Reference", "Recipient"],
+      "output": "dispatch"
+    },
+    { "title": "Record pickup", "fields": ["Tracking"], "output": "pickup" }
+  ]
+}
+```
+
+Use 2–100 steps. Give each step a title and list exact field names in `fields`. An empty field list is allowed for a step that reuses earlier values. Assign each field and each named output to exactly one step. References to later fields are rejected, including references in conditional branches. A field assigned early for a later output is available on its assigned step. Mark it optional if it can be left blank. Steps are for forms with text outputs.
+
+Choose **Prepare output sections** to resolve the current step’s required fields and checks. Copying and **Next step** are separate actions. Use **Previous step** to return to earlier fields. If an edit affects a prepared output, VeraFlow flags its step for review. If sections were copied or a paste was requested, reprepare and transfer those sections again to clear the warning.
+
+**Save to recent forms** resumes the selected step with the saved values and checks. **Save prefilled form** opens at the first step with the saved values and checks. Transfer warnings are tracked during the open session.
+
+[Try the shipment follow-up example](../examples/source/shipment-steps.veraflow).
 
 ## Conditions and source evidence
 

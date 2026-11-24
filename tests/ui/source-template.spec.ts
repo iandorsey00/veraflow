@@ -1339,3 +1339,105 @@ test("snippet selection fallback asks before reading clipboard and offers manual
   const output = page.getByRole("dialog", { name: "Copy the result manually" });
   await expect(output.getByLabel("Generated text")).toHaveValue("Hi Alex");
 });
+
+test("steps share verified values, keep copy separate from advance, and flag stale transfers", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "shipment-steps.veraflow",
+    (await fixture("shipment-steps.veraflow")).toString(),
+  );
+
+  const step = page.locator("#form-step-heading");
+  const prepare = page.getByRole("button", { name: "Prepare output sections" });
+  const copy = page.getByRole("button", { name: "Copy current section" });
+  const next = page.getByRole("button", { name: "Next step", exact: true });
+  const previous = page.getByRole("button", {
+    name: "Previous step",
+    exact: true,
+  });
+  const field = (name: string) => page.getByLabel(name, { exact: true });
+  const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+
+  await expect(step).toHaveText("Prepare shipment");
+  await expect(field("Tracking")).toHaveCount(0);
+  await expect(next).toHaveCount(0);
+  await field("Reference").fill("VF-104");
+  await field("Recipient").fill("Alex");
+  await expect(page.locator("#form-output .output-instructions")).toHaveText(
+    "Paste the subject and message into the dispatch email.",
+  );
+  await prepare.click();
+  await expect(field("Reference")).toBeFocused();
+  await verifyFormValue(page, "Reference", "VF-104");
+  await prepare.click();
+  await expect(page.locator(".output-instructions")).toBeVisible();
+  await copy.click();
+  await expect.poll(clipboard).toBe("Shipment VF-104");
+  await expect(step).toHaveText("Prepare shipment");
+
+  await next.click();
+  await expect(step).toHaveText("Record pickup");
+  await expect(field("Tracking")).toBeFocused();
+  await page.getByText("Fields from earlier steps", { exact: true }).click();
+  await expect(page.locator(".step-reused")).toContainText("VF-104 Verified");
+  await field("Tracking").fill("PK-12");
+  await prepare.click();
+  await copy.click();
+  await expect
+    .poll(clipboard)
+    .toBe("Shipment VF-104 picked up. Tracking: PK-12.");
+  await next.click();
+  await expect(step).toHaveText("Confirm delivery");
+  await field("Delivered").fill("2026-11-23");
+
+  await previous.click();
+  await previous.click();
+  await field("Reference").fill("VF-105");
+  await expect(page.locator(".step-warnings")).toContainText(
+    "Prepare shipment · Inputs changed after transfer",
+  );
+  await expect(page.locator(".step-warnings")).toContainText(
+    "Record pickup · Inputs changed after transfer",
+  );
+  await expect(page.locator(".step-warnings")).not.toContainText(
+    "Confirm delivery",
+  );
+
+  await verifyFormValue(page, "Reference", "VF-105");
+  await prepare.click();
+  await expect(page.locator(".step-warnings")).toContainText(
+    "Prepare shipment",
+  );
+  await copy.click();
+  await expect.poll(clipboard).toBe("Shipment VF-105");
+  await expect(page.locator(".step-warnings")).not.toContainText(
+    "Prepare shipment",
+  );
+  await next.click();
+  await expect(field("Tracking")).toHaveValue("PK-12");
+  await prepare.click();
+  await expect(page.locator(".output")).toHaveText(
+    "Shipment VF-105 picked up. Tracking: PK-12.",
+  );
+  await next.click();
+  await expect(field("Delivered")).toHaveValue("2026-11-23");
+
+  await page
+    .getByRole("button", { name: "Close session", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Save to recent forms" }).click();
+  await page
+    .getByRole("button", { name: /Shipment follow-up.*shipment-steps/ })
+    .click();
+  await expect(step).toHaveText("Confirm delivery");
+  await expect(field("Delivered")).toHaveValue("2026-11-23");
+  await prepare.click();
+  await expect(page.locator(".output")).toHaveText(
+    "Shipment VF-105 (PK-12) delivered on 2026-11-23.",
+  );
+});

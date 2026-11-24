@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.20.0 form steps and output instructions
+
+Full release cycle for the new source settings and staged form workflow. On macOS and Windows, open [Shipment follow-up](../examples/source/shipment-steps.veraflow), verify the reference, and copy the first output. Advance, enter the tracking number, then return and edit the reference. Check that VeraFlow flags the affected output and keeps the tracking value. Save to recent forms, reopen at the saved step, and try copying and native paste.
+
+To roll back to [0.19.1](https://github.com/iandorsey00/veraflow/releases/tag/v0.19.1), save any outputs you need as text. On a separate copy of your source file, remove the `steps` array and any output-level `instructions` before opening it in 0.19.1. Its named outputs can still be selected individually.
+
 ## 0.19.1 field instructions
 
 Proportional release cycle for additive source metadata and form accessibility. Open the [shipment log example](../examples/source/shipment-log.veraflow) and check that the instructions below Reference stay visible while editing and stay out of the output. To roll back to [0.19.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.19.0), use a copy of the source file with the field-level `instructions` property removed. Form-wide instructions work in both versions.

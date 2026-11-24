@@ -93,6 +93,7 @@ type Source = {
   verification: ReadonlyMap<string, VerificationWorkflow>;
   delivery: Delivery;
   outputs: SourceOutput[];
+  steps?: FormStep[];
   snippets: boolean;
   recordOnlyFields: string[];
   filename?: string;
@@ -106,11 +107,19 @@ type Source = {
   fields: string[];
   conditionDrivers: string[];
 };
+export type FormStep = {
+  title: string;
+  fields: string[];
+  output: string;
+  references: Set<string>;
+  alwaysVisible: string[];
+};
 type SourceOutput = {
   id: string;
   label: string;
   sections: Section[];
   row?: Section[];
+  instructions?: string;
   delivery: Delivery;
 };
 const id = /^[A-Za-z0-9_-]+$/;
@@ -296,6 +305,7 @@ function metadata(text: string) {
         "syntax",
         "delivery",
         "outputs",
+        "steps",
         "filename",
         "csv",
         "append",
@@ -500,6 +510,7 @@ function metadata(text: string) {
     delivery: deliverySettings(header.delivery),
     csv,
     append,
+    rawSteps: header.steps,
     outputSettings:
       header.outputs === undefined ? {} : object(header.outputs, '"outputs"'),
     filename:
@@ -519,8 +530,75 @@ function metadata(text: string) {
     | "filename"
     | "csv"
     | "append"
-  > & { syntax?: "plain"; outputSettings: Record<string, unknown> };
+  > & {
+    syntax?: "plain";
+    rawSteps: unknown;
+    outputSettings: Record<string, unknown>;
+  };
 }
+function formSteps(
+  raw: unknown,
+  fields: Set<string>,
+  outputs: Map<string, Set<string>>,
+): FormStep[] {
+  if (!Array.isArray(raw) || raw.length < 2 || raw.length > 100)
+    fail('"steps" must contain 2–100 steps.');
+  const assigned = new Set<string>();
+  const usedOutputs = new Set<string>();
+  const steps = raw.map<FormStep>((entry, index) => {
+    const path = `Step ${index + 1}`;
+    const step = object(entry, path);
+    if (
+      Object.keys(step).some(
+        (key) => !["title", "fields", "output"].includes(key),
+      )
+    )
+      fail(`${path} supports "title", "fields", and "output".`);
+    const title = string(step.title, `${path} title`).trim();
+    if (!title || title.length > 250 || /[\p{Cc}\p{Zl}\p{Zp}]/u.test(title))
+      fail(`${path} needs a single-line title of 1–250 characters.`);
+    const output = string(step.output, `${path} output`);
+    const references = outputs.get(output);
+    if (!references) fail(`${path} refers to unknown output "${output}".`);
+    if (usedOutputs.has(output))
+      fail(`Output "${output}" is assigned to more than one step.`);
+    usedOutputs.add(output);
+    if (!Array.isArray(step.fields)) fail(`${path} needs a "fields" array.`);
+    const names = step.fields.map((rawName) => {
+      const name = string(rawName, `${path} field name`);
+      if (!fields.has(name)) fail(`${path} refers to unknown field "${name}".`);
+      if (assigned.has(name))
+        fail(`Field "${name}" is assigned to more than one step.`);
+      assigned.add(name);
+      return name;
+    });
+    for (const name of references)
+      if (!assigned.has(name))
+        fail(`Output "${output}" uses "${name}" before its step.`);
+    return {
+      title,
+      fields: names,
+      output,
+      references,
+      alwaysVisible: [],
+    };
+  });
+  for (const name of fields)
+    if (!assigned.has(name)) fail(`Field "${name}" is missing from "steps".`);
+  for (const output of outputs.keys())
+    if (!usedOutputs.has(output))
+      fail(`Output "${output}" is missing from "steps".`);
+  // A field entered for a later output must remain editable in its owning step.
+  const later = new Set<string>();
+  for (const step of [...steps].reverse()) {
+    step.alwaysVisible = step.fields.filter(
+      (name) => !step.references.has(name) || later.has(name),
+    );
+    for (const name of step.references) later.add(name);
+  }
+  return steps;
+}
+
 function condition(
   text: string,
   controls: Map<string, Control>,
@@ -923,6 +1001,7 @@ export function parseSource(text: string): Source {
     verification,
     delivery,
     outputSettings,
+    rawSteps,
     filename,
     csv,
     append,
@@ -937,6 +1016,7 @@ export function parseSource(text: string): Source {
         syntax: undefined,
         delivery: defaultDelivery,
         outputSettings: {},
+        rawSteps: undefined,
         filename: undefined,
         csv: undefined,
         append: undefined,
@@ -963,6 +1043,7 @@ export function parseSource(text: string): Source {
       append ||
       responses.size ||
       verification.size ||
+      rawSteps !== undefined ||
       Object.keys(outputSettings).length)
   )
     fail(
@@ -973,7 +1054,9 @@ export function parseSource(text: string): Source {
   const definitions = named ?? [
     { id: "main", label: title ?? "Output", text: body, line: bodyLine },
   ];
+  const outputReferences = new Map<string, Set<string>>();
   const outputs = definitions.map((definition) => {
+    const references = new Set<string>();
     const entries = (advanced && !actions
       ? namedBlocks(definition.text, "section", definition.line)
       : undefined) ?? [
@@ -988,9 +1071,10 @@ export function parseSource(text: string): Source {
       id,
       label,
       nodes: advanced
-        ? blocks(text, controls, referenced, line)
-        : textNodes(text, false, controls, referenced, line),
+        ? blocks(text, controls, references, line)
+        : textNodes(text, false, controls, references, line),
     }));
+    for (const name of references) referenced.add(name);
     const hasSettings = Object.hasOwn(outputSettings, definition.id);
     const configured = hasSettings
       ? object(
@@ -1000,21 +1084,29 @@ export function parseSource(text: string): Source {
       : undefined;
     let outputDelivery = delivery;
     let row: Section[] | undefined;
+    let instructions: string | undefined;
     if (configured) {
+      const { instructions: guidance, ...settings } = configured;
+      if (guidance !== undefined)
+        instructions =
+          string(
+            guidance,
+            `Instructions for output "${definition.id}"`,
+          ).trim() || undefined;
       if (
-        Object.hasOwn(configured, "delivery") ||
-        Object.hasOwn(configured, "row")
+        Object.hasOwn(settings, "delivery") ||
+        Object.hasOwn(settings, "row")
       ) {
         if (
-          Object.keys(configured).some(
+          Object.keys(settings).some(
             (name) => name !== "delivery" && name !== "row",
           )
         )
           fail(
-            `Output "${definition.id}" supports "delivery" and "row" objects.`,
+            `Output "${definition.id}" supports "instructions", "delivery", and "row".`,
           );
         const overrides = object(
-          configured.delivery ?? {},
+          settings.delivery ?? {},
           `Delivery for "${definition.id}"`,
         );
         outputDelivery = deliverySettings({
@@ -1023,8 +1115,8 @@ export function parseSource(text: string): Source {
           after: Object.fromEntries(delivery.after),
           ...overrides,
         });
-        if (configured.row !== undefined) {
-          const cells = Object.entries(object(configured.row, "row"));
+        if (settings.row !== undefined) {
+          const cells = Object.entries(object(settings.row, "row"));
           if (
             !cells.length ||
             cells.length > 1000 ||
@@ -1042,9 +1134,9 @@ export function parseSource(text: string): Source {
             ),
           }));
         }
-      } else {
+      } else if (Object.keys(settings).length || guidance === undefined) {
         // Existing source files used the delivery keys directly under the output ID.
-        outputDelivery = deliverySettings(configured);
+        outputDelivery = deliverySettings(settings);
       }
     }
     for (const [sectionId, keys] of outputDelivery.after) {
@@ -1056,11 +1148,13 @@ export function parseSource(text: string): Source {
       if (index === sections.length - 1 && keys.length)
         fail(`The last section "${sectionId}" cannot have navigation keys.`);
     }
+    outputReferences.set(definition.id, references);
     return {
       id: definition.id,
       label: definition.label,
       sections,
       row,
+      instructions,
       delivery: outputDelivery,
     };
   });
@@ -1078,6 +1172,18 @@ export function parseSource(text: string): Source {
       "This template expands to too many operations. Use shorter or fewer nested loops.",
     );
   const fields = new Set([...controls.keys(), ...referenced]);
+  if (
+    rawSteps !== undefined &&
+    ((workflow && workflow !== "form") ||
+      csv ||
+      append ||
+      outputs.some((output) => output.row))
+  )
+    fail('"steps" is available for forms with text outputs.');
+  const steps =
+    rawSteps === undefined
+      ? undefined
+      : formSteps(rawSteps, fields, outputReferences);
   if (actions && fields.size)
     fail(
       `Snippet actions cannot reference form fields: ${[...fields].join(", ")}.`,
@@ -1135,6 +1241,7 @@ export function parseSource(text: string): Source {
     : undefined;
   const parsed = {
     outputs,
+    steps,
     snippets: !!actions,
     csv,
     append,

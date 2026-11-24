@@ -42,12 +42,68 @@ export function fieldRequiresVerification(
   );
 }
 
+export function sessionSteps(s: Session) {
+  return s.template.placeholderStyle === "source"
+    ? parseSource(s.template.content).steps
+    : undefined;
+}
+
+function currentFormStep(s: Session) {
+  const steps = sessionSteps(s);
+  return steps?.find((step) => step.output === s.outputId) ?? steps?.[0];
+}
+
+export function activateFormStep(s: Session, output: string) {
+  s.outputId = output;
+  const active = activeSourceFields(s);
+  const own = new Set(currentFormStep(s)?.fields);
+  const index = s.fields.findIndex(
+    (field) => own.has(field.name) && active?.has(field.name),
+  );
+  s.active = Math.max(index, 0);
+}
+
+export function noteStepPrepared(s: Session) {
+  if (!s.stepOutputs || !s.outputId) return;
+  const progress = s.stepOutputs.get(s.outputId);
+  if (progress) progress.needsReview = false;
+  else
+    s.stepOutputs.set(s.outputId, {
+      needsReview: false,
+      transferred: new Set(),
+      staleSections: new Set(),
+    });
+}
+
+export function noteStepTransfer(s: Session, section?: string) {
+  const progress = s.outputId && s.stepOutputs?.get(s.outputId);
+  if (!progress) return;
+  for (const part of s.prepared ?? []) {
+    if (section !== undefined && section !== part.id) continue;
+    progress.transferred.add(part.id);
+    progress.staleSections.delete(part.id);
+  }
+}
+
+function invalidateStepOutputs(s: Session, name: string) {
+  if (!s.stepOutputs?.size) return;
+  for (const step of sessionSteps(s) ?? []) {
+    if (!step.references.has(name) && !step.fields.includes(name)) continue;
+    const progress = s.stepOutputs.get(step.output);
+    if (!progress) continue;
+    progress.needsReview = true;
+    if (step.references.has(name))
+      for (const part of progress.transferred) progress.staleSections.add(part);
+  }
+}
+
 export function formAttention(s: Session, row = false, headers?: string[]) {
   let active: Set<string> | undefined;
   let missing: Set<string> | undefined;
   if (s.template.placeholderStyle === "source") {
     const parsed = parseSource(s.template.content);
-    const output = sourceOutput(parsed, s.outputId);
+    const step = currentFormStep(s);
+    const output = sourceOutput(parsed, step?.output ?? s.outputId);
     if (row && !output.row) {
       active = activeSourceFields(s);
       if (headers)
@@ -64,6 +120,10 @@ export function formAttention(s: Session, row = false, headers?: string[]) {
         row,
         missing,
       );
+      for (const name of step?.alwaysVisible ?? []) {
+        active.add(name);
+        missing.add(name);
+      }
     }
   }
   return s.fields.flatMap((field, index) =>
@@ -78,8 +138,9 @@ export function formAttention(s: Session, row = false, headers?: string[]) {
 export function activeSourceFields(s: Session): Set<string> | undefined {
   if (s.template.placeholderStyle !== "source") return;
   const parsed = parseSource(s.template.content);
-  const active = new Set(parsed.recordOnlyFields);
-  sourceParts(parsed, sessionValues(s), active, undefined, s.sourceContext);
+  const step = currentFormStep(s);
+  const active = new Set(step ? step.alwaysVisible : parsed.recordOnlyFields);
+  sourceParts(parsed, sessionValues(s), active, step?.output, s.sourceContext);
   return active;
 }
 function selectedOutputFields(s: Session) {
@@ -176,6 +237,11 @@ export function startSession(template: Template): Session {
         }
       : {}),
   };
+  if (source?.steps) {
+    s.stepOutputs = new Map();
+    activateFormStep(s, source.steps[0].output);
+    return s;
+  }
   if (!fields.length) s.mode = "ready";
   else if (controls.size || template.placeholderStyle === "source") {
     const active = activeSourceFields(s);
@@ -242,6 +308,11 @@ export function capture(s: Session, value: string, advance = true): void {
   if (!text.trim()) throw Error("emptySelection");
   if (control && !validControlValue(control, text))
     throw Error("invalidControlValue");
+  if (
+    field.value !== text ||
+    (field.status === "verified" && fieldRequiresVerification(s, field))
+  )
+    invalidateStepOutputs(s, field.name);
   field.value = text;
   field.status = "captured";
   delete field.checkedByTyping;
@@ -253,6 +324,7 @@ export function clear(s: Session): void {
   editable(s);
   const field = s.fields[s.active];
   if (!field) return;
+  if (field.value !== null) invalidateStepOutputs(s, field.name);
   field.value = null;
   field.status = "empty";
   delete field.removeBlankLines;
@@ -338,6 +410,12 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   const matches = s.controls?.get(field.name)?.options
     ? field.value === candidate
     : compare(field.value, candidate, s.template.comparison);
+  if (
+    !matches &&
+    field.status === "verified" &&
+    fieldRequiresVerification(s, field)
+  )
+    invalidateStepOutputs(s, field.name);
   field.status = matches ? "verified" : "mismatch";
   if (!matches) {
     field.candidate = candidate;
@@ -363,6 +441,12 @@ export function verify(s: Session, candidate: string, advance = true): boolean {
   return true;
 }
 function validateOutput(s: Session) {
+  if (sessionSteps(s)) {
+    const pending = formAttention(s);
+    if (pending.some(({ check }) => !check)) throw Error("incomplete");
+    if (pending.length) throw Error("unverified");
+    return;
+  }
   if (
     s.template.placeholderStyle !== "source" &&
     s.fields.some((f) => needsCapture(s, f))
@@ -639,6 +723,7 @@ export function eraseSession(s: Session): void {
     delete field.removeBlankLines;
   }
   delete s.prepared;
+  s.stepOutputs?.clear();
   delete s.scannerOutputTemplate;
   delete s.scannerId;
   s.mode = "complete";

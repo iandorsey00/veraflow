@@ -566,3 +566,32 @@ test("snippet actions have stable IDs and interpolate literal selection without 
   ])
     assert.throws(() => parseSource(invalid), /invalidSource/);
 });
+
+test("steps reject duplicate fields, missing assignments, and forward references", () => {
+  const staged = readFileSync(
+    new URL("../examples/source/shipment-steps.veraflow", import.meta.url),
+    "utf8",
+  );
+  assert.equal(parseSource(staged).steps?.length, 3);
+  assert.throws(
+    () =>
+      parseSource(staged.replace('["Tracking"]', '["Reference", "Tracking"]')),
+    { detail: 'Field "Reference" is assigned to more than one step.' },
+  );
+  assert.throws(
+    () =>
+      parseSource(
+        staged.replace('["Reference", "Recipient"]', '["Reference"]'),
+      ),
+    { detail: 'Output "dispatch" uses "Recipient" before its step.' },
+  );
+  assert.throws(
+    () =>
+      parseSource(
+        staged
+          .replace('["Delivered"]', "[]")
+          .replace("{{Delivered}}", "Tuesday"),
+      ),
+    { detail: 'Field "Delivered" is missing from "steps".' },
+  );
+});

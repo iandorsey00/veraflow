@@ -26,3 +26,5 @@ Try the [dispatch note](dispatch-note.veraflow) for comments, conditions, loops,
 Open [Quick snippets](quick-snippets.veraflow) for one-click clipboard actions, including a local timestamp and a greeting using selected text.
 
 Copy [the shipment template](shipment-log.veraflow) and [its CSV](shipment-log.csv) into the same folder to try Form, CSV browsing, and Append row. Use reference `VF-104` to see the duplicate check, or use a new reference to append and start another record.
+
+Open [Shipment follow-up](shipment-steps.veraflow) to prepare a dispatch email, then add pickup and delivery details. Revisit the first step and change the reference to see which copied outputs need review.

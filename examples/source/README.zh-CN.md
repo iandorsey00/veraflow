@@ -24,3 +24,5 @@
 打开[派送单](dispatch-note.veraflow)试用注释、条件、循环、日期格式与地址空行清理。
 
 将[发货记录模板](shipment-log.veraflow)和[配套 CSV](shipment-log.csv)复制到同一目录，试用表单、CSV 浏览和追加行。输入编号 `VF-104` 可查看查重提示，也可输入新编号并追加一条记录。
+
+打开[发货跟进](shipment-steps.veraflow)，先准备发货邮件，再填写取件和送达信息。返回第一步修改编号，可查看哪些已复制的输出需要重新检查。

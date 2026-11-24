@@ -1,0 +1,38 @@
+--- veraflow 2
+{
+  "title": "Shipment follow-up",
+  "instructions": "Use the dispatch record as the source for the shipment reference.",
+  "fields": {
+    "Reference": {"type": "text", "verify": true, "instructions": "Include the VF- prefix."},
+    "Recipient": {"type": "text"},
+    "Tracking": {"type": "text"},
+    "Delivered": {"type": "date"}
+  },
+  "steps": [
+    {"title": "Prepare shipment", "fields": ["Reference", "Recipient"], "output": "dispatch"},
+    {"title": "Record pickup", "fields": ["Tracking"], "output": "pickup"},
+    {"title": "Confirm delivery", "fields": ["Delivered"], "output": "delivery"}
+  ],
+  "outputs": {
+    "dispatch": {"instructions": "Paste the subject and message into the dispatch email."},
+    "pickup": {"instructions": "Paste this update into the shipment ticket."}
+  }
+}
+---
+{{#output dispatch "Dispatch email"}}
+{{#section subject "Subject"}}
+Shipment {{Reference}}
+{{/section}}
+
+{{#section body "Message"}}
+Hello {{Recipient}}, shipment {{Reference}} is ready for pickup.
+{{/section}}
+{{/output}}
+
+{{#output pickup "Pickup note"}}
+Shipment {{Reference}} picked up. Tracking: {{Tracking}}.
+{{/output}}
+
+{{#output delivery "Delivery note"}}
+Shipment {{Reference}} ({{Tracking}}) delivered on {{Delivered}}.
+{{/output}}

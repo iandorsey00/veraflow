@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.0
+
+- Add optional form steps so fields can be entered and verified as information arrives. Each step prepares one named output from the same record.
+- Flag prepared outputs for review when their inputs change, including sections that were already transferred.
+- Show plain-text instructions in the preview and above a named output.
+
 ## 0.19.1
 
 - Add optional plain-text instructions below individual fields, including accessible descriptions and multiline guidance.

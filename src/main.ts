@@ -79,6 +79,10 @@ import {
   startSession,
   prepareWorkflow,
   activeSourceFields,
+  activateFormStep,
+  sessionSteps,
+  noteStepPrepared,
+  noteStepTransfer,
   prepareSections,
   fieldRequiresVerification,
   formAttention,
@@ -1295,9 +1299,11 @@ async function openDocumentTemplate(
         (output) => output.id === file.outputId,
       )
     ) {
-      session.outputId = file.outputId;
+      if (source.steps) activateFormStep(session, file.outputId);
+      else session.outputId = file.outputId;
       resetOutputOptions(session);
       render();
+      if (source.steps) focusStepField(session);
     }
     if (workflow === "append") await switchSourceMode("append");
   }
@@ -2043,7 +2049,7 @@ async function launch(
   sectionTab = library.preferences.tabBetweenSections === true;
   deliveryMode =
     template.placeholderStyle === "source"
-      ? sourceOutput(parseSource(template.content)).delivery.mode
+      ? selectedSourceOutput(session).delivery.mode
       : "step";
   typingCheck = false;
   if (linkedCSV || snippets) lastTemplate = null;
@@ -2076,6 +2082,7 @@ async function launch(
   );
   if (snippets) focus("snippet-run-0");
   else if (linkedCSV) focus("csv-row");
+  else if (sessionSteps(session)) focusStepField(session);
   else if (!session.fields.length) focus("finish");
   if (shortcutError) report(shortcutError);
   return true;
@@ -2224,7 +2231,8 @@ function picker(
 function outputSelector(s: Session) {
   if (s.template.placeholderStyle !== "source") return "";
   const source = parseSource(s.template.content);
-  if (source.outputs.length < 2 && !csvSessions.has(s)) return "";
+  if (source.steps || (source.outputs.length < 2 && !csvSessions.has(s)))
+    return "";
   const selected = s.outputId ?? source.outputs[0].id;
   const options = source.outputs
     .map(
@@ -2288,10 +2296,23 @@ function csvSelector(s: Session, csv: CSVSession) {
   );
 }
 
+function outputInstructions(template: Template, outputId?: string) {
+  if (template.placeholderStyle !== "source") return "";
+  const source = parseSource(template.content);
+  const text = sourceOutput(
+    source,
+    outputId ?? source.steps?.[0].output,
+  ).instructions;
+  return text
+    ? `<p class="field-instructions output-instructions">${esc(text)}</p>`
+    : "";
+}
+
 function outputPreview(template: Template, s?: Session): string {
   try {
     return `<section class="template-output" aria-label="${esc(t("outputPreview"))}">
       <h2>${esc(t("outputPreview"))}</h2>
+      ${outputInstructions(template, s?.outputId)}
       ${previewSections(template, s)
         .map(
           (part) =>
@@ -2564,11 +2585,78 @@ function unifiedFormFields(
   );
 }
 
+function stepHeading(
+  s: Session,
+  steps: NonNullable<ReturnType<typeof sessionSteps>>,
+) {
+  const index = steps.findIndex((step) => step.output === s.outputId);
+  return `<div class="form-step-heading">
+    <p class="eyebrow">${esc(t("formStep"))} ${index + 1}/${steps.length}</p>
+    <h2 id="form-step-heading" tabindex="-1">${esc(steps[index].title)}</h2>
+  </div>`;
+}
+
+function stepWarnings(s: Session) {
+  const items = (sessionSteps(s) ?? []).flatMap((step) => {
+    const progress = s.stepOutputs?.get(step.output);
+    if (!progress?.needsReview && !progress?.staleSections.size) return [];
+    return [
+      `<li><strong>${esc(step.title)}</strong> · ${esc(t(progress.staleSections.size ? "formStepCopiedStale" : "formStepOutputStale"))}</li>`,
+    ];
+  });
+  return items.length ? `<ul class="step-warnings">${items.join("")}</ul>` : "";
+}
+
+function reusedStepFields(s: Session, own: Set<string>, active?: Set<string>) {
+  const values = s.fields.filter(
+    (field) => !own.has(field.name) && active?.has(field.name),
+  );
+  if (!values.length) return "";
+  return `<details class="step-reused">
+    <summary>${esc(t("formStepReused"))}</summary>
+    <dl>${values.map((field) => `<dt>${esc(fieldLabel(s, field.name))}</dt><dd>${esc(field.value ?? t("empty"))} <small>${esc(t(field.status === "verified" ? "formVerified" : field.status))}</small></dd>`).join("")}</dl>
+  </details>`;
+}
+
+function focusStepField(s: Session) {
+  const field = document.getElementById(`form-field-${s.active}`);
+  if (
+    field?.closest("[data-form-row]:not([hidden])") &&
+    !field.closest("details:not([open])")
+  )
+    focus(controlFocus(field.id));
+  else focus("form-step-heading");
+}
+
+async function openFormStep(s: Session, output: string) {
+  activateFormStep(s, output);
+  delete s.prepared;
+  resetOutputOptions(s);
+  lastStep = null;
+  await switchTemplateView(true);
+}
+
+function moveFormStep(offset: number) {
+  const s = session!;
+  const steps = sessionSteps(s);
+  if (!steps) return;
+  const current = steps.findIndex((step) => step.output === s.outputId);
+  const next = steps[current + offset];
+  if (next && (offset < 0 || (s.mode === "delivery" && s.prepared)))
+    return openFormStep(s, next.output);
+}
+
 function templateFormView(s: Session): string {
   const active = activeSourceFields(s);
+  const steps = sessionSteps(s);
+  const stepIndex = steps?.findIndex((step) => step.output === s.outputId) ?? 0;
+  const step = steps?.[stepIndex];
+  const own = step && new Set(step.fields);
   const fields = s.fields
     .map((field, index) => ({ field, index }))
-    .filter(({ field }) => active || fieldVisible(s, field.name));
+    .filter(({ field }) =>
+      own ? own.has(field.name) : active || fieldVisible(s, field.name),
+    );
   // Put choices first and prioritize condition drivers within each group.
   const dependencies = new Set([
     ...sourceConditionDrivers(s),
@@ -2581,18 +2669,20 @@ function templateFormView(s: Session): string {
   fields.sort((a, b) => rank(a.field.name) - rank(b.field.name));
   if (s.unifiedForm)
     return `<main class="capture-panel template-form unified-form">
-    <header><h1>${esc(s.template.name)}</h1>${templateInstructions(s)}${outputSelector(s)}
+    <header><h1>${esc(s.template.name)}</h1>${templateInstructions(s)}${steps ? stepHeading(s, steps) : outputSelector(s)}
       <div class="task-toolbar">
-        ${s.template.placeholderStyle === "source" ? sourceModeButtons("form") + button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") : ""}
+        ${s.template.placeholderStyle === "source" ? (steps ? "" : sourceModeButtons("form")) + button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") : ""}
         ${s.scanner ? button("scanner-add", "addField", "quiet") : ""}
         ${button("pause-task", "pauseTask", "quiet")}
       </div>
       ${focusedWorkflow ? `<p class="task-progress">${esc(progressText(s))}</p>` : ""}
     </header>
     <div class="template-form-grid ${library.preferences.hideLivePreview ? "without-preview" : ""}"><div>
+      ${step && own ? reusedStepFields(s, own, step.references) : ""}
       ${unifiedFormFields(s, fields, active)}
+      ${steps ? `<div id="step-warnings" aria-live="polite">${stepWarnings(s)}</div>` : ""}
       <div id="form-attention" aria-live="polite">${formAttentionView(s)}</div>
-      <div class="actions">${s.scanner ? "" : button("finish", s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>
+      <div class="actions">${steps && stepIndex > 0 ? button("step-previous", "formStepPrevious", "quiet") : ""}${s.scanner ? "" : button("finish", s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>
       ${s.scanner ? `<details class="form-tools"><summary>${esc(t("formTools"))}</summary>${scannerControls(true)}</details>` : ""}
     </div><div id="form-output" ${library.preferences.hideLivePreview ? "hidden" : ""}>${library.preferences.hideLivePreview ? "" : s.scanner ? freeScannerPreview(s) : outputPreview(s.template, s)}</div></div>
     <div class="actions">${button("cancel-session", "closeSession", "quiet")}</div>
@@ -2894,7 +2984,8 @@ async function switchTemplateView(form: boolean) {
   preview = false;
   message = "";
   render();
-  if (form) focus(controlFocus(`form-field-${s.active}`));
+  if (form && sessionSteps(s)) focusStepField(s);
+  else if (form) focus(controlFocus(`form-field-${s.active}`));
   else if (!s.fields[s.active]) focus("finish");
   else if (s.fields[s.active].value !== null) focus(`field-${s.active}`);
   else if (s.template.placeholderStyle === "source")
@@ -2977,6 +3068,8 @@ function sectionOrderView(parts: NonNullable<Session["prepared"]>) {
   </div>`;
 }
 function sectionDeliveryView(s: Session) {
+  const steps = sessionSteps(s);
+  const stepIndex = steps?.findIndex((step) => step.output === s.outputId) ?? 0;
   const csv = csvSessions.get(s);
   const pickers = (csv ? csvSelector(s, csv) : "") + outputSelector(s);
   if (csv?.error)
@@ -2995,11 +3088,13 @@ function sectionDeliveryView(s: Session) {
         : ""
       : navigation.join(" → ");
   return `<main class="capture-panel delivery-panel">
-    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${pickers}<p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
+    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${steps ? stepHeading(s, steps) : pickers}<p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
+    ${outputInstructions(s.template, s.outputId)}
     <pre class="output delivery-text" tabindex="0">${esc(parts[index].text)}</pre>
     <div class="toolbar delivery-primary">${button("copy-section", "copySection", "primary")}${s.prepared!.length > 1 && !groupSections ? button("copy-output", "copyEntireOutput") : ""}${button("save-sections", "saveSections", "quiet")}</div>
     <p class="hint">${esc(t("sectionDeliveryHelp"))} <kbd>${esc(keyLabel(library.preferences.shortcuts.finish))}</kbd></p>
     ${lastStep ? lastStepView() : ""}
+    ${steps ? stepWarnings(s) : ""}
     ${parts.length > 1 ? `<div class="toolbar delivery-navigation">${button("section-prev", "emailManualBack", "", index === 0 && !s.deliveryDone)}${button("section-next", "emailManualNext", "", index === parts.length - 1)}</div>` : ""}
     ${
       s.prepared!.length > 1
@@ -3015,7 +3110,21 @@ function sectionDeliveryView(s: Session) {
     }
     ${pasteOrder ? `<p class="hint" role="status">${esc(t("manualSectionOrder"))}</p>` : ""}
     ${parts.length > 1 && !s.deliveryDone ? `<p class="hint">${esc(t("afterSection"))} ${esc(keys || t("noNavigation"))}</p>` : ""}
-    <div class="toolbar delivery-exit">${csv ? sourceModeButtons("csv") + button("use-csv-row", "useCSVRow", "quiet", !!csv.error) : button("section-edit", "returnToFilledForm", "quiet") + button("switch-csv", "csvMode", "quiet") + button("switch-append", "appendMode", "quiet")}${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
+    <div class="toolbar delivery-exit">${
+      csv
+        ? sourceModeButtons("csv") +
+          button("use-csv-row", "useCSVRow", "quiet", !!csv.error)
+        : button("section-edit", "returnToFilledForm", "quiet") +
+          (steps
+            ? (stepIndex > 0
+                ? button("step-previous", "formStepPrevious", "quiet")
+                : "") +
+              (stepIndex < steps.length - 1
+                ? button("step-next", "formStepNext")
+                : "")
+            : button("switch-csv", "csvMode", "quiet") +
+              button("switch-append", "appendMode", "quiet"))
+    }${button("pause-task", "pauseTask", "quiet")}${button("cancel-session", "closeSession", "quiet")}</div>
   </main>`;
 }
 function emailDeliveryView(s: Session) {
@@ -3551,6 +3660,10 @@ async function goToFormAttention(index: number | undefined) {
   if (index === undefined) return;
   const s = session!;
   if (appending.has(s)) await switchSourceMode("form");
+  const owner = sessionSteps(s)?.find((step) =>
+    step.fields.includes(s.fields[index].name),
+  );
+  if (owner && owner.output !== s.outputId) await openFormStep(s, owner.output);
   focusFormField(index);
 }
 
@@ -3608,6 +3721,8 @@ function bindSession() {
   click("source-copy-field", () =>
     copySelectedField(session!, session!.active),
   );
+  click("step-previous", () => moveFormStep(-1));
+  click("step-next", () => moveFormStep(1));
   click("batch-compare", () => batchCompare(session!));
   click("save-record", async () => {
     const s = session!;
@@ -3650,14 +3765,19 @@ function bindSession() {
       .prepared!.map((part) => part.text)
       .join(selectedSourceOutput(s).delivery.separator);
     await copyTask(text, selectedSourceOutput(s).label);
+    noteStepTransfer(s);
     notify("copied");
+    if (s.stepOutputs) focus("copy-output");
     await rememberOutput(s, sectionText(s.prepared!));
   });
 
   click("copy-section", async () => {
-    const part = deliveredSections(session!)[session!.deliveryIndex ?? 0];
+    const s = session!;
+    const part = deliveredSections(s)[s.deliveryIndex ?? 0];
     await copyTask(part.text, part.label);
+    noteStepTransfer(s, groupSections ? undefined : part.id);
     notify("copied");
+    if (s.stepOutputs) focus("copy-section");
     await rememberOutput(session!, sectionText(session!.prepared!));
   });
   click("save-sections", async () => {
@@ -3802,6 +3922,11 @@ function bindSession() {
           ? freeScannerPreview(s)
           : outputPreview(s.template, s);
       if (s.unifiedForm) refreshFormAttention(s);
+      const warnings = document.getElementById("step-warnings");
+      if (warnings) {
+        const content = stepWarnings(s);
+        if (warnings.innerHTML !== content) warnings.innerHTML = content;
+      }
       const progress = root.querySelector(".template-form .task-progress");
       if (progress) progress.textContent = progressText(s);
       const reverify = root.querySelector<HTMLButtonElement>("#reverify-form");
@@ -4296,6 +4421,7 @@ async function perform(action: Action, global = false) {
           );
           // Advance only after the native step returns. A failed step stays selected.
           transferred = true;
+          noteStepTransfer(s, groupSections ? undefined : parts[current].id);
           s.deliveryIndex = Math.min(current + 1, parts.length - 1);
           s.deliveryDone = current === parts.length - 1;
         }
@@ -4400,7 +4526,7 @@ async function perform(action: Action, global = false) {
       if (s.unifiedForm && templateFormActive()) {
         const first = formAttention(s)[0];
         if (first) {
-          focusFormField(first.index);
+          await goToFormAttention(first.index);
           return;
         }
       }
@@ -4439,6 +4565,7 @@ async function perform(action: Action, global = false) {
         const shortcutError = await configureSessionShortcuts(true);
         await platform.compact(true, library.preferences.alwaysOnTop);
         s.prepared = parts;
+        noteStepPrepared(s);
         s.mode = "delivery";
         s.deliveryIndex = 0;
         s.deliveryDone = false;
