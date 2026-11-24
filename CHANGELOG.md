@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Export stepped forms with one shared record, earlier-field review, and separate copy and navigation controls.
+- Show output instructions beside each output. Flag affected steps after an edit and keep copied sections flagged until they are regenerated and copied again.
+- Use the VeraFlow 0.20.0 core and its shipment fixture for desktop output parity.
+
 ## 0.1.1
 
 - Add `npm start` to build and serve the authoring page locally.

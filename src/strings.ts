@@ -16,7 +16,7 @@ const strings = {
     "Your template stays in this browser.",
     "模板文件只在此浏览器中处理。",
   ],
-  title: ["Export a standalone form", "导出独立表单"],
+  title: ["Export as standalone HTML", "导出为独立 HTML"],
   lead: [
     "Turn a VeraFlow template into one HTML file that works offline.",
     "将 VeraFlow 模板转换为一个可离线使用的 HTML 文件。",
@@ -73,6 +73,21 @@ const strings = {
   ready: ["Ready to create output.", "可以生成输出。"],
   optional: ["Optional fields", "选填项"],
   output: ["Output", "输出"],
+  stepProgress: ["Step {0}", "步骤 {0}"],
+  stepNavigation: ["Step navigation", "步骤导航"],
+  previousStep: ["Previous step", "上一步"],
+  nextStep: ["Next step", "下一步"],
+  earlierFields: ["Fields from earlier steps", "之前步骤的字段"],
+  emptyField: ["Not entered", "未填写"],
+  reviewOutput: [
+    "{0} · Inputs changed. Regenerate this output.",
+    "{0} · 输入已更改。请重新生成输出。",
+  ],
+  reviewCopied: [
+    "{0} · Inputs changed after copying. Regenerate and copy the affected sections again.",
+    "{0} · 复制后输入已更改。请重新生成并复制受影响的部分。",
+  ],
+  reviewSteps: ["Outputs to review", "待复查的输出"],
   create: ["Create output", "生成输出"],
   preview: ["Preview output", "预览输出"],
   previewWaiting: [

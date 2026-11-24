@@ -17,3 +17,15 @@ export const expected = {
   body: "Hi 林 Mei {{case}},\nYour Ground service shipment is on the way. Tracking: ZX 902 17.\n",
   note: "Case SV-1042 | Customer: 林 Mei {{case}} | Tracking: ZX 902 17 | Ground service\n",
 };
+
+export const shipmentExample = new URL(
+  "../examples/shipment-steps.veraflow",
+  import.meta.url,
+);
+export const shipmentSource = await readFile(shipmentExample, "utf8");
+export const shipment = {
+  firstReference: "VF-104",
+  newReference: "VF-105",
+  recipient: "Alex",
+  tracking: "PK-12",
+};

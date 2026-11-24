@@ -46,6 +46,19 @@ For another checkout layout, set `VERAFLOW_WEB_DIR` to the VeraFlow Web project 
 
 The form requires a browser that can run JavaScript from a local file. When managed-device policy blocks local HTML, the same file can be served from an approved internal HTTPS site.
 
+## Forms with steps
+
+VeraFlow Web supports ordinary forms and forms with a `steps` array. Each step names a `title`, the `fields` to enter, and an `output` ID. The shared VeraFlow parser checks field and output assignments and rejects references to later steps. Form, field, and output instructions appear next to their respective controls.
+
+Each step uses the same in-memory record. Expand **Fields from earlier steps** to review reused values. Open **Previous step** to edit an earlier input. After **Create output**, use **Next step** to continue when ready. Copying, saving text, and moving between steps are separate actions. When an edit affects a prepared output, **Outputs to review** identifies the step. Copied sections remain flagged until the output is regenerated and those sections are copied again.
+
+Use the desktop [shipment-steps.veraflow](examples/shipment-steps.veraflow) fixture for the offline browser check:
+
+1. Export the template and open the saved HTML directly with the network disabled. Enter `VF-104` and `Alex`, verify the reference, then create and copy the dispatch email.
+2. Select **Next step**, review the reference under **Fields from earlier steps**, enter `PK-12`, and create the pickup note.
+3. Go back and change the reference to `VF-105`. Check that the dispatch copy and pickup note are both flagged. Verify the new reference, regenerate the dispatch email, and copy each section. Confirm its warning clears after the second copy. Return to pickup and verify that `PK-12` survives and the regenerated note contains `VF-105`.
+4. Repeat in Windows Edge and macOS Safari. Check Tab and Enter navigation, the field's accessible description, and the manual copy and text download paths when clipboard writes are blocked. If local HTML is blocked by workplace policy, serve the same HTML over approved internal HTTPS and repeat the checks.
+
 ## Synthetic pilot
 
 1. Export [service-case.veraflow](examples/service-case.veraflow). Move it to a new directory, rename it and open it directly in Safari or Windows Edge. Test disconnected and check the browser's Network panel for HTTP requests.
@@ -63,4 +76,4 @@ Build from a clean checkout and publish the static output as one version. Verify
 
 `npm test` builds the application and checks export errors, privacy, CSP integrity and named output fixtures. Set `VERAFLOW_DESKTOP_DIR` to a desktop checkout to compare against its `src/core` directly. `npm run test:browser` runs the end-to-end tests in Chromium. Set `VERAFLOW_BROWSER=edge` for installed Edge or `VERAFLOW_BROWSER=webkit` for the Playwright WebKit build. The browser runner requires a supported browser installed in the test environment.
 
-The MIT-licensed core snapshot in `vendor/veraflow/core/` is unchanged from the desktop revision recorded in `vendor/veraflow/revision.json`. Refresh the snapshot and revision metadata together and run the desktop and web fixtures when upgrading it.
+The MIT-licensed files in `vendor/veraflow/core/` are copied from VeraFlow desktop. The metadata in `vendor/veraflow/revision.json` records the desktop release and commit used for the build. Refresh the core, shipment fixture, and revision metadata together when upgrading.

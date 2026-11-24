@@ -1,11 +1,14 @@
 import { type Control } from "../vendor/veraflow/core/form";
 import { type Template } from "../vendor/veraflow/core/model";
 import {
+  activateFormStep,
   activeSourceFields,
   capture,
   clear,
   fieldRequiresVerification,
   formAttention,
+  noteStepPrepared,
+  noteStepTransfer,
   prepareSections,
   prepareWorkflow,
   startSession,
@@ -25,6 +28,15 @@ const template: Template = JSON.parse(
   document.getElementById("definition")!.textContent!,
 );
 const source = parseSource(template.content);
+const steps = source.steps;
+const stepOwners = new Map(
+  steps?.flatMap((step, index) =>
+    step.fields.map((name) => [name, index] as const),
+  ),
+);
+type Prepared = ReturnType<typeof prepareSections>;
+const latestPrepared = new Map<string, symbol>();
+let stepIndex = 0;
 const session = startSession(template);
 session.unifiedForm = true;
 prepareWorkflow(session, true);
@@ -35,6 +47,28 @@ if (source.instructions) {
   instructions.className = "instructions";
   main.querySelector("header")!.append(instructions);
 }
+
+const stepHeader = element("section");
+stepHeader.className = "step-heading";
+stepHeader.hidden = !steps;
+const stepProgress = element("p");
+stepProgress.className = "help";
+const stepTitle = element("h2");
+stepTitle.tabIndex = -1;
+stepHeader.append(stepProgress, stepTitle);
+const earlier = element("details");
+earlier.className = "earlier-fields";
+const earlierValues = element("dl");
+earlierValues.className = "details-list";
+earlier.append(text("summary", "earlierFields"), earlierValues);
+const warnings = element("section");
+warnings.className = "attention step-warnings";
+warnings.setAttribute("role", "status");
+warnings.setAttribute("aria-labelledby", "step-warnings-title");
+const warningTitle = text("h2", "reviewSteps");
+warningTitle.id = "step-warnings-title";
+const warningList = element("ul");
+warnings.append(warningTitle, warningList);
 
 const attention = element("section");
 attention.setAttribute("aria-labelledby", "attention-title");
@@ -58,10 +92,11 @@ const selector = element("select");
 selector.id = "output-name";
 for (const output of source.outputs)
   selector.add(new Option(output.label, output.id));
-session.outputId = selector.value;
+if (!steps) session.outputId = selector.value;
 selector.addEventListener("change", () => {
   session.outputId = selector.value;
   invalidateOutput();
+  refreshOutputInfo();
   refresh();
 });
 
@@ -82,6 +117,11 @@ outputChoice.className = "output-choice";
 outputChoice.append(outputLabel, selector);
 const create = action("create", createOutput);
 create.className = "primary";
+outputChoice.hidden = Boolean(steps);
+const currentOutputName = element("h2");
+const outputInstructions = element("p");
+outputInstructions.id = "output-instructions";
+outputInstructions.className = "help instructions";
 toolbar.append(outputChoice, create);
 
 const preview = element("details");
@@ -92,8 +132,34 @@ preview.addEventListener("toggle", refreshPreview);
 
 const outputPanel = element("section");
 outputPanel.className = "output-panel";
-outputPanel.append(toolbar, preview, error, result, feedback);
-main.append(attention, attentionStatus, required, optional, outputPanel);
+const previous = action("previousStep", () => openStep(stepIndex - 1));
+const next = action("nextStep", () => openStep(stepIndex + 1));
+const stepActions = element("nav");
+stepActions.className = "actions step-actions";
+setLabel(stepActions, "stepNavigation");
+stepActions.append(previous, next);
+outputPanel.append(
+  currentOutputName,
+  outputInstructions,
+  toolbar,
+  preview,
+  error,
+  result,
+  feedback,
+);
+main.append(
+  stepHeader,
+  warnings,
+  attention,
+  attentionStatus,
+  earlier,
+  required,
+  optional,
+  outputPanel,
+  stepActions,
+);
+refreshOutputInfo();
+refreshStep();
 const details = element("details");
 details.className = "form-details";
 const provenance: { sourceName?: string } = JSON.parse(
@@ -178,7 +244,10 @@ function createField(field: (typeof session.fields)[number], index: number) {
   const candidate = valueControl(control);
   candidate.id = `${id}-check`;
   candidate.autocomplete = "off";
-  candidate.setAttribute("aria-describedby", status.id);
+  candidate.setAttribute(
+    "aria-describedby",
+    input.getAttribute("aria-describedby")!,
+  );
   const checkLabel = text("label", "independent", labelText);
   checkLabel.htmlFor = candidate.id;
   const verifyButton = action("verifyField", () => {
@@ -240,13 +309,13 @@ function createField(field: (typeof session.fields)[number], index: number) {
   });
   input.addEventListener("input", () => {
     session.active = index;
-    clear(session);
     state.invalid = undefined;
     state.checkError = undefined;
     if (input.value.trim()) {
       try {
         capture(session, input.value, false);
       } catch {
+        clear(session);
         const kind = control?.kind;
         state.invalid =
           kind === "email"
@@ -257,7 +326,7 @@ function createField(field: (typeof session.fields)[number], index: number) {
                 ? "invalidDate"
                 : "invalidValue";
       }
-    }
+    } else clear(session);
     candidate.value = "";
     checkArea.hidden = true;
     verifyButton.setAttribute("aria-expanded", "false");
@@ -269,10 +338,92 @@ function createField(field: (typeof session.fields)[number], index: number) {
   return state;
 }
 
+function refreshOutputInfo() {
+  const output = sourceOutput(source, session.outputId);
+  currentOutputName.hidden = !steps;
+  currentOutputName.textContent = output.label;
+  outputInstructions.hidden = !output.instructions;
+  outputInstructions.textContent = output.instructions ?? "";
+  if (output.instructions)
+    create.setAttribute("aria-describedby", outputInstructions.id);
+  else create.removeAttribute("aria-describedby");
+}
+
+function refreshStep() {
+  const step = steps?.[stepIndex];
+  earlierValues.replaceChildren();
+  earlier.open = false;
+  if (steps && step) {
+    setText(stepProgress, "stepProgress", `${stepIndex + 1} / ${steps.length}`);
+    stepTitle.textContent = step.title;
+    for (const { labelText, index } of rows) {
+      const field = session.fields[index];
+      if (
+        stepOwners.get(field.name) === stepIndex ||
+        !step.references.has(field.name)
+      )
+        continue;
+      const value =
+        field.value === null
+          ? text("dd", "emptyField")
+          : element("dd", field.value);
+      if (field.status === "verified")
+        value.append(" · ", text("small", "verified"));
+      earlierValues.append(element("dt", labelText), value);
+    }
+  }
+  earlier.hidden = !earlierValues.childElementCount;
+  previous.hidden = !step || stepIndex === 0;
+  refreshNext();
+}
+
+function refreshNext() {
+  next.hidden = !steps || stepIndex === steps.length - 1 || !session.prepared;
+  stepActions.hidden = previous.hidden && next.hidden;
+}
+
+function openStep(index: number, focusHeading = true) {
+  const step = steps?.[index];
+  if (!step) return;
+  stepIndex = index;
+  activateFormStep(session, step.output);
+  invalidateOutput();
+  refreshOutputInfo();
+  refreshStep();
+  refresh();
+  if (focusHeading) stepTitle.focus();
+}
+
+function refreshWarnings() {
+  const entries = (steps ?? []).flatMap((step) => {
+    const progress = session.stepOutputs?.get(step.output);
+    if (!progress?.needsReview && !progress?.staleSections.size) return [];
+    return [
+      text(
+        "li",
+        progress.staleSections.size ? "reviewCopied" : "reviewOutput",
+        step.title,
+      ),
+    ];
+  });
+  if (
+    entries.length !== warningList.childElementCount ||
+    entries.some(
+      (entry, i) => entry.textContent !== warningList.children[i].textContent,
+    )
+  ) {
+    warningList.replaceChildren(...entries);
+  }
+  warnings.hidden = !entries.length;
+}
+
 function invalidateOutput() {
+  delete session.prepared;
+  refreshNext();
   result.hidden = true;
   result.replaceChildren();
   preview.hidden = false;
+  currentOutputName.hidden = !steps;
   setText(error);
   setText(feedback);
 }
@@ -313,7 +464,8 @@ function refresh() {
     const relevant = active?.has(field.name) ?? true;
     const isOptional = session.controls!.get(field.name)?.optional === true;
     const needsVerification = fieldRequiresVerification(session, field);
-    row.hidden = !relevant;
+    const own = !steps || stepOwners.get(field.name) === stepIndex;
+    row.hidden = !relevant || !own;
     verifyButton.hidden = field.value === null || !needsVerification;
     const target =
       isOptional && !input.value.trim() ? optionalFields : required;
@@ -326,7 +478,8 @@ function refresh() {
         .find((entry) => entry.row.parentElement === target);
       target.insertBefore(row, next?.row ?? null);
     }
-    if (invalid && selectedFields.has(field.name)) issues.set(index, "fix");
+    if (invalid && (steps ? relevant : selectedFields.has(field.name)))
+      issues.set(index, "fix");
     const message =
       invalid ||
       checkError ||
@@ -356,6 +509,8 @@ function refresh() {
     link.href = `#${kind === "verify" ? verifyButton.id : input.id}`;
     link.addEventListener("click", (event) => {
       event.preventDefault();
+      const owner = stepOwners.get(session.fields[index].name);
+      if (owner !== undefined && owner !== stepIndex) openStep(owner, false);
       if (row.parentElement === optionalFields) optional.open = true;
       if (kind === "verify") {
         if (verifyButton.getAttribute("aria-expanded") === "true")
@@ -367,13 +522,18 @@ function refresh() {
     item.append(link);
     return item;
   });
-  const previous = Array.from(
+  const previousLinks = Array.from(
     attentionList.children,
-    (item) => item.textContent,
+    (item) => item.firstElementChild,
   );
   if (
-    links.length !== previous.length ||
-    links.some((item, index) => item.textContent !== previous[index])
+    links.length !== previousLinks.length ||
+    links.some(
+      (item, index) =>
+        item.textContent !== previousLinks[index]?.textContent ||
+        item.firstElementChild?.getAttribute("href") !==
+          previousLinks[index]?.getAttribute("href"),
+    )
   )
     attentionList.replaceChildren(...links);
   attention.hidden = !links.length;
@@ -382,6 +542,7 @@ function refresh() {
     links.length ? "remaining" : "ready",
     String(links.length),
   );
+  refreshWarnings();
   refreshPreview();
 }
 
@@ -422,23 +583,29 @@ function createOutput() {
     const full = sections
       .map(({ text }) => text)
       .join(output.delivery.separator);
+    const generation = Symbol();
+    const transferred = (section?: string) =>
+      trackTransfer(output.id, sections, generation, section);
     const title = element("h2", output.label);
     title.tabIndex = -1;
+    if (output.instructions)
+      title.setAttribute("aria-describedby", outputInstructions.id);
     const actions = element("div");
     actions.className = "actions";
     actions.append(
-      action("copyFull", () => void copy(full, complete)),
+      action("copyFull", () => void copy(full, complete, () => transferred())),
       action("downloadText", () =>
         download(`${output.id}.txt`, full, "text/plain;charset=utf-8"),
       ),
     );
-    const complete = textArea("", full);
+    const complete = textArea("", full, () => transferred());
     setLabel(complete.value, "entireOutput");
     complete.value.hidden = true;
     result.append(title, actions);
-    for (const { label, text } of sections) {
-      const section = textArea(label, text);
-      const copyButton = action("copy", () => void copy(text, section));
+    for (const { id, label, text } of sections) {
+      const onCopy = () => transferred(id);
+      const section = textArea(label, text, onCopy);
+      const copyButton = action("copy", () => void copy(text, section, onCopy));
       setLabel(copyButton, "copySection", label);
       const part = element("section");
       part.className = "result-part";
@@ -457,24 +624,65 @@ function createOutput() {
     preview.open = false;
     preview.hidden = true;
     result.hidden = false;
+    currentOutputName.hidden = true;
+    if (steps) {
+      session.prepared = sections;
+      latestPrepared.set(output.id, generation);
+      noteStepPrepared(session);
+      refreshWarnings();
+      refreshNext();
+    }
     title.focus();
   } catch (failure) {
     setText(error, outputError(failure));
   }
 }
 
-function textArea(label: string, text: string) {
+function trackTransfer(
+  outputId: string,
+  prepared: Prepared,
+  generation: symbol,
+  section?: string,
+) {
+  const progress = session.stepOutputs?.get(outputId);
+  if (!progress) return;
+  // Resolve an asynchronous clipboard write against the output that initiated it.
+  const stale =
+    progress.needsReview || latestPrepared.get(outputId) !== generation;
+  noteStepTransfer({ ...session, outputId, prepared }, section);
+  if (stale) {
+    for (const part of prepared)
+      if (section === undefined || section === part.id)
+        progress.staleSections.add(part.id);
+  }
+  refreshWarnings();
+}
+
+function textArea(label: string, text: string, onCopy: () => void) {
   const value = element("textarea");
   value.readOnly = true;
   value.value = text;
   value.rows = Math.max(2, Math.min(10, text.split("\n").length));
   value.setAttribute("aria-label", label);
+  value.addEventListener("copy", () => {
+    if (
+      value.value.length &&
+      value.selectionStart === 0 &&
+      value.selectionEnd === value.value.length
+    )
+      onCopy();
+  });
   return { label: element("h3", label), value };
 }
 
-async function copy(text: string, area: ReturnType<typeof textArea>) {
+async function copy(
+  text: string,
+  area: ReturnType<typeof textArea>,
+  onCopy: () => void,
+) {
   try {
     await navigator.clipboard.writeText(text);
+    onCopy();
     if (area.value.isConnected) setText(feedback, "copied");
   } catch {
     if (!area.value.isConnected) return;

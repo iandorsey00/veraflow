@@ -7,7 +7,16 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
-import { example, expected, inputs, script, source } from "./fixtures.mjs";
+import {
+  example,
+  expected,
+  inputs,
+  script,
+  source,
+  shipmentExample,
+  shipmentSource,
+  shipment,
+} from "./fixtures.mjs";
 
 const { version } = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -123,12 +132,7 @@ test("rejects runtime-only workflows and variables, including inside unused bran
   }
 });
 
-test("same named sections and literal Unicode as VeraFlow desktop", async (t) => {
-  const directory = await sandbox(t);
-  const desktop = process.env.VERAFLOW_DESKTOP_DIR;
-  const coreDir = resolve(
-    desktop ? join(desktop, "src/core") : "vendor/veraflow/core",
-  );
+async function loadCore(coreDir) {
   const core = await build({
     stdin: {
       contents: 'export * from "./session";',
@@ -139,9 +143,18 @@ test("same named sections and literal Unicode as VeraFlow desktop", async (t) =>
     format: "esm",
     write: false,
   });
-  const { renderTemplateValues } = await import(
+  return import(
     `data:text/javascript;base64,${Buffer.from(core.outputFiles[0].contents).toString("base64")}`
   );
+}
+
+const vendoredCore = resolve("vendor/veraflow/core");
+const desktop = process.env.VERAFLOW_DESKTOP_DIR;
+const desktopCore = desktop ? resolve(desktop, "src/core") : vendoredCore;
+
+test("same named sections and literal Unicode as VeraFlow desktop", async (t) => {
+  const directory = await sandbox(t);
+  const { renderTemplateValues } = await loadCore(desktopCore);
   const output = join(directory, "case.html");
   run(fileURLToPath(example), output);
   const html = await readFile(output, "utf8");
@@ -156,4 +169,115 @@ test("same named sections and literal Unicode as VeraFlow desktop", async (t) =>
   assert.deepEqual(renderTemplateValues(template, values, "ticket"), [
     { id: "note", label: "Note", text: expected.note },
   ]);
+});
+
+test("shipment steps share verified values and retain copied-section warnings until recopy", async (t) => {
+  const directory = await sandbox(t);
+  const runtime = await loadCore(vendoredCore);
+  const desktopRuntime = await loadCore(desktopCore);
+  if (desktop) {
+    assert.equal(
+      await readFile(
+        join(resolve(desktop), "examples/source/shipment-steps.veraflow"),
+        "utf8",
+      ),
+      shipmentSource,
+    );
+  }
+  const output = join(directory, "shipment.html");
+  run(fileURLToPath(shipmentExample), output);
+  const html = await readFile(output, "utf8");
+  const template = JSON.parse(
+    html.match(/id="definition">([^]*?)<\/script>/)[1],
+  );
+  const state = runtime.startSession(template);
+  state.unifiedForm = true;
+  runtime.prepareWorkflow(state, true);
+
+  function enter(name, value) {
+    state.active = state.fields.findIndex((field) => field.name === name);
+    runtime.capture(state, value, false);
+  }
+  function check(value) {
+    state.active = state.fields.findIndex(
+      (field) => field.name === "Reference",
+    );
+    state.mode = "verify";
+    return runtime.verify(state, value, false);
+  }
+  function prepare() {
+    const values = new Map(
+      state.fields
+        .filter((field) => field.value !== null)
+        .map(({ name, value }) => [name, value]),
+    );
+    state.prepared = runtime.prepareSections(state);
+    assert.deepEqual(
+      state.prepared,
+      desktopRuntime.renderTemplateValues(
+        template,
+        values,
+        state.outputId,
+        state.sourceContext,
+      ),
+    );
+    runtime.noteStepPrepared(state);
+    return state.prepared.map(({ text }) => text);
+  }
+  const { firstReference, newReference, recipient, tracking } = shipment;
+  assert.equal(state.outputId, "dispatch");
+  enter("Reference", firstReference);
+  enter("Recipient", recipient);
+  assert.throws(() => prepare(), /unverified/);
+  assert.equal(check("VF-999"), false);
+  assert.equal(state.fields[state.active].value, firstReference);
+  assert.equal(check(firstReference), true);
+  assert.deepEqual(prepare(), [
+    "Shipment VF-104",
+    "Hello Alex, shipment VF-104 is ready for pickup.",
+  ]);
+  runtime.noteStepTransfer(state);
+  runtime.activateFormStep(state, "pickup");
+  enter("Tracking", tracking);
+  assert.deepEqual(prepare(), ["Shipment VF-104 picked up. Tracking: PK-12."]);
+  runtime.activateFormStep(state, "dispatch");
+  enter("Reference", newReference);
+  assert.throws(() => prepare(), /unverified/);
+  assert.deepEqual(
+    [...state.stepOutputs.get("dispatch").staleSections],
+    ["subject", "body"],
+  );
+  assert.equal(state.stepOutputs.get("pickup").needsReview, true);
+  assert.equal(check(newReference), true);
+  assert.deepEqual(prepare(), [
+    "Shipment VF-105",
+    "Hello Alex, shipment VF-105 is ready for pickup.",
+  ]);
+  assert.equal(state.stepOutputs.get("dispatch").needsReview, false);
+  runtime.noteStepTransfer(state, "subject");
+  assert.deepEqual(
+    [...state.stepOutputs.get("dispatch").staleSections],
+    ["body"],
+  );
+  runtime.noteStepTransfer(state, "body");
+  assert.equal(state.stepOutputs.get("dispatch").staleSections.size, 0);
+  runtime.activateFormStep(state, "pickup");
+  assert.equal(
+    state.fields.find((field) => field.name === "Tracking").value,
+    tracking,
+  );
+  assert.deepEqual(prepare(), ["Shipment VF-105 picked up. Tracking: PK-12."]);
+});
+
+test("rejects a stepped export with a forward reference", async (t) => {
+  const directory = await sandbox(t);
+  const input = join(directory, "future.vf");
+  await writeFile(
+    input,
+    shipmentSource.replace("Shipment {{Reference}}", "Shipment {{Tracking}}"),
+  );
+  assert.throws(
+    () => run(input, join(directory, "form.html")),
+    /Output "dispatch" uses "Tracking" before its step/,
+  );
 });

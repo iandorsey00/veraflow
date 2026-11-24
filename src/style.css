@@ -406,3 +406,31 @@ footer {
     flex-basis: auto;
   }
 }
+
+.step-heading {
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+  margin-bottom: 1rem;
+}
+.step-heading p {
+  margin: 0 0 0.2rem;
+}
+.step-heading h2 {
+  margin: 0;
+}
+.earlier-fields {
+  margin-block: 1rem;
+}
+.earlier-fields dd {
+  white-space: pre-wrap;
+}
+.step-actions {
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+.step-actions button:last-child {
+  margin-inline-start: auto;
+}
+.output-panel > .instructions {
+  margin-block: 0 0.85rem;
+}

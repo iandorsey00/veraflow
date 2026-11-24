@@ -6,7 +6,14 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium, webkit } from "playwright";
-import { example, expected, inputs, script } from "./fixtures.mjs";
+import {
+  example,
+  expected,
+  inputs,
+  script,
+  shipment,
+  shipmentExample,
+} from "./fixtures.mjs";
 
 const engine = process.env.VERAFLOW_BROWSER ?? "chromium";
 const launch = () =>
@@ -178,4 +185,147 @@ test("the authoring page exposes a newer deployed version and downloads an HTML 
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download HTML form" }).click();
   assert.equal((await downloading).suggestedFilename(), "service-case.html");
+});
+
+test("offline shipment steps preserve later inputs and require recopy after a revision", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "veraflow-shipment-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const file = join(directory, "shipment.html");
+  execFileSync(process.execPath, [
+    fileURLToPath(script),
+    fileURLToPath(shipmentExample),
+    file,
+  ]);
+  const browser = await launch();
+  t.after(() => browser.close());
+  const context = await browser.newContext({ offline: true });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        async writeText(text) {
+          if (window.blockVeraFlowClipboard)
+            throw new Error("Clipboard blocked");
+          window.lastVeraFlowCopy = text;
+        },
+      },
+    });
+  });
+  const requests = [];
+  const errors = [];
+  page.on("request", (request) => {
+    if (/^https?:/.test(request.url())) requests.push(request.url());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(pathToFileURL(file).href);
+  const create = page.getByRole("button", { name: "Create output" });
+  const next = page.getByRole("button", { name: "Next step" });
+  const previous = page.getByRole("button", { name: "Previous step" });
+  const reference = page.getByLabel("Reference", { exact: true });
+  const tracking = page.getByLabel("Tracking", { exact: true });
+  const warnings = page.locator(".step-warnings");
+  const stepTitle = () => page.locator(".step-heading h2").textContent();
+  const { firstReference, newReference, recipient, tracking: code } = shipment;
+  const dispatchWarning = warnings.getByText(
+    /Prepare shipment · Inputs changed after copying/,
+  );
+
+  assert.equal(await stepTitle(), "Prepare shipment");
+  assert.equal(await tracking.isVisible(), false);
+  assert.equal(await next.isVisible(), false);
+  assert.match(await reference.getAttribute("aria-describedby"), /-help/);
+  assert.match(
+    await page.locator("#form > header").textContent(),
+    /Use the dispatch record/,
+  );
+  assert.equal(
+    await page.locator("#output-instructions").textContent(),
+    "Paste the subject and message into the dispatch email.",
+  );
+  await reference.fill(firstReference);
+  await page.getByLabel("Recipient", { exact: true }).fill(recipient);
+  await create.press("Enter");
+  await page.keyboard.press("Enter");
+  const independent = page.getByLabel("Independent value for Reference");
+  assert.equal(
+    await independent.evaluate((input) => input === document.activeElement),
+    true,
+  );
+  await independent.fill("VF-999");
+  await independent.press("Enter");
+  assert.equal(await reference.inputValue(), firstReference);
+  await independent.fill(firstReference);
+  await independent.press("Enter");
+  await create.click();
+  await page.getByRole("button", { name: "Copy entire output" }).click();
+  await page.getByText("Copied.", { exact: true }).waitFor();
+  assert.equal(
+    await page.evaluate(() => window.lastVeraFlowCopy),
+    "Shipment VF-104\nHello Alex, shipment VF-104 is ready for pickup.",
+  );
+  assert.equal(await stepTitle(), "Prepare shipment");
+
+  await next.click();
+  assert.equal(await stepTitle(), "Record pickup");
+  assert.equal(await reference.isVisible(), false);
+  await page.getByText("Fields from earlier steps", { exact: true }).click();
+  assert.match(
+    await page.locator(".earlier-fields").textContent(),
+    /VF-104 · Verified\./,
+  );
+  await tracking.fill(code);
+  await create.click();
+  const note = page.getByRole("textbox", { name: "Body" });
+  assert.equal(
+    await note.inputValue(),
+    "Shipment VF-104 picked up. Tracking: PK-12.",
+  );
+  await previous.click();
+  await reference.fill(newReference);
+  await dispatchWarning.waitFor();
+  assert.equal(
+    await warnings.getByText(/Record pickup · Inputs changed/).isVisible(),
+    true,
+  );
+  assert.equal(
+    await page.getByRole("link", { name: "Verify Reference" }).isVisible(),
+    true,
+  );
+  await page.getByRole("link", { name: "Verify Reference" }).click();
+  await independent.fill(newReference);
+  await independent.press("Enter");
+  await create.click();
+  assert.equal(
+    await page.getByRole("textbox", { name: "Subject" }).inputValue(),
+    "Shipment VF-105",
+  );
+  assert.equal(await dispatchWarning.isVisible(), true);
+
+  await page.getByRole("button", { name: "Copy: Subject" }).click();
+  await page.getByText("Copied.", { exact: true }).waitFor();
+  assert.equal(await dispatchWarning.isVisible(), true);
+  await page.evaluate(() => {
+    window.blockVeraFlowClipboard = true;
+  });
+  await page.getByRole("button", { name: "Copy: Message" }).click();
+  await page.getByText(/Clipboard access is blocked/).waitFor();
+  assert.equal(await dispatchWarning.isVisible(), true);
+  const message = page.getByRole("textbox", { name: "Message" });
+  const selected = await message.evaluate((area) =>
+    area.value.slice(area.selectionStart, area.selectionEnd),
+  );
+  assert.equal(selected, "Hello Alex, shipment VF-105 is ready for pickup.");
+  await page.keyboard.press("ControlOrMeta+c");
+  await dispatchWarning.waitFor({ state: "hidden" });
+
+  await next.click();
+  assert.equal(await tracking.inputValue(), code);
+  await create.click();
+  assert.equal(
+    await note.inputValue(),
+    "Shipment VF-105 picked up. Tracking: PK-12.",
+  );
+  assert.equal(await warnings.isVisible(), false);
+  assert.deepEqual(requests, []);
+  assert.deepEqual(errors, []);
 });
