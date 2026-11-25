@@ -53,27 +53,35 @@ export function planRecordMerge(session: Session, text: string) {
     throw Error("invalidImport");
   }
   if (document.body.type !== "Object") throw Error("invalidImport");
+  const values = new Map<string, string | null>();
+  for (const { name, value } of document.body.members) {
+    if (name.type !== "String" || values.has(name.value))
+      throw Error("invalidImport");
+    if (value.type !== "String" && value.type !== "Null")
+      throw Error("invalidImport");
+    values.set(name.value, value.type === "Null" ? null : value.value);
+  }
+  return planRecordValues(session, values);
+}
+
+export function planRecordValues(
+  session: Session,
+  values: ReadonlyMap<string, string | null>,
+) {
   const indices = new Map(
     session.fields.map((field, index) => [field.name, index]),
   );
-  const seen = new Set<string>();
   const changes: {
     index: number;
     previous: string | null;
     value: string | null;
   }[] = [];
-  for (const { name, value } of document.body.members) {
-    if (name.type !== "String" || seen.has(name.value))
-      throw Error("invalidImport");
-    seen.add(name.value);
-    const index = indices.get(name.value);
-    if (index === undefined) throw Error("recordUnknownField:" + name.value);
-    if (value.type !== "String" && value.type !== "Null")
-      throw Error("invalidImport");
+  for (const [name, value] of values) {
+    const index = indices.get(name);
+    if (index === undefined) throw Error("recordUnknownField:" + name);
     const field = session.fields[index];
     const control = session.controls?.get(field.name);
-    const incoming =
-      value.type === "Null" ? null : normalizeText(control, value.value);
+    const incoming = value === null ? null : normalizeText(control, value);
     if (
       incoming !== null &&
       (incoming.includes("\0") ||

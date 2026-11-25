@@ -56,6 +56,9 @@ export function exportHtml(
         <h1>${escapeHtml(template.name)}</h1>
       </header>
       <noscript>${translate(language, "noScriptForm")}</noscript>
+      <div class="actions source-actions">
+        <button id="extract-source" type="button" data-text="extractSource" disabled>Extract from source…</button>
+      </div>
       <div id="step-context"></div>
       <div id="record-fields"></div>
       <section id="output-panel" class="output-panel"></section>
@@ -64,6 +67,50 @@ export function exportHtml(
     <footer id="form-footer">
       ${footer}
     </footer>
+
+    <!-- Source acquisition and candidate review -->
+    <dialog id="source-extraction" class="extraction-dialog" aria-labelledby="source-extraction-title">
+      <form id="source-extraction-form">
+        <h2 id="source-extraction-title" data-text="extractSource">Extract from source…</h2>
+        <label for="extract-text" data-text="batchSource">Source text</label>
+        <p id="extract-help" class="help" data-text="extractHelp">Paste labeled lines or drop one UTF-8 .txt file here.</p>
+        <textarea id="extract-text" rows="7" aria-describedby="extract-help" autocomplete="off"></textarea>
+        <div class="actions">
+          <button id="extract-clipboard" type="button" data-text="readClipboard">Read clipboard</button>
+          <button id="extract-open" type="button" data-text="openSourceText">Open text file…</button>
+        </div>
+        <details>
+          <summary data-text="candidateFileTools">External extraction files</summary>
+          <p class="help" data-text="candidateFileHelp">Add the original text above to check imported quotations against it.</p>
+          <div class="actions">
+            <button id="extract-import" type="button" data-text="importCandidates">Import candidates…</button>
+            <button id="extract-fields" type="button" data-text="exportExtractionFields">Export field descriptions…</button>
+          </div>
+        </details>
+        <input id="extract-file" type="file" accept=".txt,text/plain" hidden>
+        <input id="candidate-file" type="file" accept=".json,application/json" hidden>
+        <p id="extract-error" class="error" role="alert"></p>
+        <div class="actions dialog-actions">
+          <button id="extract-cancel" type="button" data-text="cancel">Cancel</button>
+          <button id="extract-find" type="submit" class="primary" data-text="findCandidates">Find candidates</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="candidate-review" class="extraction-dialog" aria-labelledby="candidate-review-title">
+      <form id="candidate-review-form">
+        <h2 id="candidate-review-title" data-text="reviewCandidates" tabindex="-1">Review candidates</h2>
+        <p class="help" data-text="candidateReviewHelp">Select the values to apply. Verify required fields separately in the form.</p>
+        <div id="candidate-results"></div>
+        <p class="help" data-text="candidatePrivacy">Candidate files may include private values and quoted evidence.</p>
+        <p id="candidate-review-error" class="error" role="alert"></p>
+        <div class="actions dialog-actions">
+          <button id="candidate-cancel" type="button" data-text="cancel">Cancel</button>
+          <button id="save-candidates" type="button" data-text="saveCandidates">Save candidates…</button>
+          <button id="apply-candidates" type="submit" class="primary" data-text="applyCandidates">Apply selected values</button>
+        </div>
+      </form>
+    </dialog>
 
     <!-- Embedded definition. Source lines are JSON strings, including line endings. -->
     <script type="application/json" id="provenance">

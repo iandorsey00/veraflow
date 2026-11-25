@@ -1,0 +1,9 @@
+Model: V6530
+Units affected: 1
+Serial: ABC123456
+序列号：ABC123458
+Issue: Display does not power on
+Troubleshooting: Power cable replaced
+联系人：Sarah Example
+Phone: 949-555-0100
+City	Irvine

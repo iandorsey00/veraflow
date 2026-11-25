@@ -1,0 +1,40 @@
+{
+  "format": "veraflow-candidates",
+  "version": 1,
+  "candidates": {
+    "serial_number": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "ABC123458",
+          "origin": "inferred",
+          "evidence": [
+            {
+              "quote": "The serial number is ABC123456—sorry, the last digit is eight.",
+              "line": 2
+            }
+          ]
+        }
+      ]
+    },
+    "quantity_affected": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "1",
+          "origin": "inferred",
+          "evidence": [
+            {
+              "quote": "No, just one.",
+              "line": 4
+            }
+          ]
+        }
+      ]
+    },
+    "shipping_address": {
+      "status": "not_found",
+      "alternatives": []
+    }
+  }
+}

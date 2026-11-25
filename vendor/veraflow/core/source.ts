@@ -359,6 +359,7 @@ function metadata(text: string) {
           "type",
           "label",
           "instructions",
+          "aliases",
           "default",
           "optional",
           "options",
@@ -399,6 +400,24 @@ function metadata(text: string) {
       control.instructions =
         string(field.instructions, `"${name}.instructions"`).trim() ||
         undefined;
+    if (field.aliases !== undefined) {
+      if (!Array.isArray(field.aliases) || field.aliases.length > 32)
+        fail(`Field "${name}" supports up to 32 aliases.`);
+      const aliases = field.aliases.map((alias) =>
+        string(alias, `An alias for "${name}"`).trim(),
+      );
+      if (
+        aliases.some(
+          (alias) => !alias || alias.length > 250 || /[\r\n:：\t]/u.test(alias),
+        ) ||
+        new Set(aliases.map((alias) => alias.toLowerCase())).size !==
+          aliases.length
+      )
+        fail(
+          `Use unique, nonblank aliases without line breaks, colons, or tabs for "${name}".`,
+        );
+      control.aliases = aliases;
+    }
     if (kind === "text" || kind === "textarea") {
       if (field.multiline !== undefined && typeof field.multiline !== "boolean")
         fail(`"${name}.multiline" must be true or false.`);

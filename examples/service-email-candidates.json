@@ -1,0 +1,130 @@
+{
+  "format": "veraflow-candidates",
+  "version": 1,
+  "candidates": {
+    "model": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "V6530",
+          "origin": "direct",
+          "evidence": [
+            {
+              "quote": "We purchased three V6530 displays last March.",
+              "line": 1
+            }
+          ]
+        }
+      ]
+    },
+    "quantity_affected": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "1",
+          "origin": "inferred",
+          "evidence": [
+            {
+              "quote": "One stopped turning on yesterday.",
+              "line": 1
+            }
+          ]
+        }
+      ]
+    },
+    "serial_number": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "ABC123456",
+          "origin": "direct",
+          "evidence": [
+            {
+              "quote": "The defective unit's serial number is ABC123456.",
+              "line": 1
+            }
+          ]
+        }
+      ]
+    },
+    "issue": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "Display does not power on",
+          "origin": "inferred",
+          "evidence": [
+            {
+              "quote": "One stopped turning on yesterday.",
+              "line": 1
+            }
+          ]
+        }
+      ]
+    },
+    "troubleshooting": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "Power cable replaced",
+          "origin": "inferred",
+          "evidence": [
+            {
+              "quote": "We already tried replacing the power cable.",
+              "line": 1
+            }
+          ]
+        }
+      ]
+    },
+    "contact_name": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "Sarah",
+          "origin": "direct",
+          "evidence": [
+            {
+              "quote": "Contact Sarah at 949-555-0100.",
+              "line": 1
+            }
+          ]
+        }
+      ]
+    },
+    "contact_phone": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "949-555-0100",
+          "origin": "direct",
+          "evidence": [
+            {
+              "quote": "Contact Sarah at 949-555-0100.",
+              "line": 1
+            }
+          ]
+        }
+      ]
+    },
+    "shipping_city": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "Irvine",
+          "origin": "direct",
+          "evidence": [
+            {
+              "quote": "Please send a replacement to our office in Irvine.",
+              "line": 1
+            }
+          ]
+        }
+      ]
+    },
+    "shipping_address": {
+      "status": "not_found",
+      "alternatives": []
+    }
+  }
+}

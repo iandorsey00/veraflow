@@ -27,6 +27,8 @@ import {
   housingExample,
   housingResponse,
   embeddedTemplate,
+  serviceExample,
+  serviceFile,
 } from "./fixtures.mjs";
 
 const { version } = JSON.parse(
@@ -171,7 +173,7 @@ async function loadCore(coreDir) {
   const core = await build({
     stdin: {
       contents:
-        'export * from "./session"; export * from "./source"; export * from "./source-record";',
+        'export * from "./session"; export * from "./source"; export * from "./source-record"; export * from "./candidates";',
       resolveDir: coreDir,
     },
     bundle: true,
@@ -592,5 +594,168 @@ test("CLI update fast-forwards to the latest stable tag and protects local edits
   assert.equal(
     git("-C", checkout, "rev-parse", "HEAD"),
     git("-C", upstream, "rev-parse", "HEAD"),
+  );
+});
+
+test("display replacement candidates stay separate from the desktop response round-trip", async (t) => {
+  const directory = await sandbox(t);
+  const output = join(directory, "display-replacement.html");
+  run(fileURLToPath(serviceExample), output);
+  const html = await readFile(output, "utf8");
+  const template = embeddedTemplate(html);
+  assert.match(html, /<!-- Source acquisition and candidate review -->/);
+  assert.match(html, /<dialog id="candidate-review"/);
+  assert.match(html, /function setupExtraction/);
+  assert.doesNotMatch(html, /ABC123458|Sarah Example/);
+  const core = await loadCore(vendoredCore);
+  const desktopCoreApi = await loadCore(desktopCore);
+  const session = core.startSession(template);
+  session.unifiedForm = true;
+  session.outputId = "ticket";
+  session.stepOutputs ??= new Map();
+  core.prepareWorkflow(session, true);
+  const fields = core.candidateFields(session);
+  const lead = await readFile(serviceFile("service-intake-source.txt"), "utf8");
+  const extracted = core.extractCandidates(fields, lead);
+  const disputed = extracted.get("serial_number");
+  assert.equal(disputed.status, "ambiguous");
+  assert.deepEqual(
+    disputed.alternatives.map(({ value }) => value),
+    ["ABC123456", "ABC123458"],
+  );
+  assert.equal(disputed.alternatives[1].evidence[0].quote, "序列号：ABC123458");
+  const candidateJson = JSON.stringify(core.candidateFile(extracted));
+  assert.equal(
+    JSON.stringify(
+      core.candidateFile(core.importCandidateFile(fields, candidateJson, lead)),
+    ),
+    candidateJson,
+  );
+  const description = core.extractionFields(session);
+  assert.equal(description.format, "veraflow-extraction-fields");
+  assert.deepEqual(
+    description.fields.find(({ id }) => id === "serial_number").aliases,
+    ["Serial", "序列号"],
+  );
+  assert.notEqual(
+    description.fields.find(({ id }) => id === "shipping_address").instructions,
+    undefined,
+  );
+
+  const apply = (values) => {
+    const changes = core.planRecordValues(session, values);
+    core.applyRecordChanges(session, changes);
+  };
+  const selectFound = (candidates) =>
+    new Map(
+      [...candidates]
+        .filter(([, candidate]) => candidate.status === "found")
+        .map(([field, candidate]) => [field, candidate.alternatives[0].value]),
+    );
+  function verifySerial(value) {
+    session.active = session.fields.findIndex(
+      ({ name }) => name === "serial_number",
+    );
+    session.mode = "verify";
+    return core.verify(session, value, false);
+  }
+
+  const first = selectFound(extracted);
+  assert.equal(first.has("serial_number"), false);
+  first.set("serial_number", disputed.alternatives[1].value);
+  apply(first);
+  assert.equal(verifySerial("ABC123456"), false);
+  assert.equal(core.recordValues(session).get("serial_number"), "ABC123458");
+  assert.equal(verifySerial("ABC123458"), true);
+  assert.deepEqual(
+    core.planRecordValues(session, new Map([["serial_number", "ABC123458"]])),
+    [],
+  );
+  assert.equal(session.fields[session.active].status, "verified");
+
+  const emailSource = await readFile(
+    serviceFile("service-intake-email.txt"),
+    "utf8",
+  );
+  const emailFile = await readFile(
+    serviceFile("service-email-candidates.json"),
+    "utf8",
+  );
+  assert.throws(
+    () => core.importCandidateFile(fields, emailFile, lead),
+    /candidateEvidenceMismatch/,
+  );
+  assert.throws(
+    () =>
+      core.importCandidateFile(
+        fields,
+        emailFile.replace('"version": 1', '"version": 1, "version": 1'),
+      ),
+    /invalidCandidateFile/,
+  );
+  const email = core.importCandidateFile(fields, emailFile, emailSource);
+  const emailValues = selectFound(email);
+  assert.equal(emailValues.get("quantity_affected"), "1");
+  assert.equal(email.get("shipping_address").status, "not_found");
+  apply(emailValues);
+  assert.equal(core.recordValues(session).get("shipping_address"), null);
+  assert.equal(
+    session.fields.find(({ name }) => name === "serial_number").status,
+    "captured",
+  );
+
+  const callSource = await readFile(
+    serviceFile("service-intake-call.txt"),
+    "utf8",
+  );
+  const callFile = await readFile(
+    serviceFile("service-call-candidates.json"),
+    "utf8",
+  );
+  const correction = core.importCandidateFile(fields, callFile, callSource);
+  apply(selectFound(correction));
+  assert.throws(() => core.prepareSections(session), /unverified/);
+  assert.equal(verifySerial("ABC123458"), true);
+  const values = new Map(
+    [...core.recordValues(session)].filter(([, value]) => value !== null),
+  );
+  const sections = core.prepareSections(session);
+  assert.deepEqual(
+    sections,
+    desktopCoreApi.renderTemplateValues(
+      template,
+      values,
+      "ticket",
+      session.sourceContext,
+    ),
+  );
+  assert.match(sections[0].text, /V6530 · 1 affected · serial ABC123458/);
+  assert.doesNotMatch(
+    JSON.stringify(core.extractionFields(session)),
+    /ABC123458|949-555-0100/,
+  );
+  const response = JSON.stringify(Object.fromEntries(values));
+  const desktopSession = desktopCoreApi.startSession(template);
+  assert.throws(
+    () => desktopCoreApi.planRecordMerge(desktopSession, callFile),
+    /recordUnknownField|invalidImport/,
+  );
+  const changes = desktopCoreApi.planRecordMerge(desktopSession, response);
+  assert.equal(
+    desktopCoreApi.recordValues(desktopSession).get("serial_number"),
+    null,
+  );
+  desktopCoreApi.applyRecordChanges(desktopSession, changes);
+  assert.equal(
+    desktopCoreApi.recordValues(desktopSession).get("serial_number"),
+    "ABC123458",
+  );
+  assert.equal(
+    desktopCoreApi.recordValues(desktopSession).get("shipping_address"),
+    null,
+  );
+  assert.equal(
+    desktopSession.fields.find(({ name }) => name === "serial_number").status,
+    "captured",
   );
 });

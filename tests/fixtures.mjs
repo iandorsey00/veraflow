@@ -47,3 +47,11 @@ export function embeddedTemplate(html) {
   );
   return { ...template, content: sourceLines.join("") };
 }
+
+export const serviceExample = new URL(
+  "../examples/service-intake.vf",
+  import.meta.url,
+);
+export function serviceFile(name) {
+  return new URL(`../examples/${name}`, import.meta.url);
+}

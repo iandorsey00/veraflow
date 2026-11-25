@@ -54,6 +54,27 @@ For another checkout layout, set `VERAFLOW_WEB_DIR` to the VeraFlow Web project 
 
 Open the downloaded file in a browser. A mail attachment preview or file preview may display the HTML without running its JavaScript. Managed devices can enforce local-file, script, clipboard, and download restrictions. Ask your IT administrator which restrictions apply. If local HTML is blocked, serve the same file from an approved internal HTTPS site. If the clipboard button is unavailable, use the selected output with the browser’s ordinary copy command or download the text. See [Microsoft Edge URL policies](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/urlblocklist) and [clipboard write behavior](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText).
 
+## Bulk extraction
+
+In an exported form, open **Extract from source…**. Paste labeled lines, explicitly read the clipboard, or open or drop one UTF-8 `.txt` file. The shared extractor matches field IDs, labels, and authored aliases against text like `Serial: ABC123458` or `序列号：ABC123458`. It reads colon, full-width colon, and tab separators.
+
+In **Review candidates**, compare the current value, proposed value, alternative values, and quoted evidence. A single valid candidate for an unanswered field can start selected. Check a replacement or ambiguous candidate explicitly, and edit the proposed value if needed. Applying a changed value clears its existing verification and flags affected outputs for review. Unchanged answers retain their checks. Verify required fields in the form after applying.
+
+**External extraction files** imports strict VeraFlow candidate JSON. If you supply the original text before importing, the shared importer checks quotations against it. **Export field descriptions…** saves IDs, labels, aliases, field types, instructions, and choice labels. **Save candidates…** saves the candidate data and its quotations. Use **Download response JSON** in the form to send the selected answers back to Desktop. The exported form reads source and candidate files locally.
+
+### Display replacement acceptance check
+
+The display replacement files in `examples/` match VeraFlow Desktop 0.22.0.
+
+```sh
+npm run export:html -- examples/service-intake.vf dist/display-replacement.html
+```
+
+1. Open the HTML directly in Windows Edge and macOS Safari with networking disabled. Use **Extract from source…** and open [the labeled source](examples/service-intake-source.txt). Check that the two serial numbers require an explicit choice. Choose `ABC123458`, then apply the selected values.
+2. Paste [the email](examples/service-intake-email.txt) and import [the email candidates](examples/service-email-candidates.json). Check that **Affected units** proposes one and **Shipping address** has no candidate. Apply the proposed serial so you can test the correction.
+3. Paste [the transcript](examples/service-intake-call.txt) and import [the transcript candidates](examples/service-call-candidates.json). Apply its correction and verify `ABC123458` against the asset label on the [demo destination](examples/service-destination.html). Create **Service ticket**. The dispatch note still requires a street address.
+4. Download response JSON. In Desktop, open [the same template](examples/service-intake.vf), import the record, review the changes, and apply them. Check keyboard navigation and manual copy with the Clipboard API blocked. Use the browser Network panel to check for zero network requests. Open the exported HTML in a text editor and locate the styles, form and dialogs, embedded definition, and runtime.
+
 ## Forms with steps
 
 VeraFlow Web supports ordinary forms and forms with a `steps` array. Each step names a `title`, the `fields` to enter, and an `outputs` array. Use `outputs: []` for collection only. The legacy singular `output` remains supported. The shared VeraFlow parser checks field and output assignments and rejects references to later steps. Form, field, and output instructions appear next to their respective controls.
@@ -98,4 +119,4 @@ Build from a clean checkout and publish `index.html`, fingerprinted JavaScript a
 
 `npm test` builds the application and checks export errors, privacy, CSP integrity and named output fixtures. Set `VERAFLOW_DESKTOP_DIR` to a desktop checkout to compare against its `src/core` directly. `npm run test:browser` runs the end-to-end tests in Chromium. Set `VERAFLOW_BROWSER=edge` for installed Edge or `VERAFLOW_BROWSER=webkit` for the Playwright WebKit build. The browser runner requires a supported browser installed in the test environment.
 
-The MIT-licensed files in `vendor/veraflow/core/` are copied from VeraFlow desktop. The metadata in `vendor/veraflow/revision.json` records the desktop release and commit used for the build. Refresh the core, dependency metadata, and shared fixtures together when upgrading.
+The MIT-licensed files in `vendor/veraflow/core/` are copied from VeraFlow desktop. The metadata in `vendor/veraflow/revision.json` records the desktop release and commit used for the build. Refresh the core, dependency metadata, and shared fixtures together when upgrading. Desktop 0.22.0 and the Web exporter use Momoa 3.3.13.

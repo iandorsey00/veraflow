@@ -16,6 +16,8 @@ import {
   housingExample,
   housingResponse,
   embeddedTemplate,
+  serviceExample,
+  serviceFile,
 } from "./fixtures.mjs";
 
 const engine = process.env.VERAFLOW_BROWSER ?? "chromium";
@@ -503,6 +505,156 @@ test("prefilled housing export runs offline and downloads reviewable response JS
     ),
     true,
   );
+  assert.deepEqual(requests, []);
+  assert.deepEqual(errors, []);
+});
+
+test("offline bulk extraction applies only reviewed values and exports a flat record", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "veraflow-extraction-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const target = join(directory, "intake.html");
+  execFileSync(process.execPath, [
+    fileURLToPath(script),
+    fileURLToPath(serviceExample),
+    target,
+  ]);
+  const browser = await launch();
+  t.after(() => browser.close());
+  const context = await browser.newContext({
+    offline: true,
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  const requests = [];
+  const errors = [];
+  page.on("request", (request) => {
+    if (/^https?:/.test(request.url())) requests.push(request.url());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        async readText() {
+          throw new Error("Blocked");
+        },
+        async writeText() {
+          throw new Error("Blocked");
+        },
+      },
+    });
+  });
+  await page.goto(pathToFileURL(target).href);
+  const extract = page.getByRole("button", { name: "Extract from source…" });
+  const source = page.getByRole("textbox", { name: "Source text" });
+  const acquisition = page.getByRole("dialog", {
+    name: "Extract from source…",
+  });
+  const review = page.getByRole("dialog", { name: "Review candidates" });
+  const serial = review.getByRole("group", {
+    name: "Serial number",
+    exact: true,
+  });
+  const quantity = review.getByRole("group", {
+    name: "Affected units",
+    exact: true,
+  });
+  const serialCheck = serial.getByRole("checkbox");
+  const apply = review.getByRole("button", { name: "Apply selected values" });
+  const record = page.getByRole("textbox", {
+    name: "Serial number",
+    exact: true,
+  });
+  await extract.press("Enter");
+  assert.ok(await source.evaluate((input) => input === document.activeElement));
+  await acquisition.getByRole("button", { name: "Read clipboard" }).click();
+  await acquisition.getByText(/Clipboard access failed/).waitFor();
+  await page
+    .locator("#extract-file")
+    .setInputFiles(fileURLToPath(serviceFile("service-intake-source.txt")));
+  await acquisition.getByRole("button", { name: "Find candidates" }).click();
+  assert.equal(await serialCheck.isChecked(), false);
+  assert.equal(await quantity.getByRole("checkbox").isChecked(), true);
+  assert.equal(await serial.getByText("序列号：ABC123458").isVisible(), true);
+  await serial.getByRole("combobox").selectOption({ label: "ABC123458" });
+  assert.equal(await serialCheck.isChecked(), false);
+  await serialCheck.check();
+  const candidateDownload = page.waitForEvent("download");
+  await review.getByRole("button", { name: "Save candidates…" }).click();
+  assert.equal(
+    JSON.parse(await readFile(await (await candidateDownload).path(), "utf8"))
+      .format,
+    "veraflow-candidates",
+  );
+  await apply.click();
+  assert.equal(await record.inputValue(), "ABC123458");
+
+  async function importCandidates(textName, fileName) {
+    await extract.click();
+    await source.fill(await readFile(serviceFile(textName), "utf8"));
+    await page
+      .locator("#candidate-file")
+      .setInputFiles(fileURLToPath(serviceFile(fileName)));
+    await review.waitFor();
+  }
+  await importCandidates(
+    "service-intake-email.txt",
+    "service-email-candidates.json",
+  );
+  assert.equal(
+    await quantity
+      .getByRole("textbox", { name: "Proposed value" })
+      .inputValue(),
+    "1",
+  );
+  await review.getByText(/No candidate/).click();
+  assert.equal(
+    await review.getByText("Shipping address", { exact: true }).isVisible(),
+    true,
+  );
+  assert.equal(await serialCheck.isChecked(), false);
+  await serialCheck.check();
+  await apply.click();
+  assert.equal(await record.inputValue(), "ABC123456");
+
+  await importCandidates(
+    "service-intake-call.txt",
+    "service-call-candidates.json",
+  );
+  await serialCheck.check();
+  await apply.click();
+  assert.equal(await record.inputValue(), "ABC123458");
+  await page
+    .getByRole("button", { name: "Verify field: Serial number" })
+    .click();
+  const independent = page.getByRole("textbox", {
+    name: /Independent value for Serial number/,
+  });
+  await independent.fill("ABC123458");
+  await independent.press("Enter");
+  await page.getByRole("button", { name: "Create output" }).click();
+  assert.match(
+    await page.getByRole("textbox", { name: "Body", exact: true }).inputValue(),
+    /V6530 · 1 affected · serial ABC123458/,
+  );
+  await page.getByRole("button", { name: "Copy entire output" }).click();
+  await page.getByText(/Clipboard access is blocked/).waitFor();
+  assert.match(
+    await page
+      .getByRole("textbox", { name: "Entire output" })
+      .evaluate((area) =>
+        area.value.slice(area.selectionStart, area.selectionEnd),
+      ),
+    /serial ABC123458/,
+  );
+  const responseDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download response JSON" }).click();
+  const data = JSON.parse(
+    await readFile(await (await responseDownload).path(), "utf8"),
+  );
+  assert.equal(data.serial_number, "ABC123458");
+  assert.equal(data.quantity_affected, "1");
+  assert.equal(Object.hasOwn(data, "shipping_address"), false);
+  assert.equal(Object.hasOwn(data, "candidates"), false);
   assert.deepEqual(requests, []);
   assert.deepEqual(errors, []);
 });

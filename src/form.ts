@@ -21,6 +21,7 @@ import {
   sourceParts,
 } from "../vendor/veraflow/core/source";
 import { button, download, element } from "./dom";
+import { setupExtraction } from "./extraction";
 import { timestampedFilename } from "./filenames";
 import { responseJson } from "./responses";
 import { coreVersion } from "./branding";
@@ -176,6 +177,20 @@ recordActions.append(
   recordFeedback,
 );
 formActions.append(attention, attentionStatus, stepActions, recordActions);
+setupExtraction(session, (changes, names) => {
+  for (const name of names) includedResponses.add(name);
+  if (changes.length) {
+    applyRecordChanges(session, changes);
+    for (const { index } of changes) rows[index].syncValue();
+    invalidateOutput();
+    refreshStep();
+    refresh();
+  }
+  setText(
+    recordFeedback,
+    changes.length ? "candidateApplied" : "candidateNoChanges",
+  );
+});
 refreshOutputChoices();
 refreshOutputInfo();
 refreshStep();
@@ -289,7 +304,19 @@ function createField(field: (typeof session.fields)[number], index: number) {
     index,
     invalid: undefined as Message | undefined,
     checkError: undefined as Message | undefined,
+    syncValue() {
+      input.value = field.value ?? "";
+      state.invalid = undefined;
+      resetCheck();
+    },
   };
+
+  function resetCheck() {
+    state.checkError = undefined;
+    candidate.value = "";
+    checkArea.hidden = true;
+    verifyButton.setAttribute("aria-expanded", "false");
+  }
   function check() {
     if (!candidate.value.trim()) {
       state.checkError = "enterIndependent";
@@ -329,7 +356,6 @@ function createField(field: (typeof session.fields)[number], index: number) {
   input.addEventListener("input", () => {
     session.active = index;
     state.invalid = undefined;
-    state.checkError = undefined;
     includedResponses.add(field.name);
     setText(recordFeedback);
     if (input.value.trim()) {
@@ -352,9 +378,7 @@ function createField(field: (typeof session.fields)[number], index: number) {
     } else if (control?.optional) {
       applyRecordChanges(session, [{ index, value: "" }]);
     } else clear(session);
-    candidate.value = "";
-    checkArea.hidden = true;
-    verifyButton.setAttribute("aria-expanded", "false");
+    resetCheck();
     invalidateOutput();
     refresh();
   });

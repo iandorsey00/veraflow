@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Bring standalone bulk extraction to parity with VeraFlow Desktop 0.22.0.
+- Extract labeled text offline and review alternatives and evidence before applying changes.
+- Import and export candidate JSON separately from flat response records.
+
 ## 0.3.0
 
 - Match VeraFlow Desktop 0.21.0 with JSON5 metadata, collection-only steps, and one or several named outputs per step.
