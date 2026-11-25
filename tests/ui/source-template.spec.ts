@@ -1523,3 +1523,114 @@ test("a custom form can seed a source form with named outputs", async ({
     "Alex Example",
   );
 });
+
+test("bulk source file review resolves ambiguity and invalidates changed verification", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "service-intake.vf",
+    (await fixture("service-intake.vf")).toString(),
+  );
+  await page.getByLabel("Serial number", { exact: true }).fill("ABC123456");
+  await verifyFormValue(page, "Serial number", "ABC123456");
+
+  await page.getByRole("button", { name: "Extract from source…" }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Open text file…" }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: "service-intake-source.txt",
+    mimeType: "text/plain",
+    buffer: await fixture("service-intake-source.txt"),
+  });
+  await expect(page.locator("#extract-text")).toHaveValue(/型号|序列号/);
+  await page.getByRole("button", { name: "Find candidates" }).click();
+
+  const review = page.getByRole("dialog", { name: "Review candidates" });
+  const serial = review.getByRole("group", {
+    name: "Serial number",
+    exact: true,
+  });
+  await expect(serial).toContainText("Ambiguous source");
+  await expect(serial).toContainText("序列号：ABC123458");
+  const choices = serial.getByLabel("Source alternatives");
+  const corrected = await choices
+    .getByRole("option", { name: "ABC123458" })
+    .getAttribute("value");
+  await choices.selectOption(corrected!);
+  await serial.getByRole("checkbox", { name: "Apply · Serial number" }).check();
+  await review
+    .getByRole("checkbox", { name: "Apply · Shipping city" })
+    .uncheck();
+  await review.getByRole("button", { name: "Apply selected values" }).click();
+
+  await expect(page.getByLabel("Display model", { exact: true })).toHaveValue(
+    "V6530",
+  );
+  await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
+    "ABC123458",
+  );
+  await expect(page.getByLabel("Shipping city", { exact: true })).toHaveValue(
+    "",
+  );
+  await expect(
+    page.getByRole("button", { name: /Serial number · Needs verification/ }),
+  ).toBeVisible();
+  await verifyFormValue(page, "Serial number", "ABC123458");
+  await page.getByRole("button", { name: "Prepare output sections" }).click();
+  await expect(page.locator(".output")).toContainText(
+    "V6530 · 1 affected · serial ABC123458",
+  );
+});
+
+test("external candidate files show inferred evidence and require explicit replacement", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "service-intake.vf",
+    (await fixture("service-intake.vf")).toString(),
+  );
+  await page.getByLabel("Serial number", { exact: true }).fill("ABC123458");
+  await page.getByRole("button", { name: "Extract from source…" }).click();
+  await page
+    .locator("#extract-text")
+    .fill((await fixture("service-intake-email.txt")).toString());
+  await page.getByText("External extraction files", { exact: true }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Import candidates…" }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: "service-email-candidates.json",
+    mimeType: "application/json",
+    buffer: await fixture("service-email-candidates.json"),
+  });
+  const review = page.getByRole("dialog", { name: "Review candidates" });
+  const quantity = review.getByRole("group", {
+    name: "Affected units",
+    exact: true,
+  });
+  await quantity.getByText("Source evidence", { exact: true }).click();
+  await expect(quantity).toContainText("Inferred");
+  await expect(quantity).toContainText("One stopped turning on yesterday.");
+  const serial = review.getByRole("group", {
+    name: "Serial number",
+    exact: true,
+  });
+  await expect(serial.getByRole("checkbox")).not.toBeChecked();
+  await review.getByRole("button", { name: "Apply selected values" }).click();
+  await expect(page.getByLabel("Affected units", { exact: true })).toHaveValue(
+    "1",
+  );
+  await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
+    "ABC123458",
+  );
+  await expect(
+    page.getByLabel("Shipping address", { exact: true }),
+  ).toHaveValue("");
+});

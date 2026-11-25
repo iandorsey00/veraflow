@@ -1,0 +1,29 @@
+--- veraflow 2
+{
+  title: 'Display replacement intake',
+  instructions: 'Fictional training case. Verify the serial number against the source before preparing output.',
+  fields: {
+    model: { type: 'text', label: 'Display model', aliases: ['Model', '型号'] },
+    quantity_affected: { type: 'number', label: 'Affected units', aliases: ['Units affected'] },
+    serial_number: { type: 'text', label: 'Serial number', aliases: ['Serial', '序列号'], verify: true },
+    issue: { type: 'text', label: 'Issue' },
+    troubleshooting: { type: 'text', label: 'Troubleshooting' },
+    contact_name: { type: 'text', label: 'Contact name', aliases: ['Contact', '联系人'] },
+    contact_phone: { type: 'text', label: 'Contact phone', aliases: ['Phone'] },
+    shipping_city: { type: 'text', label: 'Shipping city', aliases: ['City'] },
+    shipping_address: { type: 'text', label: 'Shipping address', instructions: 'Confirm a full street address before preparing the dispatch note.' },
+  },
+}
+---
+{{#output ticket "Service ticket"}}
+{{model}} · {{quantity_affected}} affected · serial {{serial_number}}
+Issue: {{issue}}
+Troubleshooting: {{troubleshooting}}
+Contact: {{contact_name}} ({{contact_phone}})
+{{/output}}
+
+{{#output dispatch "Dispatch note"}}
+Replacement: {{quantity_affected}} × {{model}} for serial {{serial_number}}
+Ship to: {{shipping_address}}, {{shipping_city}}
+Contact: {{contact_name}} ({{contact_phone}})
+{{/output}}

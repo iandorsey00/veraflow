@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.22.0 bulk acquisition and candidate review
+
+Full release cycle for local acquisition and untrusted candidate imports. Extract `VeraFlow_Demo.zip` and follow [the display replacement demo](../examples/source/service-demo.md). On packaged Windows and macOS, check that selecting an entire block captures the right source, clipboard recovery preserves the ability to review, a conflicting serial needs an explicit choice, and a changed verified field requires another check.
+
+To roll back to [0.21.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.21.0), save any accepted values as flat record JSON. Use a copy of the form definition with field `aliases` removed, and import the flat JSON into that form.
+
 ## 0.21.0 composable form steps and reviewed record imports
 
 Full release cycle for JSON5 source headers, reviewed record merging, and multi-output steps. The release includes `VeraFlow_Demo.zip` in the asset checksums. On a packaged app, follow the [housing demo](../examples/source/housing-demo.md) to verify both output transfers and window pinning in Windows and macOS.

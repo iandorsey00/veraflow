@@ -350,6 +350,46 @@ Choose **Prepare output sections** for the selected output, or **Prepare all ste
 
 [Try the shipment follow-up example](../examples/source/shipment-steps.veraflow) or the [bilingual housing example](../examples/source/housing-application.vf).
 
+## Bulk extraction and candidate files
+
+Use **Extract from source…** in a source form or custom form. Paste a source block, read the clipboard explicitly, open or drop one UTF-8 `.txt` file, or capture selected text in the desktop version. Source text is limited to 65,536 characters and is held for the review. Accepted values can later appear in saved forms, record exports, or output history.
+
+The local extractor reads one label and value per line, separated by `:`, `：`, or Tab. A label can be the exact field ID, its display label, or an optional entry in `fields.<id>.aliases`. It compares labels after trimming and lowercasing them. A field can declare up to 32 unique aliases. Repeated identical canonical values combine their evidence; different values or a label shared by multiple fields require a choice. Selection fields accept the exact stable ID or the exact display label. A display label shared by multiple options is ambiguous.
+
+**Review candidates** shows each proposed value and its evidence. Single candidates for unanswered fields start selected. Replacements, ambiguous matches, and invalid values require you to select or correct them. Applying values uses the normal record merge, clears any checks on changed fields, and leaves unchanged values and missing candidates alone. Verify required fields separately.
+
+### Candidate exchange v1
+
+Use **External extraction files → Export field descriptions…** to describe the form to an external extractor. The strict JSON export contains field IDs, labels, types, aliases, instructions, and option IDs and labels. It contains no current responses. An external extractor may use the source text to produce a strict JSON candidate file:
+
+```json
+{
+  "format": "veraflow-candidates",
+  "version": 1,
+  "candidates": {
+    "quantity_affected": {
+      "status": "found",
+      "alternatives": [
+        {
+          "value": "1",
+          "origin": "inferred",
+          "evidence": [
+            { "quote": "One stopped turning on yesterday.", "line": 1 }
+          ]
+        }
+      ]
+    },
+    "shipping_address": { "status": "not_found", "alternatives": [] }
+  }
+}
+```
+
+Field keys are exact canonical IDs. `found` carries one valid canonical string. `ambiguous` carries one or more distinct alternatives for explicit review and requires manual choice even when a single value has uncertain attribution. `invalid` carries one value that needs correction. `not_found` carries no alternatives. An omitted field has no proposal. All alternatives declare `origin` as `direct` or `inferred` and include an evidence list, which may be empty. An evidence item has an exact `quote` and optional one-based `line` and `source_id`. When original text is provided at import, each quote must occur in that text and, when a line is supplied, start on that line. A quote is supporting evidence for human review.
+
+Limit files to 1 MiB UTF-8, 20 alternatives per field, and 5 evidence items per alternative. Values and quotes are at most 8,192 characters each; source IDs are at most 250. Invalid shape, duplicate keys, unknown fields, and bad evidence are reported before review. Candidate files carry no trusted verification. They can contain private text and quotations. **Save candidates…** exports the proposals and evidence shown for review. **Save record as JSON…** exports the accepted working values.
+
+An extractor should treat source text as data and emit canonical option IDs. Desktop can import prerecorded candidates for narrative email or transcript text. The local extractor handles labeled lines. [Try the display replacement demo](../examples/source/service-demo.md).
+
 ## Conditions and source evidence
 
 Use `not ready` with a declared Boolean to test explicitly for false. An unanswered Boolean stays unresolved. Add `else if` before the final `else` to test alternatives in order. For a block use `{{else if review}}` on its own line. For inline output write `{{when not ready: 'Hold' else if review: 'Review' else: 'Ready'}}`.

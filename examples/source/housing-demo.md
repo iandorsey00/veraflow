@@ -10,3 +10,5 @@ Use the files in this folder to try a fictional case in about five minutes.
 6. Return to the collection step and edit the name. Check that VeraFlow asks you to verify it again and flags the previously transferred outputs. Pause the session and check that the launcher releases its window pin.
 
 You can close and reopen the demo page to clear the paste destinations.
+
+For bulk text and candidate interchange, try the [display replacement demo](service-demo.md) in a build that includes **Extract from source…**.

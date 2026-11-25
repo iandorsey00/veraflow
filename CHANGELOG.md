@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.22.0
+
+- Acquire a selected text block, paste or read clipboard text, or open or drop a UTF-8 text file.
+- Extract candidates from labeled lines, including field aliases and Chinese colons. Review evidence and resolve replacements or ambiguity before applying values.
+- Import and export strict JSON candidate files, and export field descriptions for external extractors.
+- Add a bilingual display replacement demo with fictional email and transcript evidence and a local paste destination.
+
 ## 0.21.0
 
 - Accept JSON5 source headers and preserve strict JSON for record exchange.

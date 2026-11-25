@@ -22,6 +22,12 @@ Manual entry, selection capture, CSV and JSON all feed a working record keyed by
 
 The Scanner sections below document historical workflows and compatibility behavior.
 
+## Bulk source acquisition
+
+A source form or custom form can acquire a text block once. Extraction and comparison share field-label matching and labeled-line recognition. Extraction produces candidates with quoted evidence. The review applies selected changes through the existing record merge and dependency invalidation. Field verification remains independent.
+
+The strict candidate envelope and field-description export give external extractors a file-based interface. Native capture, clipboard, and local file acquisition remain separate from extraction. The source text and rejected proposals are transient. Separate VeraFlow Web builds can adopt the same candidate parser with browser acquisition and review. The [display replacement demo](../examples/source/service-demo.md) supplies synthetic labeled, email, and transcript sources for testing the interchange.
+
 ## Email template and output phase
 
 Optional template email metadata holds Subject/To/Cc/Bcc templates and their enabled flags; existing `content` is Body. `templateSource` aggregates only enabled sections for shared placeholder ordering. `renderEmail` applies the common completeness/verification gate and validates resolved headers. Automatic delivery advances the memory-only cursor only after native success. Explicit manual Back/Next recovery changes the cursor without injected keys and never establishes paste success. Existing finish/previous global shortcuts become Paste+Tab/Shift+Tab in that phase, with no trailing Tab for Body and explicit completion. Native output uses the same clipboard lock as capture, and does not claim delivery or automate Send.

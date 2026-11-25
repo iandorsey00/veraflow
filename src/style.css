@@ -1596,3 +1596,20 @@ input.toggle-switch:checked::before {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.candidate-field {
+  margin: 0 0 1rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.candidate-field blockquote {
+  border-inline-start: 3px solid var(--line);
+  margin-inline: 0;
+  padding-inline-start: 0.75rem;
+  white-space: pre-wrap;
+}
+
+.candidate-field blockquote small {
+  display: block;
+}

@@ -14,6 +14,7 @@ export type Control = {
   optionLabels?: Map<string, string>;
   label?: string;
   instructions?: string;
+  aliases?: string[];
   multiline?: boolean;
   allowBlankLines?: boolean;
   defaultValue?: string;

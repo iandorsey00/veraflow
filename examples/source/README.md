@@ -30,3 +30,5 @@ Copy [the shipment template](shipment-log.veraflow) and [its CSV](shipment-log.c
 Open [Shipment follow-up](shipment-steps.veraflow) to prepare a dispatch email, then add pickup and delivery details. Revisit the first step and change the reference to see which copied outputs need review.
 
 Open [Bilingual housing application](housing-application.vf) to try JSON5, a collection-only step, and two outputs from one fictional record.
+
+Try the [display replacement demo](service-demo.md) in a build with bulk extraction. It includes labeled text, an external email and transcript candidate file, and offline paste targets.

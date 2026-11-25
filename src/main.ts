@@ -1,8 +1,20 @@
 import type { TemplateContext } from "./core/variables";
 import { compareSourceText } from "./core/batch";
 import {
+  candidateFields,
+  candidateFile,
+  extractCandidates,
+  extractionFields,
+  importCandidateFile,
+  validSourceText,
+  sourceTextLimit,
+  candidateFileLimit,
+  type Candidate,
+} from "./core/candidates";
+import {
   recordValues,
   planRecordMerge,
+  planRecordValues,
   selectedSourceOutput,
   sourceFilename,
 } from "./core/source-record";
@@ -2702,8 +2714,8 @@ function templateFormView(s: Session): string {
     return `<main class="capture-panel template-form unified-form">
     <header><h1>${esc(s.template.name)}</h1>${templateInstructions(s)}${steps ? stepHeading(s, steps) : ""}${outputSelector(s)}
       <div class="task-toolbar">
-        ${s.template.placeholderStyle === "source" ? (steps ? "" : sourceModeButtons("form")) + button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") + button("import-record", "importRecord", "quiet") : ""}
-        ${s.scanner ? button("scanner-add", "addField", "quiet") + button("custom-form-use-file", "customFormUseFile", "quiet") : ""}
+        ${s.template.placeholderStyle === "source" ? (steps ? "" : sourceModeButtons("form")) + button("extract-source", "extractSource", "quiet") + button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") + button("import-record", "importRecord", "quiet") : ""}
+        ${s.scanner ? button("scanner-add", "addField", "quiet") + button("extract-source", "extractSource", "quiet") + button("custom-form-use-file", "customFormUseFile", "quiet") : ""}
         ${button("pause-task", "pauseTask", "quiet")}
       </div>
       ${focusedWorkflow ? `<p class="task-progress">${esc(progressText(s))}</p>` : ""}
@@ -3562,6 +3574,7 @@ async function batchCompare(s: Session) {
           {
             name: field.name,
             label: fieldLabel(s, field.name),
+            aliases: s.controls?.get(field.name)?.aliases,
             value: field.value,
           },
         ]
@@ -3738,6 +3751,300 @@ function bindUnifiedForm(s: Session) {
   });
 }
 
+function recordImportError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const colon = message.indexOf(":");
+  if (colon < 0) return errorText(error);
+  const code = message.slice(0, colon);
+  return code === "recordUnknownField" || code === "recordInvalidField"
+    ? `${t(code)} ${message.slice(colon + 1)}`
+    : errorText(error);
+}
+
+function currentRecordValue(value: string | null) {
+  return value === null
+    ? t("recordUnanswered")
+    : value === ""
+      ? t("recordEmptyValue")
+      : value;
+}
+
+async function extractSource(s: Session) {
+  const fields = candidateFields(s);
+  let candidates: Map<string, Candidate> | undefined;
+  await actionDialog(
+    "extractSource",
+    `<label for="extract-text">${esc(t("batchSource"))}</label>
+     <textarea id="extract-text" rows="7" maxlength="${sourceTextLimit}" autofocus></textarea>
+     <div class="toolbar">
+       ${desktop ? '<button id="extract-capture" type="button">' + esc(t("captureSelected")) + "</button>" : ""}
+       <button id="extract-clipboard" type="button">${esc(t("clipboard"))}</button>
+       <button id="extract-open" type="button">${esc(t("openSourceText"))}</button>
+     </div>
+     <details><summary>${esc(t("candidateFileTools"))}</summary>
+       <p class="hint">${esc(t("candidatePrivacy"))}</p>
+       <div class="toolbar">
+         <button id="extract-import" type="button">${esc(t("importCandidates"))}</button>
+         <button id="extract-fields" type="button">${esc(t("exportExtractionFields"))}</button>
+       </div>
+     </details>
+     <input id="extract-file" type="file" accept=".txt,text/plain" hidden>
+     <input id="candidate-file" type="file" accept=".json,application/json" hidden>
+     <p id="extract-error" role="alert"></p>`,
+    `<button value="cancel">${esc(t("cancel"))}</button><button value="review" class="primary">${esc(t("findCandidates"))}</button>`,
+    (dialog) => {
+      const source =
+        dialog.querySelector<HTMLTextAreaElement>("#extract-text")!;
+      const error = dialog.querySelector<HTMLElement>("#extract-error")!;
+      const textFile = dialog.querySelector<HTMLInputElement>("#extract-file")!;
+      const candidateInput =
+        dialog.querySelector<HTMLInputElement>("#candidate-file")!;
+      let reading = false;
+      const safely = async (work: () => Promise<void>) => {
+        if (reading) return;
+        reading = true;
+        error.textContent = "";
+        try {
+          await work();
+        } catch (reason) {
+          error.textContent = recordImportError(reason);
+        } finally {
+          reading = false;
+        }
+      };
+      const setSource = (text: string) => {
+        if (!validSourceText(text)) throw Error("batchSourceLimit");
+        if (!dialog.open) return;
+        source.value = text;
+        source.focus();
+      };
+      const readText = async (file: File) => {
+        if (!/\.txt$/i.test(file.name)) throw Error("sourceTextFileType");
+        if (file.size > sourceTextLimit * 4) throw Error("batchSourceLimit");
+        setSource(
+          new TextDecoder("utf-8", { fatal: true }).decode(
+            await file.arrayBuffer(),
+          ),
+        );
+      };
+      dialog.querySelector<HTMLElement>("#extract-open")!.onclick = () =>
+        textFile.click();
+      dialog.querySelector<HTMLElement>("#extract-import")!.onclick = () =>
+        candidateInput.click();
+      const captureButton =
+        dialog.querySelector<HTMLElement>("#extract-capture");
+      if (captureButton)
+        captureButton.onclick = () =>
+          void safely(async () =>
+            setSource(await platform.mouseTransfer(preserveClipboard)),
+          );
+      dialog.querySelector<HTMLElement>("#extract-clipboard")!.onclick = () =>
+        void safely(async () => setSource(await platform.readClipboard()));
+      dialog.querySelector<HTMLElement>("#extract-fields")!.onclick = () =>
+        void safely(async () => {
+          await platform.exportTemplates(
+            JSON.stringify(extractionFields(s), null, 2) + "\n",
+            "veraflow-extraction-fields.json",
+          );
+        });
+      textFile.onchange = () => {
+        const file = textFile.files?.[0];
+        textFile.value = "";
+        if (file) void safely(() => readText(file));
+      };
+      candidateInput.onchange = () => {
+        const file = candidateInput.files?.[0];
+        candidateInput.value = "";
+        if (file)
+          void safely(async () => {
+            if (file.size > candidateFileLimit) throw Error("candidateLimit");
+            const text = new TextDecoder("utf-8", { fatal: true }).decode(
+              await file.arrayBuffer(),
+            );
+            if (!dialog.open) return;
+            candidates = importCandidateFile(
+              fields,
+              text,
+              source.value.trim() ? source.value : undefined,
+            );
+            dialog.close("review");
+          });
+      };
+      dialog.ondragover = (event) => {
+        if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+      };
+      dialog.ondrop = (event) => {
+        if (!event.dataTransfer?.types.includes("Files")) return;
+        event.preventDefault();
+        const files = event.dataTransfer.files;
+        if (files.length !== 1) {
+          error.textContent = t("sourceTextFileType");
+          return;
+        }
+        const file = files[0];
+        void safely(() => readText(file));
+      };
+      dialog.querySelector("form")!.onsubmit = (event) => {
+        if ((event.submitter as HTMLButtonElement | null)?.value === "cancel")
+          return;
+        event.preventDefault();
+        if (reading) return;
+        try {
+          candidates = extractCandidates(fields, source.value);
+          dialog.close("review");
+        } catch (reason) {
+          error.textContent = recordImportError(reason);
+        }
+      };
+    },
+  );
+  if (candidates) await reviewCandidates(s, candidates);
+}
+
+async function reviewCandidates(
+  s: Session,
+  candidates: ReadonlyMap<string, Candidate>,
+) {
+  const rows = s.fields.flatMap((field, index) => {
+    const candidate = candidates.get(field.name);
+    return candidate && candidate.status !== "not_found"
+      ? [{ field, index, candidate }]
+      : [];
+  });
+  if (!rows.length) {
+    notify("noCandidates");
+    return;
+  }
+  const missing = s.fields.filter(
+    ({ name }) =>
+      !candidates.has(name) || candidates.get(name)?.status === "not_found",
+  );
+  const statusKeys = {
+    found: "candidateFound",
+    ambiguous: "candidateAmbiguous",
+    invalid: "candidateInvalid",
+    not_found: "batchMissing",
+  } as const;
+  let changes: ReturnType<typeof planRecordValues> = [];
+  const choice = await actionDialog(
+    "reviewCandidates",
+    `<p class="hint">${esc(t("candidateReviewHelp"))}</p>
+     ${rows
+       .map(({ field, index, candidate }) => {
+         const proposed =
+           candidate.status === "found" ? candidate.alternatives[0].value : "";
+         const same = proposed !== "" && field.value === proposed;
+         const status =
+           candidate.status === "found" && field.value !== null
+             ? same
+               ? "candidateSame"
+               : "candidateConflict"
+             : statusKeys[candidate.status];
+         const label = fieldLabel(s, field.name);
+         return `<fieldset class="candidate-field" data-candidate-row="${index}">
+         <legend>${esc(label)}</legend>
+         <p class="hint">${esc(t(status))}</p>
+         <p>${esc(t("recordCurrent"))} <strong>${esc(currentRecordValue(field.value))}</strong></p>
+         ${
+           candidate.status === "ambiguous"
+             ? `<label for="candidate-choice-${index}">${esc(t("chooseCandidate"))}</label>
+            <select id="candidate-choice-${index}"><option value="">${esc(t("chooseValue"))}</option>
+            ${candidate.alternatives.map(({ value }, option) => `<option value="${option}">${esc(value)}</option>`).join("")}</select>`
+             : ""
+         }
+         <label for="candidate-value-${index}">${esc(t("recordIncoming"))}</label>
+         <textarea id="candidate-value-${index}" rows="2" maxlength="8192">
+${esc(proposed)}</textarea>
+         <label class="check"><input id="candidate-accept-${index}" type="checkbox" ${candidate.status === "found" && field.value === null ? "checked" : ""}> ${esc(t("acceptCandidate"))} · ${esc(label)}</label>
+         <details ${candidate.status !== "found" || (field.value !== null && !same) ? "open" : ""}><summary>${esc(t("candidateEvidence"))}</summary>
+         ${candidate.alternatives
+           .map(
+             ({
+               value,
+               origin,
+               evidence,
+             }) => `<p><strong>${esc(value)}</strong> · ${esc(t(origin === "inferred" ? "candidateInferred" : "candidateDirect"))}</p>
+           ${evidence.length ? evidence.map(({ quote, line, source_id }) => `<blockquote>${esc(quote)}${line || source_id ? `<small>${esc([source_id, line ? t("sourceLine") + " " + line : undefined].filter(Boolean).join(" · "))}</small>` : ""}</blockquote>`).join("") : `<p class="hint">${esc(t("candidateNoEvidence"))}</p>`}`,
+           )
+           .join("")}
+         </details></fieldset>`;
+       })
+       .join("")}
+      ${missing.length ? `<details><summary>${esc(t("batchMissing"))} (${missing.length})</summary><ul>${missing.map(({ name }) => `<li>${esc(fieldLabel(s, name))}</li>`).join("")}</ul></details>` : ""}
+      <p class="hint">${esc(t("candidatePrivacy"))}</p>
+      <p id="candidate-review-error" role="alert"></p>`,
+    `<button value="cancel">${esc(t("cancel"))}</button>
+     <button id="save-candidates" type="button">${esc(t("saveCandidates"))}</button>
+     <button value="apply" class="primary">${esc(t("applyCandidates"))}</button>`,
+    (dialog) => {
+      const error = dialog.querySelector<HTMLElement>(
+        "#candidate-review-error",
+      )!;
+      const valueInput = (index: number) =>
+        dialog.querySelector<HTMLTextAreaElement>(`#candidate-value-${index}`)!;
+      for (const { index, candidate } of rows) {
+        const select = dialog.querySelector<HTMLSelectElement>(
+          `#candidate-choice-${index}`,
+        );
+        if (select)
+          select.onchange = () => {
+            valueInput(index).value = select.value
+              ? candidate.alternatives[Number(select.value)].value
+              : "";
+          };
+      }
+      dialog.querySelector<HTMLButtonElement>("#save-candidates")!.onclick =
+        async (event) => {
+          const button = event.currentTarget as HTMLButtonElement;
+          button.disabled = true;
+          error.textContent = "";
+          try {
+            const text =
+              JSON.stringify(candidateFile(candidates), null, 2) + "\n";
+            if (new TextEncoder().encode(text).length > candidateFileLimit)
+              throw Error("candidateLimit");
+            await platform.exportTemplates(text, "veraflow-candidates.json");
+          } catch (reason) {
+            error.textContent = recordImportError(reason);
+          } finally {
+            button.disabled = false;
+          }
+        };
+      dialog.querySelector("form")!.onsubmit = (event) => {
+        if ((event.submitter as HTMLButtonElement | null)?.value !== "apply")
+          return;
+        event.preventDefault();
+        try {
+          const values = new Map<string, string>();
+          for (const { field, index } of rows)
+            if (
+              dialog.querySelector<HTMLInputElement>(
+                `#candidate-accept-${index}`,
+              )!.checked
+            ) {
+              const value = valueInput(index).value;
+              if (!value.trim())
+                throw Error("recordInvalidField:" + field.name);
+              values.set(field.name, value);
+            }
+          if (!values.size) {
+            error.textContent = t("selectCandidates");
+            return;
+          }
+          changes = planRecordValues(s, values);
+          dialog.close("apply");
+        } catch (reason) {
+          error.textContent = recordImportError(reason);
+        }
+      };
+    },
+  );
+  if (choice !== "apply") return;
+  if (changes.length) applyRecordChanges(s, changes);
+  notify(changes.length ? "recordApplied" : "recordNoChanges");
+  focus("extract-source");
+}
+
 async function importRecord(s: Session) {
   const text = await platform.importTemplates();
   if (text === null) return;
@@ -3765,14 +4072,7 @@ async function importRecord(s: Session) {
     notify("recordNoChanges");
     return;
   }
-  const showValue = (value: string | null) =>
-    esc(
-      value === null
-        ? t("recordUnanswered")
-        : value === ""
-          ? t("recordEmptyValue")
-          : value,
-    );
+  const showValue = (value: string | null) => esc(currentRecordValue(value));
   const review = changes
     .map(
       ({ index, previous, value }) =>
@@ -3827,6 +4127,7 @@ function bindSession() {
   click("step-next", () => moveFormStep(1));
   click("prepare-step-outputs", () => perform("finish", false, true));
   click("batch-compare", () => batchCompare(session!));
+  click("extract-source", () => extractSource(session!));
   click("import-record", () => importRecord(session!));
   click("custom-form-use-file", () => useCustomFormWithFile(session!));
   click("save-record", async () => {
@@ -4943,7 +5244,12 @@ async function confirmAction(
     )) === "yes"
   );
 }
-async function actionDialog(title: Key, body: string, actions: string) {
+async function actionDialog(
+  title: Key,
+  body: string,
+  actions: string,
+  setup?: (dialog: HTMLDialogElement) => void,
+) {
   await platform.reveal();
   const prior = document.activeElement as HTMLElement | null;
   const dialog = document.createElement("dialog");
@@ -4952,6 +5258,7 @@ async function actionDialog(title: Key, body: string, actions: string) {
     dialog.classList.add("session-close-dialog");
   dialog.innerHTML = `<form method="dialog"><h2 id="confirmation-title">${esc(t(title))}</h2>${body}<div class="actions">${actions}</div></form>`;
   document.body.append(dialog);
+  setup?.(dialog);
   dialog.showModal();
   dialog.querySelector<HTMLTextAreaElement>("#snippet-copy-text")?.select();
   return new Promise<string>((resolve) =>
