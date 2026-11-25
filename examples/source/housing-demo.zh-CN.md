@@ -3,7 +3,7 @@
 使用本文件夹中的虚构资料完成一次约五分钟的测试。
 
 1. 在浏览器打开 `housing-destination.html`，在 VeraFlow 打开 `housing-application.vf`。如需测试跨应用操作时保持表单可见，请在设置中启用 **会话窗口置顶**。
-2. 在姓名字段输入 `Alex Example`。选择 **导入 JSON 记录…**，打开 `housing-response.json`。审阅姓名变更和中文原文，再应用所有更改。
+2. 在姓名字段输入 `Alex Example`。选择 **表单工具 → 导入 JSON 记录…**，打开 `housing-response.json`。审阅姓名变更和中文原文，再应用所有更改。
 3. 核对姓名。先输入 `Alex Example` 查看不匹配的提示，再用浏览器中的 `Drew Example` 进行核对。可采集选中的文字，也可手动输入。
 4. 选择 **下一步**。展开可选信息，在英文表述中输入 `My current home is too far from work.`。准备此步骤的所有输出，在 **English application** 和 **中文核对** 之间切换。
 5. 将两项输出分别复制并粘贴到演示网页上的对应文本框。若要测试跨应用粘贴，将焦点放在目标文本框，再按 VeraFlow 显示的输出快捷键。每次传输后检查目标内容。

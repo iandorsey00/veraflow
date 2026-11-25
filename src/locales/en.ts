@@ -154,6 +154,12 @@ export const en = {
   formStepOutputStale: "Inputs changed. Review this output again.",
   formStepCopiedStale:
     "Inputs changed after transfer. Review and replace any affected copies.",
+  attentionMissing: "missing",
+  attentionChecks: "to verify",
+  attentionShowAll: "Show all items",
+  candidateDecisions: "Review these decisions",
+  candidateNewValues: "New values",
+  candidateMatchingValues: "Matching values",
   formAttention: "Needs attention",
   formNextAttention: "Next item needing attention",
   fieldNeedsVerification: "Needs verification",

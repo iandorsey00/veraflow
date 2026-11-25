@@ -321,7 +321,7 @@ An optional `"outputs"` object keys settings by output ID. Use an `"instructions
 
 Existing files with delivery properties directly under an output ID continue to work.
 
-Use **Save record as JSON…** to store a strict JSON object of stable field IDs and string or `null` values. Use **Import record JSON…** on an open source form to review the before and after values, then apply the changes together. Missing keys leave the current record alone. A supplied `null` clears the response and suppresses its default in saved copies. An empty string is explicit where the field allows it. Unknown fields and invalid values prevent import. Unchanged values retain their verification. Changed values need a fresh check when the field requires one. These records are plain text and contain entered values.
+Use **Form tools → Save record as JSON…** to store a strict JSON object of stable field IDs and string or `null` values. Use **Form tools → Import record JSON…** on an open source form to review the before and after values, then apply the changes together. Missing keys leave the current record alone. A supplied `null` clears the response and suppresses its default in saved copies. An empty string is explicit where the field allows it. Unknown fields and invalid values prevent import. Unchanged values retain their verification. Changed values need a fresh check when the field requires one. These records are plain text and contain entered values.
 
 Use **Use with form file…** in a custom form to seed a reusable source form by exact field ID. The custom form stays open in its own session. The chosen file provides the named outputs and verification rules. **Save prefilled form** saves the source and values together for reopening. The optional header property `"filename"` sets the suggested filename stem for saves. It can use `{{timestamp}}`, `{{template_name}}`, `{{workflow_name}}`, `{{output_name}}`, and `{{field.Reference}}`. It also accepts built-ins such as `{{@date "%Y-%m-%d"}}` and `{{@row}}`. An unanswered field inserts nothing. The app sanitizes the stem, adds the extension, and lets you choose whether to replace an existing file in the native save dialog.
 
@@ -350,13 +350,21 @@ Choose **Prepare output sections** for the selected output, or **Prepare all ste
 
 [Try the shipment follow-up example](../examples/source/shipment-steps.veraflow) or the [bilingual housing example](../examples/source/housing-application.vf).
 
+## Working records and external converters
+
+A working record is the set of responses in a form. Stable field IDs connect inputs to all the outputs that use those values. Enter, capture, or import values into the same record, review changes, and verify the fields that require a check. Named outputs can then format the same values for different destinations.
+
+Use VeraFlow's built-in workflow for manual input, selection capture, labeled text, CSV, flat record JSON, and [candidate JSON](#candidate-exchange-v1). For XML, YAML, nested JSON, or an application-specific export, convert the fields externally using exact field IDs. For example, a converter can turn a ticket export into `{"serial_number":"ABC123458"}`. Open the matching form and use **Import record JSON…** to review the change. Choose candidate JSON if a person needs to resolve conflicting values or review supporting quotations.
+
+Outputs can be copied or pasted as named text sections, saved as text, or copied or appended as a spreadsheet row. **Save record as JSON…** exports the field values for another tool. A converter or destination app can handle formats and delivery specific to its system.
+
 ## Bulk extraction and candidate files
 
 Use **Extract from source…** in a source form or custom form. Paste a source block, read the clipboard explicitly, open or drop one UTF-8 `.txt` file, or capture selected text in the desktop version. Source text is limited to 65,536 characters and is held for the review. Accepted values can later appear in saved forms, record exports, or output history.
 
 The local extractor reads one label and value per line, separated by `:`, `：`, or Tab. A label can be the exact field ID, its display label, or an optional entry in `fields.<id>.aliases`. It compares labels after trimming and lowercasing them. A field can declare up to 32 unique aliases. Repeated identical canonical values combine their evidence; different values or a label shared by multiple fields require a choice. Selection fields accept the exact stable ID or the exact display label. A display label shared by multiple options is ambiguous.
 
-**Review candidates** shows each proposed value and its evidence. Single candidates for unanswered fields start selected. Replacements, ambiguous matches, and invalid values require you to select or correct them. Applying values uses the normal record merge, clears any checks on changed fields, and leaves unchanged values and missing candidates alone. Verify required fields separately.
+**Review candidates** shows decisions first, followed by new values and matches. Review each proposed value with its evidence. Single candidates for unanswered fields start selected. Replacements, ambiguous matches, and invalid values require you to select or correct them. Applying values uses the normal record merge, clears any checks on changed fields, and leaves unchanged values and missing candidates alone. Verify required fields separately.
 
 ### Candidate exchange v1
 

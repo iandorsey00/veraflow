@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.22.1
+
+- Show missing values and pending checks at the top of the form, with a shortcut to the next item.
+- Keep extraction visible and group record, comparison, and CSV actions in Form tools.
+- Show conflicts and ambiguous candidates first. Refine form and output layouts for narrow windows.
+- Explain supported inputs, shared records, outputs, and external converters in both language guides.
+
 ## 0.22.0
 
 - Acquire a selected text block, paste or read clipboard text, or open or drop a UTF-8 text file.

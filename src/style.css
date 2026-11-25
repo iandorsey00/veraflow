@@ -1613,3 +1613,179 @@ input.toggle-switch:checked::before {
 .candidate-field blockquote small {
   display: block;
 }
+
+/* Use rules and a steady type scale to group workflow controls. */
+.appbar {
+  border-block-end: 1px solid var(--line);
+}
+
+.unified-form,
+.delivery-panel {
+  --workflow-gap: clamp(0.875rem, 2vw, 1.5rem);
+  padding: var(--workflow-gap);
+}
+
+.unified-form .form-header,
+.delivery-panel .scanner-header {
+  border-block-start: 3px solid var(--text);
+  padding-block-start: 0.75rem;
+}
+
+.unified-form h1,
+.delivery-panel h1 {
+  font-size: clamp(1.5rem, 3.5vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.unified-form .task-toolbar {
+  gap: 0.25rem 0.5rem;
+  padding-block: 0.375rem;
+  border-block-end: 1px solid var(--line);
+}
+
+.source-form-tools {
+  min-width: 0;
+}
+
+.source-form-tools summary {
+  padding: 0.5rem;
+  min-height: 36px;
+}
+
+.source-form-tools[open] {
+  flex-basis: 100%;
+}
+
+.source-form-tools .toolbar {
+  border-inline-start: 1px solid var(--line);
+  margin: 0.25rem 0 0.5rem;
+  padding-inline-start: 0.5rem;
+}
+
+.unified-form .session-picker {
+  margin-block: 0.875rem;
+}
+
+.unified-form .form-attention {
+  margin-block: 0.875rem;
+  padding-block: 0.375rem;
+}
+
+.attention-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.attention-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.unified-form .template-form-grid {
+  gap: var(--workflow-gap);
+}
+
+.unified-form .template-form-field {
+  margin-block: 0 0.875rem;
+  padding-block-end: 0.625rem;
+  scroll-margin-block-end: 6rem;
+}
+
+.unified-form #form-output {
+  border-block-start: 1px solid var(--line);
+  padding-block-start: 0.625rem;
+}
+
+.unified-form .template-output h2 {
+  margin-block: 0 0.625rem;
+  font-size: 1.1rem;
+}
+
+.unified-form .form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--bg);
+  border-block-start: 1px solid var(--line);
+  padding-block: 0.625rem;
+}
+
+.unified-form .form-actions:empty {
+  display: none;
+}
+
+.delivery-panel .delivery-text {
+  border-radius: 0;
+  border-block: 1px solid var(--line);
+  padding: 0.875rem;
+  background: var(--surface);
+}
+
+.delivery-panel .delivery-exit {
+  padding-block-start: 0.75rem;
+  border-block-start: 1px solid var(--line);
+}
+
+.candidate-review-dialog {
+  padding-block-end: 0;
+}
+
+.candidate-review-dialog .actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding-block: 0.75rem;
+  background: var(--surface);
+  border-block-start: 1px solid var(--line);
+}
+
+.candidate-group {
+  margin-block: 1rem;
+}
+
+.candidate-group h3 {
+  margin: 0 0 0.75rem;
+  padding-block-start: 0.625rem;
+  border-block-start: 2px solid var(--text);
+  font-size: 1.05rem;
+}
+
+.candidate-group h3 span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.candidate-field {
+  border: 0;
+  border-block-end: 1px solid var(--line);
+  padding: 0 0 0.75rem;
+}
+
+.candidate-field legend {
+  font-weight: 700;
+  padding: 0;
+}
+
+.candidate-field > p {
+  margin-block: 0.25rem;
+}
+
+.candidate-field textarea,
+.candidate-field select {
+  scroll-margin-block-end: 6rem;
+}
+
+@media (min-width: 661px) {
+  .unified-form #form-output {
+    border-block-start: 0;
+    border-inline-start: 1px solid var(--line);
+    padding: 0 0 0 var(--workflow-gap);
+  }
+}

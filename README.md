@@ -2,7 +2,18 @@
 
 English · [简体中文](README.zh-CN.md)
 
-VeraFlow is a local desktop app for capturing, checking, and reusing text on macOS and Windows. Keep reusable forms in ordinary folders. Type or capture values, verify individual fields, and preview the output before copying or pasting it. VeraFlow has no account, analytics, or AI service. It contacts GitHub for update checks and downloads.
+VeraFlow is a local desktop app for collecting information, checking it in one form, and reusing the same record for outputs such as emails, tickets, and spreadsheet rows. It runs on macOS and Windows. VeraFlow has no account, analytics, or AI service. It contacts GitHub for update checks and downloads.
+
+**Source → working record → named outputs → destination**
+
+| What you have                                     | How it fits                                                                                                                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Typed values, selected text, or a UTF-8 text file | Enter or capture values, or extract candidates from labeled lines and review them.                                                                           |
+| CSV, flat record JSON, or candidate JSON          | Select a CSV row, review incoming field values, or resolve proposed values and supporting evidence.                                                          |
+| XML, YAML, or a nested JSON export                | Use an external converter to map the fields you need into flat record JSON or CSV. Use candidate JSON when a person needs to review uncertainty or evidence. |
+| A checked working record                          | Prepare named outputs. Copy or paste text sections, save text or record JSON, or use the CSV tools to append a row.                                          |
+
+JSON is an exchange format for the record. When you fill a form directly, VeraFlow holds the working values in memory. JSON5 is supported in the authoring header of a `.veraflow` or `.vf` file. Record and candidate files use strict JSON. [Import and output guide](docs/veraflow-language-draft.md#working-records-and-external-converters)
 
 ![VeraFlow showing a dispatch form with sample values on the left and the generated note on the right](docs/images/veraflow-form-preview.png)
 
@@ -10,7 +21,7 @@ Try the [Dispatch note example](examples/source/dispatch-note.veraflow) to see t
 
 ## Install
 
-Get the [v0.22.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.22.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.22.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.22.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
 - **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
@@ -29,6 +40,8 @@ If an update is available, **Update app…** appears in the menu-bar or tray men
 A form file can be as simple as `Hello {{name}}`. The [source file guide](docs/veraflow-language-draft.md) covers shared records, named outputs, source comparison, and paste sections. The [examples](examples/source/README.md) include an address, a sample CSV, and a page to test paste navigation. The [VS Code extension](editors/vscode/README.md) adds highlighting, folding, and snippets. The release page also includes `VeraFlow_VSCode.vsix`. The [portable specification](docs/portable-templates.md) includes a simpler template profile, fixtures, and an independent Python reader.
 
 ## Fill, verify, and transfer
+
+On a source form, **Extract from source…** brings in a block of text. **Form tools** contains record import and export, source comparison, and CSV actions. **Needs attention** near the top shows how many values or checks are pending.
 
 1. Type or paste values into the form, or select text in another app and use **Capture** beside the field.
 2. Use **Verify field** to compare a value against the original. VeraFlow keeps your value and shows the difference if they disagree. **Needs attention** links to missing values and required checks. Press **Alt+Shift+N** (**Option+Shift+N** on macOS) to jump to the next item. Unfilled optional fields are under **Optional details**.

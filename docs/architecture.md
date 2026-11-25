@@ -22,6 +22,12 @@ Manual entry, selection capture, CSV and JSON all feed a working record keyed by
 
 The Scanner sections below document historical workflows and compatibility behavior.
 
+### Format boundaries
+
+Input and output integrations meet at the working record and the rendered sections, respectively. Desktop stores active field values in memory. Flat record JSON carries canonical field IDs and values between applications, and candidate JSON adds alternatives and optional evidence for review. External converters can map XML, YAML, nested JSON, or vendor-specific data to these contracts. A converter or destination app can also transform a record or rendered text for downstream use.
+
+Prefer documenting and testing these interchange contracts. Add a built-in format when it serves a recurring workflow and removes a meaningful manual step.
+
 ## Bulk source acquisition
 
 A source form or custom form can acquire a text block once. Extraction and comparison share field-label matching and labeled-line recognition. Extraction produces candidates with quoted evidence. The review applies selected changes through the existing record merge and dependency invalidation. Field verification remains independent.

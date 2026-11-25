@@ -2,6 +2,10 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.22.1 form usability
+
+Proportional release cycle for form and candidate review layout changes. Follow the [display replacement demo](../examples/source/service-demo.md) in a narrow Windows or macOS window. Check that Form tools opens by keyboard, Needs attention jumps to the appropriate field, and the output and candidate actions stay reachable. To roll back, reinstall [0.22.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.22.0). Existing definitions and saved records use the same formats.
+
 ## 0.22.0 bulk acquisition and candidate review
 
 Full release cycle for local acquisition and untrusted candidate imports. Extract `VeraFlow_Demo.zip` and follow [the display replacement demo](../examples/source/service-demo.md). On packaged Windows and macOS, check that selecting an entire block captures the right source, clipboard recovery preserves the ability to review, a conflicting serial needs an explicit choice, and a changed verified field requires another check.

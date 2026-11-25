@@ -1,5 +1,9 @@
 # Validation record
 
+## 0.22.1 release preparation
+
+Passed 93 TypeScript unit tests, 99 browser tests, 21 Rust tests, and nine portable rendering fixtures. Browser coverage includes a 340-pixel form, the Form tools disclosure, keyboard navigation from Needs attention, and ordering candidate decisions ahead of straightforward matches. Version consistency, formatting, frontend build, isolated test configuration, and demo archive checks passed. The packaged Windows layout and native transfer still need a hands-on check.
+
 ## 0.22.0 release preparation
 
 Passed 93 TypeScript unit tests, 98 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Browser tests cover labeled text acquisition, ambiguity, external candidate import, conflict review, and reverification after a changed value. The demo archive was checked for the complete set of text, candidate, and paste-destination fixtures. Native bulk selection capture still needs a manual check in the packaged Windows and macOS apps.

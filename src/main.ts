@@ -2449,16 +2449,20 @@ function templateInstructions(s: Session) {
 function formAttentionView(s: Session, row = false, headers?: string[]) {
   const attention = formAttention(s, row, headers);
   if (!attention.length) return "";
+  const checks = attention.filter(({ check }) => check).length;
+  const missing = attention.length - checks;
+  const items = `<ul>${attention
+    .map(
+      ({ index, check }) =>
+        `<li><button class="quiet" data-form-attention="${index}">${esc(fieldLabel(s, s.fields[index].name))} · ${esc(t(check ? "fieldNeedsVerification" : "fieldNeedsValue"))}</button></li>`,
+    )
+    .join("")}</ul>`;
   return `<section class="form-attention" aria-label="${esc(t("formAttention"))}">
-    <div class="section-head"><h2>${esc(t("formAttention"))}</h2>
+    <div class="attention-heading"><div><h2>${esc(t("formAttention"))}</h2>
+      <p>${esc([missing ? missing + " " + t("attentionMissing") : "", checks ? checks + " " + t("attentionChecks") : ""].filter(Boolean).join(" · "))}</p></div>
       ${button("form-next-attention", "formNextAttention", "quiet")}
     </div>
-    <ul>${attention
-      .map(
-        ({ index, check }) =>
-          `<li><button class="quiet" data-form-attention="${index}">${esc(fieldLabel(s, s.fields[index].name))} · ${esc(t(check ? "fieldNeedsVerification" : "fieldNeedsValue"))}</button></li>`,
-      )
-      .join("")}</ul>
+    ${attention.length > 3 ? `<details id="attention-list"><summary>${esc(t("attentionShowAll"))}</summary>${items}</details>` : items}
   </section>`;
 }
 
@@ -2712,20 +2716,30 @@ function templateFormView(s: Session): string {
   fields.sort((a, b) => rank(a.field.name) - rank(b.field.name));
   if (s.unifiedForm)
     return `<main class="capture-panel template-form unified-form">
-    <header><h1>${esc(s.template.name)}</h1>${templateInstructions(s)}${steps ? stepHeading(s, steps) : ""}${outputSelector(s)}
+    <header class="form-header"><h1>${esc(s.template.name)}</h1>${templateInstructions(s)}${steps ? stepHeading(s, steps) : ""}
       <div class="task-toolbar">
-        ${s.template.placeholderStyle === "source" ? (steps ? "" : sourceModeButtons("form")) + button("extract-source", "extractSource", "quiet") + button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") + button("import-record", "importRecord", "quiet") : ""}
-        ${s.scanner ? button("scanner-add", "addField", "quiet") + button("extract-source", "extractSource", "quiet") + button("custom-form-use-file", "customFormUseFile", "quiet") : ""}
+        ${s.template.placeholderStyle === "source" || s.scanner ? button("extract-source", "extractSource", "quiet") : ""}
+        ${s.scanner ? button("scanner-add", "addField", "quiet") : ""}
+        ${
+          s.template.placeholderStyle === "source"
+            ? `<details id="source-form-tools" class="source-form-tools"><summary id="source-form-tools-summary">${esc(t("formTools"))}</summary><div class="toolbar">
+          ${steps ? "" : sourceModeButtons("form")}
+          ${button("batch-compare", "batchCompare", "quiet")}${button("save-record", "saveRecord", "quiet")}${button("import-record", "importRecord", "quiet")}
+        </div></details>`
+            : ""
+        }
+        ${s.scanner ? button("custom-form-use-file", "customFormUseFile", "quiet") : ""}
         ${button("pause-task", "pauseTask", "quiet")}
       </div>
       ${focusedWorkflow ? `<p class="task-progress">${esc(progressText(s))}</p>` : ""}
     </header>
+    ${outputSelector(s)}
+    ${steps ? `<div id="step-warnings" aria-live="polite">${stepWarnings(s)}</div>` : ""}
+    <div id="form-attention" aria-live="polite">${formAttentionView(s)}</div>
     <div class="template-form-grid ${library.preferences.hideLivePreview ? "without-preview" : ""}"><div>
       ${step && own ? reusedStepFields(s, own, step.references) : ""}
       ${unifiedFormFields(s, fields, active)}
-      ${steps ? `<div id="step-warnings" aria-live="polite">${stepWarnings(s)}</div>` : ""}
-      <div id="form-attention" aria-live="polite">${formAttentionView(s)}</div>
-      <div class="actions">${steps && stepIndex > 0 ? button("step-previous", "formStepPrevious", "quiet") : ""}${s.scanner ? "" : button("finish", step && !step.outputs.length ? (steps![stepIndex + 1] ? "formStepNext" : "closeSession") : s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}${step && step.outputs.length > 1 ? button("prepare-step-outputs", "prepareStepOutputs") : ""}</div>
+      <div class="actions form-actions">${steps && stepIndex > 0 ? button("step-previous", "formStepPrevious", "quiet") : ""}${s.scanner ? "" : button("finish", step && !step.outputs.length ? (steps![stepIndex + 1] ? "formStepNext" : "closeSession") : s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}${step && step.outputs.length > 1 ? button("prepare-step-outputs", "prepareStepOutputs") : ""}</div>
       ${s.scanner ? `<details class="form-tools"><summary>${esc(t("formTools"))}</summary>${scannerControls(true)}</details>` : ""}
     </div><div id="form-output" ${library.preferences.hideLivePreview || step?.outputs.length === 0 ? "hidden" : ""}>${library.preferences.hideLivePreview || step?.outputs.length === 0 ? "" : s.scanner ? freeScannerPreview(s) : outputPreview(s.template, s)}</div></div>
     <div class="actions">${button("cancel-session", "closeSession", "quiet")}</div>
@@ -3715,7 +3729,17 @@ async function goToFormAttention(index: number | undefined) {
 
 function refreshFormAttention(s: Session) {
   const section = document.getElementById("form-attention");
-  if (section) section.innerHTML = formAttentionView(s);
+  if (!section) return;
+  const open =
+    section.querySelector<HTMLDetailsElement>("#attention-list")?.open;
+  const previous = section.dataset.attentionMarkup;
+  const next = formAttentionView(s);
+  if (previous === next) return;
+  section.dataset.attentionMarkup = next;
+  section.innerHTML = next;
+  const disclosure =
+    section.querySelector<HTMLDetailsElement>("#attention-list");
+  if (disclosure && open) disclosure.open = true;
 }
 
 function bindUnifiedForm(s: Session) {
@@ -3925,23 +3949,32 @@ async function reviewCandidates(
     invalid: "candidateInvalid",
     not_found: "batchMissing",
   } as const;
-  let changes: ReturnType<typeof planRecordValues> = [];
-  const choice = await actionDialog(
-    "reviewCandidates",
-    `<p class="hint">${esc(t("candidateReviewHelp"))}</p>
-     ${rows
-       .map(({ field, index, candidate }) => {
-         const proposed =
-           candidate.status === "found" ? candidate.alternatives[0].value : "";
-         const same = proposed !== "" && field.value === proposed;
-         const status =
-           candidate.status === "found" && field.value !== null
-             ? same
-               ? "candidateSame"
-               : "candidateConflict"
-             : statusKeys[candidate.status];
-         const label = fieldLabel(s, field.name);
-         return `<fieldset class="candidate-field" data-candidate-row="${index}">
+  const needsDecision = ({ field, candidate }: (typeof rows)[number]) =>
+    candidate.status !== "found" ||
+    (field.value !== null && field.value !== candidate.alternatives[0].value);
+  const decisions = rows.filter(needsDecision);
+  const newValues = rows.filter(
+    (row) => !needsDecision(row) && row.field.value === null,
+  );
+  const matches = rows.filter(
+    (row) => !needsDecision(row) && row.field.value !== null,
+  );
+  const renderCandidate = ({
+    field,
+    index,
+    candidate,
+  }: (typeof rows)[number]) => {
+    const proposed =
+      candidate.status === "found" ? candidate.alternatives[0].value : "";
+    const same = proposed !== "" && field.value === proposed;
+    const status =
+      candidate.status === "found" && field.value !== null
+        ? same
+          ? "candidateSame"
+          : "candidateConflict"
+        : statusKeys[candidate.status];
+    const label = fieldLabel(s, field.name);
+    return `<fieldset class="candidate-field" data-candidate-row="${index}">
          <legend>${esc(label)}</legend>
          <p class="hint">${esc(t(status))}</p>
          <p>${esc(t("recordCurrent"))} <strong>${esc(currentRecordValue(field.value))}</strong></p>
@@ -3968,8 +4001,20 @@ ${esc(proposed)}</textarea>
            )
            .join("")}
          </details></fieldset>`;
-       })
-       .join("")}
+  };
+  const group = (key: Key, entries: typeof rows, collapse = false) =>
+    entries.length
+      ? collapse
+        ? `<details class="candidate-group"><summary>${esc(t(key))} (${entries.length})</summary>${entries.map(renderCandidate).join("")}</details>`
+        : `<section class="candidate-group" aria-label="${esc(t(key))}"><h3>${esc(t(key))} <span>${entries.length}</span></h3>${entries.map(renderCandidate).join("")}</section>`
+      : "";
+  let changes: ReturnType<typeof planRecordValues> = [];
+  const choice = await actionDialog(
+    "reviewCandidates",
+    `<p class="hint">${esc(t("candidateReviewHelp"))}</p>
+      ${group("candidateDecisions", decisions)}
+      ${group("candidateNewValues", newValues)}
+      ${group("candidateMatchingValues", matches, true)}
       ${missing.length ? `<details><summary>${esc(t("batchMissing"))} (${missing.length})</summary><ul>${missing.map(({ name }) => `<li>${esc(fieldLabel(s, name))}</li>`).join("")}</ul></details>` : ""}
       <p class="hint">${esc(t("candidatePrivacy"))}</p>
       <p id="candidate-review-error" role="alert"></p>`,
@@ -3977,6 +4022,7 @@ ${esc(proposed)}</textarea>
      <button id="save-candidates" type="button">${esc(t("saveCandidates"))}</button>
      <button value="apply" class="primary">${esc(t("applyCandidates"))}</button>`,
     (dialog) => {
+      dialog.classList.add("candidate-review-dialog");
       const error = dialog.querySelector<HTMLElement>(
         "#candidate-review-error",
       )!;
@@ -4029,12 +4075,14 @@ ${esc(proposed)}</textarea>
             }
           if (!values.size) {
             error.textContent = t("selectCandidates");
+            error.scrollIntoView({ block: "nearest" });
             return;
           }
           changes = planRecordValues(s, values);
           dialog.close("apply");
         } catch (reason) {
           error.textContent = recordImportError(reason);
+          error.scrollIntoView({ block: "nearest" });
         }
       };
     },
@@ -4089,7 +4137,7 @@ async function importRecord(s: Session) {
   if (choice !== "apply") return;
   applyRecordChanges(s, changes);
   notify("recordApplied");
-  focus("import-record");
+  focus("source-form-tools-summary");
 }
 
 async function useCustomFormWithFile(s: Session) {

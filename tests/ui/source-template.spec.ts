@@ -7,6 +7,12 @@ import { join } from "node:path";
 const fixture = (name: string) =>
   readFile(new URL(`../../examples/source/${name}`, import.meta.url));
 
+async function openFormTools(page: Page) {
+  const tools = page.locator("#source-form-tools");
+  if (!(await tools.evaluate((element: HTMLDetailsElement) => element.open)))
+    await tools.locator("summary").click();
+}
+
 async function openSource(page: Page) {
   await openLegacyLibrary(page);
   const picker = page.waitForEvent("filechooser");
@@ -996,6 +1002,7 @@ test("switching named outputs retains values and JSON saves the shared record", 
   );
   await expect(page.getByLabel("Contact", { exact: true })).toHaveValue("Alex");
   const result = page.waitForEvent("download");
+  await openFormTools(page);
   await page.getByRole("button", { name: "Save record as JSON…" }).click();
   const record = await result;
   expect(record.suggestedFilename()).toMatch(/^Service-visit-VF-104-.*\.json$/);
@@ -1144,6 +1151,7 @@ test("switches Form, CSV, and Append without replacing a draft and reviews dupli
   await carrier.fill("Ground");
 
   const picker = page.waitForEvent("filechooser");
+  await openFormTools(page);
   await page.locator("#switch-csv").click();
   await (
     await picker
@@ -1156,6 +1164,7 @@ test("switches Form, CSV, and Append without replacing a draft and reviews dupli
   await expect(page.locator(".output")).toContainText("VF-105 / Ground");
   await page.locator("#switch-form").click();
   await expect(ref).toHaveValue("draft");
+  await openFormTools(page);
   await page.locator("#switch-csv").click();
   await expect(page.getByLabel("CSV row", { exact: true })).toHaveValue("1");
   await page.locator("#use-csv-row").click();
@@ -1165,6 +1174,7 @@ test("switches Form, CSV, and Append without replacing a draft and reviews dupli
   await confirm.getByRole("button", { name: "Use this row in Form" }).click();
   await expect(ref).toHaveValue("VF-105");
 
+  await openFormTools(page);
   await page.locator("#switch-append").click();
   await page.locator("#append-choose").click();
   await expect(page.locator(".append-destination")).toHaveText("shipments.csv");
@@ -1457,6 +1467,7 @@ test("collect-only step resumes and multiple outputs prepare from one reviewed r
   const legalName = "Legal name / 法定姓名";
   await page.getByLabel(legalName, { exact: true }).fill("Alex Example");
   const pick = page.waitForEvent("filechooser");
+  await openFormTools(page);
   await page.getByRole("button", { name: "Import record JSON…" }).click();
   await (
     await pick
@@ -1550,6 +1561,15 @@ test("bulk source file review resolves ambiguity and invalidates changed verific
   await page.getByRole("button", { name: "Find candidates" }).click();
 
   const review = page.getByRole("dialog", { name: "Review candidates" });
+  await expect(
+    review.getByRole("heading", { name: /Review these decisions/ }),
+  ).toBeVisible();
+  await expect(
+    review.getByRole("heading", { name: /New values/ }),
+  ).toBeVisible();
+  await expect(review.locator(".candidate-group").first()).toContainText(
+    "Serial number",
+  );
   const serial = review.getByRole("group", {
     name: "Serial number",
     exact: true,
@@ -1633,4 +1653,42 @@ test("external candidate files show inferred evidence and require explicit repla
   await expect(
     page.getByLabel("Shipping address", { exact: true }),
   ).toHaveValue("");
+});
+
+test("a narrow form puts pending work ahead of fields and keeps tools closed until opened", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 340, height: 620 });
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "service-intake.vf",
+    (await fixture("service-intake.vf")).toString(),
+  );
+  const attention = page.getByRole("region", { name: "Needs attention" });
+  const model = page.getByLabel("Display model", { exact: true });
+  await expect(attention).toBeVisible();
+  await expect(attention).toContainText("7 missing");
+  await expect(
+    page.getByRole("button", { name: "Extract from source…" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Import record JSON…" }),
+  ).toBeHidden();
+  expect((await attention.boundingBox())!.y).toBeLessThan(
+    (await model.boundingBox())!.y,
+  );
+  await attention
+    .getByRole("button", { name: "Next item needing attention" })
+    .click();
+  await expect(
+    page.getByLabel("Affected units", { exact: true }),
+  ).toBeFocused();
+  await openFormTools(page);
+  await expect(
+    page.getByRole("button", { name: "Import record JSON…" }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    340,
+  );
 });
