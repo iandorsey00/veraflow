@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rename, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -13,6 +13,9 @@ import {
   script,
   shipment,
   shipmentExample,
+  housingExample,
+  housingResponse,
+  embeddedTemplate,
 } from "./fixtures.mjs";
 
 const engine = process.env.VERAFLOW_BROWSER ?? "chromium";
@@ -184,7 +187,7 @@ test("the authoring page exposes a newer deployed version and downloads an HTML 
     await route.fulfill({ path: join("dist", name) });
   });
   await page.goto("https://veraflow.test/");
-  const update = page.getByRole("link", { name: "Update now…" });
+  const update = page.getByRole("link", { name: "Update app…" });
   assert.equal(await update.isVisible(), false);
   offered = "10.2.0";
   await page.reload();
@@ -208,6 +211,25 @@ test("the authoring page exposes a newer deployed version and downloads an HTML 
   assert.equal(
     (await downloadingAgain).suggestedFilename(),
     await page.locator("#export-filename").textContent(),
+  );
+  await page
+    .getByLabel("VeraFlow template")
+    .setInputFiles(fileURLToPath(housingExample));
+  const prefill = page.getByRole("checkbox", {
+    name: "Include prefilled responses",
+  });
+  await prefill.waitFor();
+  assert.equal(await prefill.isChecked(), false);
+  await prefill.check();
+  await page
+    .getByLabel("Response JSON file (optional)")
+    .setInputFiles(fileURLToPath(housingResponse));
+  const prefilled = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download HTML form" }).click();
+  const downloadedHtml = await readFile(await (await prefilled).path(), "utf8");
+  assert.match(
+    embeddedTemplate(downloadedHtml).content,
+    /"legal_name": "Drew Example"/,
   );
 });
 
@@ -350,6 +372,137 @@ test("offline shipment steps preserve later inputs and require recopy after a re
     "Shipment VF-105 picked up. Tracking: PK-12.",
   );
   assert.equal(await warnings.isVisible(), false);
+  assert.deepEqual(requests, []);
+  assert.deepEqual(errors, []);
+});
+
+test("prefilled housing export runs offline and downloads reviewable response JSON", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "veraflow-housing-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const original = join(directory, "housing.html");
+  execFileSync(process.execPath, [
+    fileURLToPath(script),
+    "--responses",
+    fileURLToPath(housingResponse),
+    fileURLToPath(housingExample),
+    original,
+  ]);
+  await mkdir(join(directory, "moved"));
+  const renamed = join(directory, "moved", "housing-review.html");
+  await rename(original, renamed);
+  const browser = await launch();
+  t.after(() => browser.close());
+  const context = await browser.newContext({
+    offline: true,
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        async writeText() {
+          throw new Error("Clipboard blocked");
+        },
+      },
+    });
+  });
+  const requests = [];
+  const errors = [];
+  page.on("request", (request) => {
+    if (/^https?:/.test(request.url())) requests.push(request.url());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(pathToFileURL(renamed).href);
+
+  const candidate = page.getByRole("textbox", {
+    name: /Independent value for Legal name/,
+  });
+  const name = page.getByRole("textbox", { name: "Legal name / 法定姓名" });
+  const next = page.getByRole("button", { name: "Next step" });
+  const prepareAll = page.getByRole("button", {
+    name: "Prepare all step outputs",
+  });
+  assert.equal(await name.inputValue(), "Drew Example");
+  assert.equal(
+    await page.getByRole("button", { name: "Create output" }).isVisible(),
+    false,
+  );
+  await next.press("Enter");
+  await page.keyboard.press("Enter");
+  assert.ok(
+    await candidate.evaluate((input) => input === document.activeElement),
+  );
+  await candidate.fill("Other Name");
+  await candidate.press("Enter");
+  assert.equal(await name.inputValue(), "Drew Example");
+  await candidate.fill("Drew Example");
+  await candidate.press("Enter");
+  await next.click();
+
+  await page.getByText("Optional fields", { exact: true }).click();
+  const reason = page.getByRole("textbox", {
+    name: "English wording / 英文表述",
+  });
+  const english = "My current home is too far from work.";
+  await reason.fill(english);
+  await prepareAll.click();
+  const application = page.locator(".prepared-output").filter({
+    has: page.getByRole("heading", { name: "English application" }),
+  });
+  const review = page
+    .locator(".prepared-output")
+    .filter({ has: page.getByRole("heading", { name: "中文核对" }) });
+  const englishText = `Name: Drew Example\nEmployment: Employed\nReason for moving: ${english}`;
+  assert.equal(
+    await application.getByRole("textbox", { name: "Body" }).inputValue(),
+    englishText,
+  );
+  assert.equal(
+    await review.getByRole("textbox", { name: "Body" }).inputValue(),
+    "姓名：Drew Example\n就业状态：在职\n搬家原因：现在的住处离公司太远。",
+  );
+  assert.equal(
+    await review.getByText("请核对姓名、就业状态及原文。").isVisible(),
+    true,
+  );
+  await application.getByRole("button", { name: "Copy entire output" }).click();
+  await page.getByText(/Clipboard access is blocked/).waitFor();
+  assert.equal(
+    await application
+      .getByRole("textbox", { name: "Entire output" })
+      .evaluate((area) =>
+        area.value.slice(area.selectionStart, area.selectionEnd),
+      ),
+    englishText,
+  );
+  await page.keyboard.press("ControlOrMeta+c");
+  await page.getByRole("button", { name: "Previous step" }).click();
+  await name.fill("Alex Example");
+  const warnings = page.locator(".step-warnings");
+  assert.match(
+    await warnings.textContent(),
+    /English application · Inputs changed/,
+  );
+  assert.match(await warnings.textContent(), /中文核对 · Inputs changed/);
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download response JSON" }).click();
+  const downloaded = await downloading;
+  assert.equal(downloaded.suggestedFilename(), "responses.json");
+  assert.deepEqual(
+    JSON.parse(await readFile(await downloaded.path(), "utf8")),
+    {
+      legal_name: "Alex Example",
+      employment: "employed",
+      moving_reason: "现在的住处离公司太远。",
+      reason_en: english,
+    },
+  );
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+    true,
+  );
   assert.deepEqual(requests, []);
   assert.deepEqual(errors, []);
 });

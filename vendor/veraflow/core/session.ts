@@ -48,13 +48,19 @@ export function sessionSteps(s: Session) {
     : undefined;
 }
 
-function currentFormStep(s: Session) {
-  const steps = sessionSteps(s);
-  return steps?.find((step) => step.output === s.outputId) ?? steps?.[0];
+export function currentFormStep(s: Session) {
+  return sessionSteps(s)?.[s.stepIndex ?? 0];
 }
 
-export function activateFormStep(s: Session, output: string) {
-  s.outputId = output;
+export function activateFormStep(
+  s: Session,
+  stepIndex: number,
+  output?: string,
+) {
+  s.stepIndex = stepIndex;
+  const outputs = currentFormStep(s)?.outputs ?? [];
+  s.outputId =
+    output !== undefined && outputs.includes(output) ? output : outputs[0];
   const active = activeSourceFields(s);
   const own = new Set(currentFormStep(s)?.fields);
   const index = s.fields.findIndex(
@@ -63,12 +69,12 @@ export function activateFormStep(s: Session, output: string) {
   s.active = Math.max(index, 0);
 }
 
-export function noteStepPrepared(s: Session) {
-  if (!s.stepOutputs || !s.outputId) return;
-  const progress = s.stepOutputs.get(s.outputId);
+export function noteStepPrepared(s: Session, output = s.outputId) {
+  if (!s.stepOutputs || !output) return;
+  const progress = s.stepOutputs.get(output);
   if (progress) progress.needsReview = false;
   else
-    s.stepOutputs.set(s.outputId, {
+    s.stepOutputs.set(output, {
       needsReview: false,
       transferred: new Set(),
       staleSections: new Set(),
@@ -87,13 +93,12 @@ export function noteStepTransfer(s: Session, section?: string) {
 
 function invalidateStepOutputs(s: Session, name: string) {
   if (!s.stepOutputs?.size) return;
-  for (const step of sessionSteps(s) ?? []) {
-    if (!step.references.has(name) && !step.fields.includes(name)) continue;
-    const progress = s.stepOutputs.get(step.output);
-    if (!progress) continue;
+  const source = parseSource(s.template.content);
+  for (const output of source.outputs) {
+    const progress = s.stepOutputs.get(output.id);
+    if (!progress || !output.references.has(name)) continue;
     progress.needsReview = true;
-    if (step.references.has(name))
-      for (const part of progress.transferred) progress.staleSections.add(part);
+    for (const part of progress.transferred) progress.staleSections.add(part);
   }
 }
 
@@ -103,23 +108,25 @@ export function formAttention(s: Session, row = false, headers?: string[]) {
   if (s.template.placeholderStyle === "source") {
     const parsed = parseSource(s.template.content);
     const step = currentFormStep(s);
-    const output = sourceOutput(parsed, step?.output ?? s.outputId);
-    if (row && !output.row) {
+    const output =
+      step && !s.outputId ? undefined : sourceOutput(parsed, s.outputId);
+    if (row && !output?.row) {
       active = activeSourceFields(s);
       if (headers)
         active = new Set(headers.filter((name) => active?.has(name)));
     } else {
       active = new Set();
       missing = new Set();
-      sourceParts(
-        parsed,
-        sessionValues(s),
-        active,
-        output.id,
-        s.sourceContext,
-        row,
-        missing,
-      );
+      if (output)
+        sourceParts(
+          parsed,
+          sessionValues(s),
+          active,
+          output.id,
+          s.sourceContext,
+          row,
+          missing,
+        );
       for (const name of step?.alwaysVisible ?? []) {
         active.add(name);
         missing.add(name);
@@ -140,7 +147,12 @@ export function activeSourceFields(s: Session): Set<string> | undefined {
   const parsed = parseSource(s.template.content);
   const step = currentFormStep(s);
   const active = new Set(step ? step.alwaysVisible : parsed.recordOnlyFields);
-  sourceParts(parsed, sessionValues(s), active, step?.output, s.sourceContext);
+  if (step) {
+    const values = sessionValues(s);
+    for (const output of step.outputs)
+      sourceParts(parsed, values, active, output, s.sourceContext);
+  } else
+    sourceParts(parsed, sessionValues(s), active, undefined, s.sourceContext);
   return active;
 }
 function selectedOutputFields(s: Session) {
@@ -239,7 +251,7 @@ export function startSession(template: Template): Session {
   };
   if (source?.steps) {
     s.stepOutputs = new Map();
-    activateFormStep(s, source.steps[0].output);
+    activateFormStep(s, 0);
     return s;
   }
   if (!fields.length) s.mode = "ready";
@@ -332,6 +344,23 @@ export function clear(s: Session): void {
   delete field.candidate;
   s.mode = "capture";
 }
+export function applyRecordChanges(
+  s: Session,
+  changes: readonly { index: number; value: string | null }[],
+) {
+  editable(s);
+  for (const { index, value } of changes) {
+    const field = s.fields[index];
+    invalidateStepOutputs(s, field.name);
+    field.value = value;
+    field.status = value === null ? "empty" : "captured";
+    delete field.checkedByTyping;
+    delete field.candidate;
+    delete field.removeBlankLines;
+  }
+  s.mode = "capture";
+}
+
 export function skip(s: Session, advance = true): void {
   const control = s.controls?.get(s.fields[s.active]?.name);
   if (control && !control.optional) throw Error("incomplete");
@@ -693,6 +722,7 @@ export function spreadsheetRow(
 }
 
 export function prepareSections(s: Session) {
+  if (currentFormStep(s)?.outputs.length === 0) return [];
   validateOutput(s);
   return checkedSource(
     s.template,

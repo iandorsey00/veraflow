@@ -29,3 +29,21 @@ export const shipment = {
   recipient: "Alex",
   tracking: "PK-12",
 };
+
+export const housingExample = new URL(
+  "../examples/housing-application.vf",
+  import.meta.url,
+);
+export const housingResponse = new URL(
+  "../examples/housing-response.json",
+  import.meta.url,
+);
+
+export function embeddedTemplate(html) {
+  const { sourceLines, ...template } = JSON.parse(
+    html.match(
+      /<script type="application\/json" id="definition">([^]*?)<\/script>/,
+    )[1],
+  );
+  return { ...template, content: sourceLines.join("") };
+}

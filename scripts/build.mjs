@@ -5,7 +5,8 @@ import { build } from "esbuild";
 const options = {
   bundle: true,
   target: ["safari15.4", "chrome100"],
-  minify: true,
+  minify: false,
+  legalComments: "inline",
 };
 // Inline code is produced by the bundler. Refuse a closing tag instead of rewriting executable code.
 function inline(text, name) {
@@ -21,11 +22,18 @@ const runtime = await build({
   format: "iife",
   write: false,
 });
-const css = inline(await readFile("src/style.css", "utf8"), "style");
-const script = inline(runtime.outputFiles[0].text, "script");
+const css = inline(
+  "\n" + (await readFile("src/style.css", "utf8")).trimEnd() + "\n    ",
+  "style",
+);
+const script = inline(
+  "\n" + runtime.outputFiles[0].text.trimEnd() + "\n    ",
+  "script",
+);
 const license = await readFile("vendor/veraflow/LICENSE", "utf8");
+const momoaLicense = await readFile("vendor/momoa-LICENSE", "utf8");
 const define = {
-  CORE_LICENSE: JSON.stringify(license),
+  EXPORT_LICENSES: JSON.stringify(license + "\n" + momoaLicense),
   FORM_RUNTIME: JSON.stringify(script),
   FORM_STYLE: JSON.stringify(css),
   SCRIPT_HASH: JSON.stringify(hash(script)),
@@ -57,7 +65,7 @@ await Promise.all([
     outfile: "dist/export-html.mjs",
   }),
   writeFile(`dist/${styleName}`, css),
-  writeFile("dist/LICENSE", license),
+  writeFile("dist/LICENSE", license + "\n" + momoaLicense),
   writeFile("dist/index.html", index),
   writeFile("dist/version.json", JSON.stringify({ version }) + "\n"),
 ]);

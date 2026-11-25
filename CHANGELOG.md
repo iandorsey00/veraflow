@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Match VeraFlow Desktop 0.21.0 with JSON5 metadata, collection-only steps, and one or several named outputs per step.
+- Add opt-in prefill and strict JSON response downloads that preserve omitted, null, and empty values.
+- Format the self-contained HTML for source inspection and include the bilingual housing fixture.
+- Show **Update app…** when a newer hosted build is available. Add a CLI `--update` command for clean source checkouts.
+
 ## 0.2.1
 
 - Add optional UTC timestamps to HTML export and text download filenames. The HTML exporter CLI supports `--timestamp`.

@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -16,6 +24,9 @@ import {
   shipmentExample,
   shipmentSource,
   shipment,
+  housingExample,
+  housingResponse,
+  embeddedTemplate,
 } from "./fixtures.mjs";
 
 const { version } = JSON.parse(
@@ -50,11 +61,7 @@ test("exports a locked-down file and strips saved session data", async (t) => {
   );
   run(input, output);
   const html = await readFile(output, "utf8");
-  const data = JSON.parse(
-    html.match(
-      /<script type="application\/json" id="definition">([^]*?)<\/script>/,
-    )[1],
-  );
+  const data = embeddedTemplate(html);
   assert.equal(data.name, title);
   assert.ok(!html.includes("PRIVATE_CASE_DATA"));
   assert.ok(!html.includes("</title><script>"));
@@ -116,7 +123,7 @@ test("timestamps HTML destinations on request and preserves long Unicode filenam
   assert.match(report, new RegExp(`^report-${timestamp}\\.html$`));
   assert.match(
     await readFile(join(directory, report), "utf8"),
-    /"sourceName":"工+/,
+    /"sourceName":\s*"工+/,
   );
   const longExport = files.find(
     (file) => file.endsWith(".html") && file !== report,
@@ -163,7 +170,8 @@ test("rejects runtime-only workflows and variables, including inside unused bran
 async function loadCore(coreDir) {
   const core = await build({
     stdin: {
-      contents: 'export * from "./session";',
+      contents:
+        'export * from "./session"; export * from "./source"; export * from "./source-record";',
       resolveDir: coreDir,
     },
     bundle: true,
@@ -186,9 +194,7 @@ test("same named sections and literal Unicode as VeraFlow desktop", async (t) =>
   const output = join(directory, "case.html");
   run(fileURLToPath(example), output);
   const html = await readFile(output, "utf8");
-  const template = JSON.parse(
-    html.match(/id="definition">([^]*?)<\/script>/)[1],
-  );
+  const template = embeddedTemplate(html);
   const values = new Map(Object.entries(inputs));
   assert.deepEqual(renderTemplateValues(template, values, "email"), [
     { id: "subject", label: "Subject", text: expected.subject },
@@ -215,9 +221,7 @@ test("shipment steps share verified values and retain copied-section warnings un
   const output = join(directory, "shipment.html");
   run(fileURLToPath(shipmentExample), output);
   const html = await readFile(output, "utf8");
-  const template = JSON.parse(
-    html.match(/id="definition">([^]*?)<\/script>/)[1],
-  );
+  const template = embeddedTemplate(html);
   const state = runtime.startSession(template);
   state.unifiedForm = true;
   runtime.prepareWorkflow(state, true);
@@ -265,10 +269,10 @@ test("shipment steps share verified values and retain copied-section warnings un
     "Hello Alex, shipment VF-104 is ready for pickup.",
   ]);
   runtime.noteStepTransfer(state);
-  runtime.activateFormStep(state, "pickup");
+  runtime.activateFormStep(state, 1);
   enter("Tracking", tracking);
   assert.deepEqual(prepare(), ["Shipment VF-104 picked up. Tracking: PK-12."]);
-  runtime.activateFormStep(state, "dispatch");
+  runtime.activateFormStep(state, 0);
   enter("Reference", newReference);
   assert.throws(() => prepare(), /unverified/);
   assert.deepEqual(
@@ -289,7 +293,7 @@ test("shipment steps share verified values and retain copied-section warnings un
   );
   runtime.noteStepTransfer(state, "body");
   assert.equal(state.stepOutputs.get("dispatch").staleSections.size, 0);
-  runtime.activateFormStep(state, "pickup");
+  runtime.activateFormStep(state, 1);
   assert.equal(
     state.fields.find((field) => field.name === "Tracking").value,
     tracking,
@@ -307,5 +311,286 @@ test("rejects a stepped export with a forward reference", async (t) => {
   assert.throws(
     () => run(input, join(directory, "form.html")),
     /Output "dispatch" uses "Tracking" before its step/,
+  );
+});
+
+test("JSON5 headers use desktop validation and exported source remains readable", async (t) => {
+  const directory = await sandbox(t);
+  const input = join(directory, "housing.veraflow");
+  const output = join(directory, "housing.html");
+  const original = await readFile(housingExample, "utf8");
+  const content = original.replaceAll("\n", "\r\n");
+  await writeFile(input, content);
+  run(input, output);
+  const html = await readFile(output, "utf8");
+  assert.equal(embeddedTemplate(html).content, content);
+  assert.match(html, /<!-- Standalone form styles -->/);
+  assert.match(html, /<main id="form">[\s\S]*?<section id="output-panel"/);
+  assert.match(html, /<!-- Embedded definition\./);
+  assert.match(html, /"sourceLines": \[\n/);
+  assert.match(html, /<!-- Bundled offline runtime -->\n    <script>\n/);
+  assert.match(html, /\n  function createOutput\(all\)/);
+  assert.match(html, /@humanwhocodes\/momoa 3\.3\.13/);
+
+  for (const [header, failure] of [
+    ['"title": "Duplicate",', /Duplicate metadata key "title"/],
+    ["unused: Infinity,", /Metadata numbers must be finite/],
+    ["unused: 1e999,", /Metadata numbers must be finite/],
+  ]) {
+    await writeFile(input, original.replace("{\n", `{\n  ${header}\n`));
+    assert.throws(() => run(input, join(directory, "invalid.html")), failure);
+  }
+});
+
+test("prefill is opt-in and discards saved verification while preserving explicit empty and null values", async (t) => {
+  const directory = await sandbox(t);
+  const input = join(directory, "saved.vf");
+  const blank = join(directory, "blank.html");
+  const included = join(directory, "included.html");
+  const content = (await readFile(housingExample, "utf8")).replace(
+    "  fields:",
+    `  responses: { legal_name: 'Private Name', moving_reason: null, reason_en: '' },
+  verification: { legal_name: 'form' },
+  fields:`,
+  );
+  await writeFile(input, content);
+  run(input, blank);
+  assert.doesNotMatch(await readFile(blank, "utf8"), /Private Name/);
+  run(input, included, ["--include-responses"]);
+  const core = await loadCore(vendoredCore);
+  const template = embeddedTemplate(await readFile(included, "utf8"));
+  const parsed = core.parseSource(template.content);
+  assert.deepEqual(Object.fromEntries(parsed.responses), {
+    legal_name: "Private Name",
+    moving_reason: null,
+    reason_en: "",
+  });
+  assert.equal(parsed.verification.size, 0);
+  const session = core.startSession(template);
+  assert.equal(
+    session.fields.find((field) => field.name === "legal_name").status,
+    "captured",
+  );
+
+  const record = join(directory, "invalid.json");
+  for (const invalid of [
+    '{"legal_name":"First","legal_name":"Second"}',
+    '{"legal_name":"Drew",}',
+    '{legal_name: "Drew"}',
+  ]) {
+    await writeFile(record, invalid);
+    assert.throws(
+      () =>
+        run(input, join(directory, "invalid.html"), ["--responses", record]),
+      /Choose a strict JSON record/,
+    );
+  }
+});
+
+test("the bilingual housing form renders desktop outputs and its response JSON can be reviewed and merged", async (t) => {
+  const directory = await sandbox(t);
+  const output = join(directory, "prefilled.html");
+  run(fileURLToPath(housingExample), output, [
+    "--responses",
+    fileURLToPath(housingResponse),
+  ]);
+  const template = embeddedTemplate(await readFile(output, "utf8"));
+  const core = await loadCore(vendoredCore);
+  const desktop = await loadCore(desktopCore);
+  const browserResponseModule = await build({
+    entryPoints: ["src/responses.ts"],
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    write: false,
+  });
+  const { responseJson } = await import(
+    `data:text/javascript;base64,${Buffer.from(browserResponseModule.outputFiles[0].contents).toString("base64")}`
+  );
+  const s = core.startSession(template);
+  s.unifiedForm = true;
+  core.prepareWorkflow(s, true);
+  const parsed = core.parseSource(template.content);
+  const included = new Set(parsed.responses.keys());
+  assert.deepEqual(
+    parsed.steps.map(({ outputs }) => outputs),
+    [[], ["application", "review"]],
+  );
+  assert.equal(s.outputId, undefined);
+  assert.deepEqual(
+    JSON.parse(responseJson(s, included)),
+    JSON.parse(await readFile(housingResponse, "utf8")),
+  );
+
+  function verifyName(name) {
+    s.active = s.fields.findIndex((field) => field.name === "legal_name");
+    s.mode = "verify";
+    assert.equal(core.verify(s, name, false), true);
+  }
+  function prepare(id, expected) {
+    const candidate = { ...s, outputId: id };
+    const parts = core.prepareSections(candidate);
+    assert.equal(parts[0].text, expected);
+    const values = new Map(
+      [...core.recordValues(s)].filter(([, value]) => value !== null),
+    );
+    assert.deepEqual(
+      parts,
+      desktop.renderTemplateValues(template, values, id, s.sourceContext),
+    );
+    core.noteStepPrepared(s, id);
+    core.noteStepTransfer({ ...candidate, prepared: parts });
+  }
+  assert.ok(core.formAttention(s).some(({ check }) => check));
+  verifyName("Drew Example");
+  assert.deepEqual(core.formAttention(s), []);
+  core.activateFormStep(s, 1);
+  const reason = s.fields.findIndex((field) => field.name === "reason_en");
+  s.active = reason;
+  const english = "My current home is too far from work.";
+  core.capture(s, english, false);
+  included.add("reason_en");
+  prepare(
+    "application",
+    `Name: Drew Example\nEmployment: Employed\nReason for moving: ${english}`,
+  );
+  prepare(
+    "review",
+    "姓名：Drew Example\n就业状态：在职\n搬家原因：现在的住处离公司太远。",
+  );
+  core.activateFormStep(s, 0);
+  s.active = s.fields.findIndex((field) => field.name === "legal_name");
+  core.capture(s, "Alex Example", false);
+  assert.ok(s.stepOutputs.get("application").staleSections.size);
+  assert.ok(s.stepOutputs.get("review").staleSections.size);
+  assert.ok(core.formAttention(s).some(({ check }) => check));
+  assert.equal(s.fields[reason].value, english);
+  const target = desktop.startSession({
+    ...template,
+    content: await readFile(housingExample, "utf8"),
+  });
+  const changes = desktop.planRecordMerge(target, responseJson(s, included));
+  assert.ok(
+    changes.some(
+      ({ index, previous, value }) =>
+        target.fields[index].name === "legal_name" &&
+        previous === null &&
+        value === "Alex Example",
+    ),
+  );
+  assert.equal(
+    target.fields.find((field) => field.name === "legal_name").value,
+    null,
+  );
+  desktop.applyRecordChanges(target, changes);
+  assert.equal(
+    target.fields.find((field) => field.name === "legal_name").status,
+    "captured",
+  );
+  assert.deepEqual(
+    Object.fromEntries(desktop.recordValues(target)),
+    JSON.parse(responseJson(s, included)),
+  );
+
+  core.applyRecordChanges(s, [{ index: reason, value: "" }]);
+  const movingReason = s.fields.findIndex(
+    (field) => field.name === "moving_reason",
+  );
+  core.applyRecordChanges(s, [{ index: movingReason, value: null }]);
+  included.delete("employment");
+  assert.deepEqual(JSON.parse(responseJson(s, included)), {
+    legal_name: "Alex Example",
+    moving_reason: null,
+    reason_en: "",
+  });
+  const sparseChanges = desktop.planRecordMerge(
+    target,
+    responseJson(s, included),
+  );
+  assert.ok(
+    !sparseChanges.some(
+      ({ index }) => target.fields[index].name === "employment",
+    ),
+  );
+  desktop.applyRecordChanges(target, sparseChanges);
+  assert.equal(
+    target.fields.find((field) => field.name === "employment").value,
+    "employed",
+  );
+  assert.equal(
+    target.fields.find((field) => field.name === "moving_reason").value,
+    null,
+  );
+  assert.equal(
+    target.fields.find((field) => field.name === "reason_en").value,
+    "",
+  );
+});
+
+test("CLI update fast-forwards to the latest stable tag and protects local edits", async (t) => {
+  const directory = await sandbox(t);
+  const upstream = join(directory, "upstream");
+  const checkout = join(directory, "checkout");
+  const git = (...args) =>
+    execFileSync("git", args, { encoding: "utf8", stdio: "pipe" }).trim();
+  git("init", "-b", "main", upstream);
+  git("-C", upstream, "config", "user.name", "VeraFlow Test");
+  git("-C", upstream, "config", "user.email", "test@example.com");
+  await writeFile(join(upstream, ".gitignore"), "dist/\nnode_modules/\n");
+  async function commitRelease(release) {
+    const name = "veraflow-web";
+    await writeFile(
+      join(upstream, "package.json"),
+      JSON.stringify({
+        name,
+        version: release,
+        scripts: {
+          build:
+            "node -e \"require('fs').writeFileSync('dist/version.json', process.env.npm_package_version)\"",
+        },
+      }),
+    );
+    await writeFile(
+      join(upstream, "package-lock.json"),
+      JSON.stringify({
+        name,
+        version: release,
+        lockfileVersion: 3,
+        packages: { "": { name, version: release } },
+      }),
+    );
+    git("-C", upstream, "add", ".");
+    git("-C", upstream, "commit", "-m", `Test release ${release}`);
+    git("-C", upstream, "tag", `v${release}`);
+  }
+  await commitRelease(version);
+  git("clone", upstream, checkout);
+  await mkdir(join(checkout, "dist"));
+  const cli = join(checkout, "dist", "export-html.mjs");
+  await copyFile(script, cli);
+  const runUpdate = () =>
+    execFileSync(process.execPath, [cli, "--update"], {
+      encoding: "utf8",
+      stdio: "pipe",
+      env: { ...process.env, npm_config_offline: "true" },
+    });
+  assert.match(runUpdate(), /is current/);
+  const parts = version.split(".");
+  const newer = `${parts[0]}.${parts[1]}.${Number(parts[2]) + 1}`;
+  await commitRelease(newer);
+  git("-C", upstream, "tag", "v99.0.0-beta.1");
+  const dirty = join(checkout, "draft.txt");
+  await writeFile(dirty, "uncommitted");
+  assert.throws(runUpdate, /local changes before updating/);
+  assert.equal(await readFile(dirty, "utf8"), "uncommitted");
+  await rm(dirty);
+  assert.match(runUpdate(), /Updated VeraFlow Web to/);
+  assert.equal(
+    await readFile(join(checkout, "dist", "version.json"), "utf8"),
+    newer,
+  );
+  assert.equal(
+    git("-C", checkout, "rev-parse", "HEAD"),
+    git("-C", upstream, "rev-parse", "HEAD"),
   );
 });

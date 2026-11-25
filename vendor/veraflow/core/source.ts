@@ -1,3 +1,4 @@
+import { parseSourceMetadata, sourceHeader } from "./source-header";
 import { filenamePatternError } from "./filenames";
 import { normalizeText, validControlValue, type Control } from "./form";
 import {
@@ -110,7 +111,7 @@ type Source = {
 export type FormStep = {
   title: string;
   fields: string[];
-  output: string;
+  outputs: string[];
   references: Set<string>;
   alwaysVisible: string[];
 };
@@ -118,6 +119,7 @@ type SourceOutput = {
   id: string;
   label: string;
   sections: Section[];
+  references: Set<string>;
   row?: Section[];
   instructions?: string;
   delivery: Delivery;
@@ -236,7 +238,6 @@ function parseJSON(
     );
   }
 }
-const sourceHeader = /^--- veraflow 2\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 function relativeCSV(value: unknown, label: string) {
   const file = string(value, label);
   if (
@@ -291,7 +292,7 @@ function appendMetadata(raw: unknown): AppendSource {
   return { file, duplicateKey, carryForward };
 }
 function metadata(text: string) {
-  const header = object(parseJSON(text));
+  const header = object(parseSourceMetadata(text, fail));
   const unknown = Object.keys(header).find(
     (key) =>
       ![
@@ -550,19 +551,19 @@ function formSteps(
     const step = object(entry, path);
     if (
       Object.keys(step).some(
-        (key) => !["title", "fields", "output"].includes(key),
+        (key) => !["title", "fields", "output", "outputs"].includes(key),
       )
     )
-      fail(`${path} supports "title", "fields", and "output".`);
+      fail(
+        `${path} supports "title", "fields", and "outputs" (or the legacy "output").`,
+      );
     const title = string(step.title, `${path} title`).trim();
     if (!title || title.length > 250 || /[\p{Cc}\p{Zl}\p{Zp}]/u.test(title))
       fail(`${path} needs a single-line title of 1–250 characters.`);
-    const output = string(step.output, `${path} output`);
-    const references = outputs.get(output);
-    if (!references) fail(`${path} refers to unknown output "${output}".`);
-    if (usedOutputs.has(output))
-      fail(`Output "${output}" is assigned to more than one step.`);
-    usedOutputs.add(output);
+    if (Object.hasOwn(step, "output") && Object.hasOwn(step, "outputs"))
+      fail(`${path} cannot combine "output" and "outputs".`);
+    const ids = Object.hasOwn(step, "output") ? [step.output] : step.outputs;
+    if (!Array.isArray(ids)) fail(`${path} needs an "outputs" array.`);
     if (!Array.isArray(step.fields)) fail(`${path} needs a "fields" array.`);
     const names = step.fields.map((rawName) => {
       const name = string(rawName, `${path} field name`);
@@ -572,13 +573,25 @@ function formSteps(
       assigned.add(name);
       return name;
     });
-    for (const name of references)
-      if (!assigned.has(name))
-        fail(`Output "${output}" uses "${name}" before its step.`);
+    const references = new Set<string>();
+    const assignedOutputs = ids.map((rawId) => {
+      const output = string(rawId, `${path} output`);
+      const dependencies = outputs.get(output);
+      if (!dependencies) fail(`${path} refers to unknown output "${output}".`);
+      if (usedOutputs.has(output))
+        fail(`Output "${output}" is assigned to more than one step.`);
+      usedOutputs.add(output);
+      for (const name of dependencies) {
+        if (!assigned.has(name))
+          fail(`Output "${output}" uses "${name}" before its step.`);
+        references.add(name);
+      }
+      return output;
+    });
     return {
       title,
       fields: names,
-      output,
+      outputs: assignedOutputs,
       references,
       alwaysVisible: [],
     };
@@ -982,7 +995,7 @@ export function parseSource(text: string): Source {
       1,
     );
   const startsHeader = /^--- veraflow(?:\s|$)/.test(source);
-  const header = sourceHeader.exec(source);
+  const header = sourceHeader(source);
   if (startsHeader && !header)
     fail(
       source.split(/\r?\n/, 1)[0] === "--- veraflow 2"
@@ -1006,7 +1019,7 @@ export function parseSource(text: string): Source {
     csv,
     append,
   } = header
-    ? metadata(header[1])
+    ? metadata(header.metadata)
     : {
         controls: new Map<string, Control>(),
         title: undefined,
@@ -1026,8 +1039,8 @@ export function parseSource(text: string): Source {
   // Prefilled plain files have a metadata header but still use the plain grammar.
   const advanced = !!header && syntax !== "plain";
   const referenced = new Set<string>();
-  const body = header ? source.slice(header[0].length) : source;
-  const bodyLine = 1 + lineBreaks(header?.[0] ?? "");
+  const body = header?.body ?? source;
+  const bodyLine = 1 + lineBreaks(header?.prefix ?? "");
   const actions = advanced ? namedBlocks(body, "action", bodyLine) : undefined;
   if (
     actions?.some(
@@ -1153,6 +1166,7 @@ export function parseSource(text: string): Source {
       id: definition.id,
       label: definition.label,
       sections,
+      references,
       row,
       instructions,
       delivery: outputDelivery,
@@ -1271,9 +1285,11 @@ function sourceWithHeader(header: Record<string, unknown>, body: string) {
 export function sourceDefinitionText(text: string, title?: string) {
   parseSource(text);
   const source = text.replace(/^\uFEFF/, "");
-  const header = sourceHeader.exec(source);
+  const header = sourceHeader(source);
   if (!header && !title) return text;
-  const metadata = header ? object(parseJSON(header[1])) : { syntax: "plain" };
+  const metadata = header
+    ? object(parseSourceMetadata(header.metadata, fail))
+    : { syntax: "plain" };
   if (
     !Object.hasOwn(metadata, "responses") &&
     !Object.hasOwn(metadata, "verification") &&
@@ -1284,10 +1300,7 @@ export function sourceDefinitionText(text: string, title?: string) {
   delete metadata.responses;
   delete metadata.verification;
   if (title) metadata.title = title;
-  const definition = sourceWithHeader(
-    metadata,
-    header ? source.slice(header[0].length) : source,
-  );
+  const definition = sourceWithHeader(metadata, header?.body ?? source);
   parseSource(definition);
   return definition;
 }
@@ -1300,8 +1313,10 @@ export function prefillSource(
   legacyVerifyDefault?: boolean,
 ) {
   const source = text.replace(/^\uFEFF/, "");
-  const header = sourceHeader.exec(source);
-  const original = header ? object(parseJSON(header[1])) : { syntax: "plain" };
+  const header = sourceHeader(source);
+  const original = header
+    ? object(parseSourceMetadata(header.metadata, fail))
+    : { syntax: "plain" };
   delete original.verification;
   // A saved null suppresses the field default. Missing keys still inherit defaults.
   const saved = sourceWithHeader(
@@ -1318,7 +1333,7 @@ export function prefillSource(
         ? { verification: Object.fromEntries(verification) }
         : {}),
     },
-    header ? source.slice(header[0].length) : source,
+    header?.body ?? source,
   );
   parseSource(saved);
   forgetSource();

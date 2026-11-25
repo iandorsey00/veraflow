@@ -27,6 +27,34 @@ const strings = {
     "Add a timestamp to the filename",
     "在文件名中添加时间戳",
   ],
+  includeResponses: ["Include prefilled responses", "包含预填回答"],
+  prefillRecord: ["Response JSON file (optional)", "回答 JSON 文件（可选）"],
+  prefillHelp: [
+    "Use the responses saved in the template, or choose a JSON record to add or replace values. Included responses are readable in the exported file.",
+    "可使用模板中保存的回答，也可选择 JSON 记录来添加或替换值。导出的文件中可以读取这些回答。",
+  ],
+  invalidRecord: [
+    "Choose a strict JSON record with unique field IDs and string or null values.",
+    "请选择有效的 JSON 记录。字段 ID 不能重复，值须为字符串或 null。",
+  ],
+  recordUnknownField: [
+    "Unknown field in the response record: {0}",
+    "回答记录中有未知字段：{0}",
+  ],
+  recordInvalidField: [
+    "Invalid value in the response record: {0}",
+    "回答记录中有无效值：{0}",
+  ],
+  recordReadError: [
+    "Could not read the response record. Choose the file again.",
+    "无法读取回答记录。请重新选择文件。",
+  ],
+  downloadResponses: ["Download response JSON", "下载回答 JSON"],
+  fixRecord: [
+    "Correct the invalid field before downloading responses.",
+    "请更正无效字段后再下载回答。",
+  ],
+  prepareStepOutputs: ["Prepare all step outputs", "生成本步骤的所有输出"],
   provenanceOption: [
     "Include the source filename in Form details",
     "在表单详情中包含源文件名",
@@ -64,7 +92,7 @@ const strings = {
     "Standalone HTML cannot resolve @{0}.",
     "独立 HTML 表单无法解析 @{0}。",
   ],
-  update: ["Update now…", "立即更新…"],
+  update: ["Update app…", "更新应用…"],
   details: ["Form details", "表单详情"],
   originalFile: ["Source template", "源模板文件"],
   runtime: ["VeraFlow core", "VeraFlow 核心版本"],

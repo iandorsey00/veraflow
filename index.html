@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
     <link rel="icon" href="data:," />
+    <!-- Authoring page styles and runtime are linked here. Exports bundle both inline. -->
     <link rel="stylesheet" href="./style.css" />
     <title>VeraFlow Web</title>
     <script defer src="./web.js"></script>
@@ -13,7 +14,7 @@
     <div class="topbar">
       <span class="wordmark">VeraFlow Web</span>
       <div class="topbar-actions">
-        <a id="update" href="./" data-text="update" hidden>Update now…</a>
+        <a id="update" href="./" data-text="update" hidden>Update app…</a>
         <div id="language"></div>
       </div>
     </div>
@@ -66,6 +67,28 @@
               >Include the source filename in Form details</span
             >
           </label>
+          <label class="checkbox">
+            <input type="checkbox" id="include-responses" />
+            <span data-text="includeResponses"
+              >Include prefilled responses</span
+            >
+          </label>
+          <div id="prefill-options" class="prefill-options" hidden>
+            <label for="prefill-record" data-text="prefillRecord"
+              >Response JSON file (optional)</label
+            >
+            <input
+              type="file"
+              id="prefill-record"
+              accept=".json,application/json"
+              aria-describedby="prefill-help"
+            />
+            <p id="prefill-help" class="help" data-text="prefillHelp">
+              Use the responses saved in the template, or choose a JSON record
+              to add or replace values. Included responses are readable in the
+              exported file.
+            </p>
+          </div>
         </div>
         <div id="export-error" role="alert" class="error">
           <p id="error-summary"></p>

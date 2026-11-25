@@ -5,6 +5,7 @@ import { exportHtml } from "./export";
 import { timestampedFilename } from "./filenames";
 import { getLanguage, setText, setupLanguage } from "./locale";
 import { type Language } from "./strings";
+import { compareVersions, isReleaseVersion } from "./versions";
 
 const input = document.querySelector<HTMLInputElement>("#source")!;
 const choose = document.querySelector<HTMLButtonElement>("#choose")!;
@@ -14,6 +15,11 @@ const includeSource =
 const timestampFilename = document.querySelector<HTMLInputElement>(
   "#timestamp-filename",
 )!;
+const includeResponses =
+  document.querySelector<HTMLInputElement>("#include-responses")!;
+const prefillRecord =
+  document.querySelector<HTMLInputElement>("#prefill-record")!;
+const prefillOptions = document.getElementById("prefill-options")!;
 const selectedFile = document.getElementById("selected-file")!;
 const exportOptions = document.getElementById("export-options")!;
 const exportFilename = document.getElementById("export-filename")!;
@@ -44,6 +50,51 @@ setupLanguage(
 
 let prepared: { file: File; name: string; content: string } | undefined;
 let selection = 0;
+let recordSelection = 0;
+let responseJson: string | undefined;
+let recordError: ExportError | undefined;
+let readingRecord = false;
+
+function updateExportButton() {
+  exportButton.disabled =
+    !prepared || (includeResponses.checked && readingRecord);
+}
+
+includeResponses.addEventListener("change", () => {
+  prefillOptions.hidden = !includeResponses.checked;
+  setText(error);
+  detail.textContent = "";
+  updateExportButton();
+});
+prefillRecord.addEventListener("change", async () => {
+  const current = ++recordSelection;
+  responseJson = undefined;
+  recordError = undefined;
+  setText(error);
+  detail.textContent = "";
+  const file = prefillRecord.files?.[0];
+  readingRecord = Boolean(file);
+  updateExportButton();
+  if (!file) return;
+  try {
+    if (file.size > 4 * 1024 * 1024) throw new ExportError("tooBig");
+    const content = await file.text();
+    if (current === recordSelection) responseJson = content;
+  } catch (failure) {
+    if (current === recordSelection) {
+      recordError =
+        failure instanceof ExportError
+          ? failure
+          : new ExportError("recordReadError");
+      if (includeResponses.checked) showError(recordError);
+    }
+  } finally {
+    if (current === recordSelection) {
+      readingRecord = false;
+      updateExportButton();
+    }
+  }
+});
 choose.addEventListener("click", () => input.click());
 input.addEventListener("change", async () => {
   const current = ++selection;
@@ -51,6 +102,13 @@ input.addEventListener("change", async () => {
   exportButton.disabled = true;
   exportOptions.hidden = true;
   includeSource.checked = false;
+  includeResponses.checked = false;
+  prefillOptions.hidden = true;
+  prefillRecord.value = "";
+  ++recordSelection;
+  responseJson = undefined;
+  recordError = undefined;
+  readingRecord = false;
   setText(message);
   setText(error);
   detail.textContent = "";
@@ -73,7 +131,7 @@ input.addEventListener("change", async () => {
     prepared = { file, name, content };
     updateFilename();
     exportOptions.hidden = false;
-    exportButton.disabled = false;
+    updateExportButton();
   } catch (failure) {
     if (current === selection) showError(failure);
   } finally {
@@ -95,7 +153,10 @@ exportButton.addEventListener("click", () => {
   setText(error);
   detail.textContent = "";
   try {
+    if (includeResponses.checked && recordError) throw recordError;
     const html = exportHtml(content, file.name, {
+      includeResponses: includeResponses.checked,
+      responseJson,
       language: getLanguage(),
       includeSourceName: includeSource.checked,
     });
@@ -116,17 +177,6 @@ function showError(failure: unknown) {
   } else setText(error, "exportError");
 }
 
-function isNewer(candidate: unknown) {
-  if (typeof candidate !== "string" || !/^\d+\.\d+\.\d+$/.test(candidate))
-    return false;
-  const current = version.split(".").map(Number);
-  const offered = candidate.split(".").map(Number);
-  const firstChange = offered.findIndex(
-    (part, index) => part !== current[index],
-  );
-  return firstChange !== -1 && offered[firstChange] > current[firstChange];
-}
-
 let checking = false;
 async function checkForUpdate() {
   if (checking || !/^https?:$/.test(location.protocol)) return;
@@ -137,11 +187,12 @@ async function checkForUpdate() {
     });
     if (!response.ok) return;
     const { version: latest } = await response.json();
-    if (isNewer(latest)) {
+    update.hidden =
+      !isReleaseVersion(latest) || compareVersions(latest, version) <= 0;
+    if (!update.hidden) {
       const refreshed = new URL(location.href);
       refreshed.searchParams.set("v", latest);
       update.href = refreshed.href;
-      update.hidden = false;
     }
   } catch {
     // A temporarily inaccessible version file should not interrupt local export.

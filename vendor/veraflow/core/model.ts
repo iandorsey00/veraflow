@@ -136,6 +136,7 @@ export type Session = {
   active: number;
   mode: "capture" | "verify" | "ready" | "delivery" | "review" | "complete";
   outputId?: string;
+  stepIndex?: number;
   stepOutputs?: Map<
     string,
     {
