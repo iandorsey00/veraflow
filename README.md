@@ -9,11 +9,11 @@ VeraFlow is a local desktop app for collecting information, checking it in one f
 | What you have                                     | How it fits                                                                                                                                                  |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Typed values, selected text, or a UTF-8 text file | Enter or capture values, or extract candidates from labeled lines and review them.                                                                           |
-| CSV, flat record JSON, or candidate JSON          | Select a CSV row, review incoming field values, or resolve proposed values and supporting evidence.                                                          |
+| CSV, flat JSON or JSON5, or candidate JSON        | Select a CSV row, open a JSON record as a filled form, or review proposed values and supporting evidence.                                                    |
 | XML, YAML, or a nested JSON export                | Use an external converter to map the fields you need into flat record JSON or CSV. Use candidate JSON when a person needs to review uncertainty or evidence. |
 | A checked working record                          | Prepare named outputs. Copy or paste text sections, save text or record JSON, or use the CSV tools to append a row.                                          |
 
-JSON is an exchange format for the record. When you fill a form directly, VeraFlow holds the working values in memory. JSON5 is supported in the authoring header of a `.veraflow` or `.vf` file. Record and candidate files use strict JSON. [Import and output guide](docs/veraflow-language-draft.md#working-records-and-external-converters)
+JSON is an exchange format for the record. When you fill a form directly, VeraFlow holds the working values in memory. JSON5 is supported for incoming flat records and in the header of a `.veraflow` or `.vf` file. Record exports and candidate files use strict JSON. [Import and output guide](docs/veraflow-language-draft.md#working-records-and-external-converters)
 
 ![VeraFlow showing a dispatch form with sample values on the left and the generated note on the right](docs/images/veraflow-form-preview.png)
 
@@ -21,7 +21,7 @@ Try the [Dispatch note example](examples/source/dispatch-note.veraflow) to see t
 
 ## Install
 
-Get the [v0.22.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.22.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.23.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.23.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
 - **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
@@ -32,6 +32,7 @@ If an update is available, **Update app…** appears in the menu-bar or tray men
 
 - **Open folder…** lists `.veraflow` and `.vf` files, including files in subfolders. Search by file name or relative path, pick a form or snippet collection, and use **Refresh folder** after editing the collection outside VeraFlow. The folder stays open while you work through sessions. Create and organize folders in Finder or File Explorer.
 - **Open file…** opens a form, snippet collection, or CSV directly. You can also double-click a VeraFlow file or use your file manager’s **Open With → VeraFlow**. In the CSV picker, search for a row and open it in a custom form or use it to fill a form from disk.
+- **Open JSON / JSON5…** lets you paste data or open a file, review the values, and generate output from a filled form. Use a summary, write your own output text, or choose a form file. [Try the JSON demo](examples/source/json-demo.md).
 - A form file can [link a CSV](docs/veraflow-language-draft.md#linked-csv) and open directly to Output. Choose a row and a named output, or use the arrow buttons to step through combinations.
 - Use **Append row** to review and add the working record to a CSV, or copy it for pasting into a spreadsheet. [Append row guide](docs/veraflow-language-draft.md#append-row)
 - Open a [snippet collection](docs/veraflow-language-draft.md#snippet-collections) to copy reusable text with one click.

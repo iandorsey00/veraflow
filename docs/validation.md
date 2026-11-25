@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.23.0 release preparation
+
+Passed 95 TypeScript unit tests, 101 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Browser coverage includes the JSON5 demo at 340 pixels, reviewed merge into a reusable form, and JSON export and reopen. The navigation test that timed out on the 0.22.1 macOS runner passed ten consecutive local runs after its fixture stopped depending on file chooser event delivery.
+
+Version consistency, formatting, the frontend build, isolated test configuration, Clippy, and the demo archive check passed. npm reported zero vulnerabilities. The cached RustSec audit reported no vulnerability-class advisories and 11 informational warnings. Packaged Windows and macOS smoke checks are pending.
+
 ## 0.22.1 release preparation
 
 Passed 93 TypeScript unit tests, 99 browser tests, 21 Rust tests, and nine portable rendering fixtures. Browser coverage includes a 340-pixel form, the Form tools disclosure, keyboard navigation from Needs attention, and ordering candidate decisions ahead of straightforward matches. Version consistency, formatting, frontend build, isolated test configuration, and demo archive checks passed. The packaged Windows layout and native transfer still need a hands-on check.

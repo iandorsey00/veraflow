@@ -1597,6 +1597,36 @@ input.toggle-switch:checked::before {
   overflow-wrap: anywhere;
 }
 
+.record-data-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-content: start;
+  gap: 0.5rem 1rem;
+  max-block-size: min(30vh, 18rem);
+  overflow: auto;
+  border-block: 1px solid var(--line);
+  padding-block: 0.5rem;
+}
+
+.record-data-preview dt {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.record-data-preview dd,
+.record-data-preview pre {
+  margin: 0;
+}
+
+.record-error {
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
+.record-error:empty {
+  margin: 0;
+}
+
 .candidate-field {
   margin: 0 0 1rem;
   min-inline-size: 0;

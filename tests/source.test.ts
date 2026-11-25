@@ -14,7 +14,11 @@ import {
   beginReverification,
   verify,
 } from "../src/core/session";
-import { planRecordMerge } from "../src/core/source-record";
+import {
+  planRecordValues,
+  readRecordInput,
+  recordFormSource,
+} from "../src/core/source-record";
 import {
   parseSource,
   prefillSource,
@@ -656,9 +660,9 @@ test("record merge preserves explicit emptiness and unchanged local verification
 ---
 {{Reference}} / {{Notes}} / {{State}}`);
   const session = startSession(doc);
-  const changes = planRecordMerge(
+  const changes = planRecordValues(
     session,
-    '{"Reference":"VF-104","Notes":"","State":null}',
+    readRecordInput('{"Reference":"VF-104","Notes":"","State":null}'),
   );
   assert.equal(changes.length, 2);
   applyRecordChanges(session, changes);
@@ -671,17 +675,88 @@ test("record merge preserves explicit emptiness and unchanged local verification
     ],
   );
   assert.throws(
-    () => planRecordMerge(session, '{"Unknown":"data"}'),
+    () => planRecordValues(session, readRecordInput('{"Unknown":"data"}')),
     /recordUnknownField:Unknown/,
   );
-  assert.throws(
-    () => planRecordMerge(session, '{"Notes":"a","Notes":"b"}'),
-    /invalidImport/,
-  );
-  assert.throws(() => planRecordMerge(session, "{Notes:'a'}"), /invalidImport/);
   applyRecordChanges(
     session,
-    planRecordMerge(session, '{"Reference":"VF-105"}'),
+    planRecordValues(session, readRecordInput("{Reference: 'VF-105'}")),
   );
   assert.equal(session.fields[0].status, "captured");
+});
+
+test("JSON5 input keeps exact text and numbers in a generated form and output", () => {
+  const values = readRecordInput(String.raw`{
+    // Numbers can arrive from a generator, but their digits should not round.
+    reference: '000184',
+    amount: 9007199254740993.50,
+    hex: -0xA,
+    urgent: false,
+    missing: null,
+    empty: '',
+    spaces: '  ',
+    "literal {{name}}": '林晓 {{test}}\nSecond line',
+    "__proto__": 'ordinary field',
+  }`);
+  assert.deepEqual(
+    [...values.values()],
+    [
+      "000184",
+      "9007199254740993.50",
+      "-10",
+      "false",
+      null,
+      "",
+      "  ",
+      "林晓 {{test}}\nSecond line",
+      "ordinary field",
+    ],
+  );
+  const form = startSession(template(recordFormSource("Dispatch", values, "")));
+  assert.equal(form.fields.find(({ name }) => name === "missing")?.value, null);
+  assert.equal(form.fields.find(({ name }) => name === "empty")?.value, "");
+  assert.equal(
+    prepareSections(form)[0].text,
+    "reference: 000184\namount: 9007199254740993.50\nhex: -10\nurgent: false\nmissing: \nempty: \nspaces:   \nliteral {{name}}: 林晓 {{test}}\nSecond line\n__proto__: ordinary field",
+  );
+  const content = recordFormSource("Dispatch", values, "Ticket {{reference}}");
+  assert.equal(
+    prepareSections(startSession(template(content)))[0].text,
+    "Ticket 000184",
+  );
+});
+
+test("JSON input reports ambiguous or unsupported fields without inventing mappings", () => {
+  assert.throws(() => readRecordInput("[]"), /recordInputObject/);
+  assert.throws(() => readRecordInput("{}"), /recordInputObject/);
+  assert.throws(
+    () => readRecordInput(String.raw`{name: 'A', "\u006eame": 'B'}`),
+    /recordInputDuplicate:name/,
+  );
+  assert.throws(
+    () => readRecordInput("{items: []}"),
+    /recordInputNested:items/,
+  );
+  assert.throws(
+    () => readRecordInput("{fee: Infinity}"),
+    /recordInputNumber:fee/,
+  );
+  assert.throws(
+    () => readRecordInput("{\n reference: }"),
+    /recordInputSyntax:2/,
+  );
+  assert.throws(
+    () =>
+      recordFormSource("Dispatch", readRecordInput("{name: 'A'}"), "{{typo}}"),
+    /recordUnknownField:typo/,
+  );
+  assert.throws(
+    () =>
+      recordFormSource(
+        "Dispatch",
+        readRecordInput("{name: 'A'}"),
+        "Hello\n{{name",
+      ),
+    { line: 2 },
+  );
 });

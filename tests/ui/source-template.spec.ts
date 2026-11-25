@@ -137,15 +137,19 @@ test("live preview can be hidden while source forms remain editable", async ({
 });
 
 async function pickDocument(page: Page, name: string, text: string) {
-  const picker = page.waitForEvent("filechooser");
-  await page.locator("#open-document").click();
-  await (
-    await picker
-  ).setFiles({
-    name,
-    mimeType: "text/plain",
-    buffer: Buffer.from(text),
-  });
+  // Suppress the system dialog and feed the attached input independently of the event.
+  const interceptChooser = () => {};
+  page.on("filechooser", interceptChooser);
+  try {
+    await page.locator("#open-document").click();
+    await page.locator("#open-document-file").setInputFiles({
+      name,
+      mimeType: "text/plain",
+      buffer: Buffer.from(text),
+    });
+  } finally {
+    page.off("filechooser", interceptChooser);
+  }
 }
 
 test("opens a source form with instructions and switches outputs without losing values", async ({
@@ -1466,9 +1470,10 @@ test("collect-only step resumes and multiple outputs prepare from one reviewed r
   const heading = page.locator("#form-step-heading");
   const legalName = "Legal name / 法定姓名";
   await page.getByLabel(legalName, { exact: true }).fill("Alex Example");
-  const pick = page.waitForEvent("filechooser");
   await openFormTools(page);
-  await page.getByRole("button", { name: "Import record JSON…" }).click();
+  await page.getByRole("button", { name: "Import JSON / JSON5…" }).click();
+  const pick = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Choose JSON file…" }).click();
   await (
     await pick
   ).setFiles({
@@ -1673,7 +1678,7 @@ test("a narrow form puts pending work ahead of fields and keeps tools closed unt
     page.getByRole("button", { name: "Extract from source…" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Import record JSON…" }),
+    page.getByRole("button", { name: "Import JSON / JSON5…" }),
   ).toBeHidden();
   expect((await attention.boundingBox())!.y).toBeLessThan(
     (await model.boundingBox())!.y,
@@ -1686,9 +1691,104 @@ test("a narrow form puts pending work ahead of fields and keeps tools closed unt
   ).toBeFocused();
   await openFormTools(page);
   await expect(
-    page.getByRole("button", { name: "Import record JSON…" }),
+    page.getByRole("button", { name: "Import JSON / JSON5…" }),
   ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     340,
   );
+});
+
+test("JSON5 demo opens a filled form, prepares custom output, and exports plain JSON", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 340, height: 620 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open JSON / JSON5…" }).click();
+  const pick = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Choose JSON file…" }).click();
+  await (
+    await pick
+  ).setFiles({
+    name: "dispatch-record.json5",
+    mimeType: "application/json5",
+    buffer: await fixture("dispatch-record.json5"),
+  });
+  const review = page.getByRole("dialog", { name: "Review data" });
+  await expect(review).toContainText("000184");
+  await expect(review).toContainText("Unanswered");
+  expect(
+    await review.evaluate((element) => element.scrollWidth),
+  ).toBeLessThanOrEqual(340);
+  await review.getByText("Write your own output").click();
+  const output = review.getByLabel("Output text");
+  await output.fill("Dispatch {{ref}}.");
+  await review.getByRole("button", { name: "Open filled form" }).click();
+  await expect(review.getByRole("alert")).toHaveText(
+    "Unknown field in this record. ref",
+  );
+  await output.fill(
+    "Dispatch {{reference}} to {{destination}} for {{contact}}.",
+  );
+  await review.getByRole("button", { name: "Open filled form" }).click();
+  await expect(page.getByLabel("reference", { exact: true })).toHaveValue(
+    "000184",
+  );
+  await openFormTools(page);
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save record as JSON…" }).click();
+  const savedRecord = await readFile((await (await download).path())!, "utf8");
+  const data = JSON.parse(savedRecord);
+  expect(data).toMatchObject({
+    reference: "000184",
+    packages: "3",
+    priority: "true",
+    tracking: null,
+  });
+  await page.getByRole("button", { name: "Prepare output sections" }).click();
+  await expect(page.locator(".output")).toHaveText(
+    "Dispatch 000184 to North Depot for 林晓 / Alex Lin.",
+  );
+  await page
+    .getByRole("button", { name: "Close session", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close without saving" }).click();
+  await page.getByRole("button", { name: "Open JSON / JSON5…" }).click();
+  await page.getByLabel("Or paste JSON or JSON5").fill(savedRecord);
+  await page.getByRole("button", { name: "Review data" }).click();
+  await review.getByRole("button", { name: "Open filled form" }).click();
+  await page.getByRole("button", { name: "Prepare output sections" }).click();
+  await expect(page.locator(".output")).toContainText("reference: 000184");
+  await expect(page.locator(".output")).toContainText("priority: true");
+});
+
+test("pasted JSON5 can start from Home and fill an existing form after review", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open JSON / JSON5…" }).click();
+  const input = page.getByLabel("Or paste JSON or JSON5");
+  await input.fill("{Reference: []}");
+  await page.getByRole("button", { name: "Review data" }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
+    "Reference",
+  );
+  await expect(input).toBeFocused();
+  await input.fill("{Reference: '000184', Contact: 'Alex', confirmed: false,}");
+  await page.getByRole("button", { name: "Review data" }).click();
+  const pick = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Use a form file…" }).click();
+  await (
+    await pick
+  ).setFiles({
+    name: "shared-record.veraflow",
+    mimeType: "text/plain",
+    buffer: await fixture("shared-record.veraflow"),
+  });
+  const review = page.getByRole("dialog", { name: "Review record changes" });
+  await expect(review).toContainText("000184");
+  await review.getByRole("button", { name: "Apply all changes" }).click();
+  await expect(page.getByLabel("Reference", { exact: true })).toHaveValue(
+    "000184",
+  );
+  await expect(page.getByLabel("Contact", { exact: true })).toHaveValue("Alex");
 });

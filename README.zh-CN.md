@@ -9,15 +9,15 @@ VeraFlow 是一款适用于 macOS 和 Windows 的本地工具。用同一张表�
 | 现有资料                                  | 使用方式                                                                                 |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
 | 手动输入的值、选中的文字或 UTF-8 文本文件 | 直接填写或采集，也可从带标签的文本行提取候选值并审阅。                                   |
-| CSV、扁平 JSON 记录或 JSON 候选文件       | 选择 CSV 行、审阅导入值，或核对候选值及其证据。                                          |
+| CSV、扁平 JSON 或 JSON5、JSON 候选文件    | 选择 CSV 行、用 JSON 打开预填表单，或核对候选值及其证据。                                |
 | XML、YAML 或嵌套 JSON                     | 用外部工具将所需字段转换成扁平 JSON 或 CSV。需人工审阅歧义或证据时，使用 JSON 候选文件。 |
 | 已核对的工作记录                          | 生成命名输出，复制或粘贴区段，保存文本或 JSON 记录，也可追加一行到 CSV。                 |
 
-JSON 是记录交换格式。直接填写表单时，工作记录保存在内存中。`.veraflow` 或 `.vf` 的文件头支持 JSON5；记录和候选文件使用严格 JSON。[导入和输出指南](docs/veraflow-language-draft.zh-CN.md#工作记录与外部转换工具)
+JSON 是记录交换格式。直接填写表单时，工作记录保存在内存中。导入扁平记录及编写 `.veraflow` 或 `.vf` 文件头时均可使用 JSON5。记录导出及候选文件使用严格 JSON。[导入和输出指南](docs/veraflow-language-draft.zh-CN.md#工作记录与外部转换工具)
 
 ## 安装
 
-从 [v0.22.1 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.22.1) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
+从 [v0.23.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.23.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
 
 - **macOS 12 或更新版本**：Apple 芯片选 `macos-arm64.zip`，Intel 芯片选 `macos-x64.zip`。解压后将 VeraFlow.app 移到「应用程序」。预览版尚无 Developer ID 签名和 Apple 公证。如果系统拦截且你信任下载来源，可在「隐私与安全性」中为该应用选择「仍要打开」。跨应用采集和粘贴需要「辅助功能」权限。
 - **Windows**：运行 `windows-x64-setup.exe`。Windows 可能提示发布者未知。如果系统缺少 WebView2，安装程序可能会安装它。
@@ -27,6 +27,7 @@ JSON 是记录交换格式。直接填写表单时，工作记录保存在内存
 ## 打开表单或文件夹
 
 - **打开文件…** 支持 `.veraflow`、`.vf` 和 CSV。安装桌面版后，也可从 Finder 或文件资源管理器打开模板。选择一条 CSV 记录后，可用模板生成输出，或在自定义表单中核对该记录。
+- **打开 JSON / JSON5…** 可粘贴数据或打开文件。审阅字段值后，可用预填表单生成字段摘要、自定义输出，或选择已有表单文件。[试用 JSON 演示](examples/source/json-demo.zh-CN.md)。
 - 模板可以[关联 CSV](docs/veraflow-language-draft.zh-CN.md#关联-csv) 并直接打开输出页面。可选择记录和命名输出，也可用箭头依次查看组合。
 - 选择 **追加行** 可核对并将记录写入 CSV，也可复制一行并粘贴到电子表格。[追加行指南](docs/veraflow-language-draft.zh-CN.md#追加行)
 - 打开[片段集合](docs/veraflow-language-draft.zh-CN.md#片段集合)可一键复制常用文字。片段集合可与一个文件表单及一个自定义表单同时打开。

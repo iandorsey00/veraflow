@@ -1,6 +1,11 @@
 import { parseSourceMetadata, sourceHeader } from "./source-header";
 import { filenamePatternError } from "./filenames";
-import { normalizeText, validControlValue, type Control } from "./form";
+import {
+  normalizeText,
+  validControlValue,
+  validStoredValue,
+  type Control,
+} from "./form";
 import {
   templateVariable,
   variableValue,
@@ -1239,12 +1244,7 @@ export function parseSource(text: string): Source {
     if (!fields.has(name))
       fail(`A saved response refers to unknown field "${name}".`);
     const control = controls.get(name);
-    if (
-      control &&
-      value !== null &&
-      !(control.optional && value === "") &&
-      !validControlValue(control, value)
-    )
+    if (control && value !== null && !validStoredValue(control, value))
       fail(`The saved response for "${name}" does not match its field rules.`);
   }
   const label =

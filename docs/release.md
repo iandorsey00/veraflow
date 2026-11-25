@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.23.0 JSON and JSON5 input
+
+Full release cycle for opening and pasting external records, generating forms, and merging values into reusable forms. Follow the [JSON demo](../examples/source/json-demo.md) on packaged Windows and macOS. Check the native file picker, the narrow review layout, the leading zeroes in the reference, and the JSON export and reopen round trip.
+
+To roll back to [0.22.1](https://github.com/iandorsey00/veraflow/releases/tag/v0.22.1), keep the source data files and export any needed outputs as text. The previous version can import strict record JSON from an open matching form. A saved prefilled form carries its field definitions, output, and responses in a `.veraflow` file.
+
 ## 0.22.1 form usability
 
 Proportional release cycle for form and candidate review layout changes. Follow the [display replacement demo](../examples/source/service-demo.md) in a narrow Windows or macOS window. Check that Form tools opens by keyboard, Needs attention jumps to the appropriate field, and the output and candidate actions stay reachable. To roll back, reinstall [0.22.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.22.0). Existing definitions and saved records use the same formats.

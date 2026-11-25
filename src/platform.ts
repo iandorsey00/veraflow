@@ -223,11 +223,17 @@ export const platform = {
     if (desktop) return invoke("pick_document", { templateOnly });
     return new Promise((resolve, reject) => {
       const input = document.createElement("input");
+      input.id = "open-document-file";
       input.type = "file";
       input.accept = templateOnly ? ".veraflow,.vf" : ".veraflow,.vf,.csv";
-      input.oncancel = () => resolve(null);
+      input.hidden = true;
+      input.oncancel = () => {
+        input.remove();
+        resolve(null);
+      };
       input.onchange = async () => {
         const file = input.files?.[0];
+        input.remove();
         if (!file) return resolve(null);
         try {
           resolve(await browserDocument(file, templateOnly));
@@ -235,6 +241,8 @@ export const platform = {
           reject(Error("invalidImport"));
         }
       };
+      // Keep the picker outside the app root, which is inert during this action.
+      document.body.append(input);
       input.click();
     });
   },

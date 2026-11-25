@@ -111,7 +111,35 @@ export const en = {
   batchAmbiguous: "Multiple candidates",
   batchFound: "Value found without a matching label",
   batchMissing: "No matching line",
-  importRecord: "Import record JSON…",
+  importRecord: "Import JSON / JSON5…",
+  openRecordInput: "Open JSON / JSON5…",
+  chooseRecordFile: "Choose JSON file…",
+  pasteRecordInput: "Or paste JSON or JSON5",
+  reviewRecordInput: "Review data",
+  recordInputHelp:
+    "Use one object with a name for each field. Values can be text, numbers, true, false, or null.",
+  recordInputFile: "Choose a UTF-8 .json or .json5 file.",
+  recordInputLimit:
+    "Use up to 1,000 fields and keep the data and generated form under 1 MiB.",
+  recordInputSyntax: "Check the JSON or JSON5 near this line.",
+  recordInputObject: "Enter one JSON object with at least one field.",
+  recordInputName: "Field names must have text and fit on one line.",
+  recordInputDuplicate: "This field appears more than once.",
+  recordInputNested:
+    "Use a single value for this field. Move nested objects or lists to their own fields first.",
+  recordInputNumber:
+    "Use a finite number or quote the value as text for this field.",
+  recordFieldValues: "Field values",
+  recordInputFormName: "JSON form",
+  recordOutputHelp:
+    "Open a filled form with a ready-made summary, or use a form file to generate its outputs.",
+  recordCustomOutput: "Write your own output",
+  recordOutputLabel: "Output text",
+  recordOutputExample:
+    "Use {{field}} to insert a value. Leave this empty to list all fields in the output.",
+  recordBack: "Back to JSON",
+  recordUseExisting: "Use a form file…",
+  recordOpenFilled: "Open filled form",
   recordUnknownField: "Unknown field in this record.",
   recordInvalidField: "Invalid value for field.",
   recordNoChanges: "This record contains no changes.",

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23.0
+
+- Open or paste a flat JSON or JSON5 record from Home or an open form.
+- Turn a record into a filled form with a summary or custom output. Review incoming changes before applying a record to a reusable form.
+- Preserve quoted identifiers, literal placeholder text, and the difference between empty and unanswered values. Export fields as plain JSON.
+- Add an English and Simplified Chinese JSON walkthrough and a fictional dispatch record to the demo archive.
+
 ## 0.22.1
 
 - Show missing values and pending checks at the top of the form, with a shortcut to the next item.

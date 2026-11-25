@@ -13,8 +13,10 @@ import {
 } from "./core/candidates";
 import {
   recordValues,
-  planRecordMerge,
   planRecordValues,
+  readRecordInput,
+  recordFormSource,
+  recordInputLimit,
   selectedSourceOutput,
   sourceFilename,
 } from "./core/source-record";
@@ -788,7 +790,7 @@ function formatHistoryTime(time: number) {
 }
 
 function recentView() {
-  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentForms"))}</h1><div class="toolbar">${button("nav-scanner", layoutOverride === null ? "createForm" : "freeScanner")}${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-document", "openDocument", "primary")}</div></div>
+  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentForms"))}</h1><div class="toolbar">${button("nav-scanner", layoutOverride === null ? "createForm" : "freeScanner")}${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-json", "openRecordInput")}${button("open-document", "openDocument", "primary")}</div></div>
     ${templateFolderView()}
     ${recentDocuments.length ? `<ul class="recent-list">${recentDocuments.map((item, index) => `<li><button class="template-item" data-recent="${index}"><strong>${esc(item.title)}</strong><span>${item.file ? esc(item.file) + " · " : ""}${esc(formatHistoryTime(item.time))}</span></button></li>`).join("")}</ul>${button("clear-recent", "clearRecent", "quiet")}` : `<p>${esc(t("recentEmpty"))}</p>`}
     ${!session && lastTemplate ? sessionRecovery() : ""}</main>`;
@@ -821,6 +823,7 @@ async function pickTemplateFolder() {
 }
 function bindRecent() {
   click("open-folder", pickTemplateFolder);
+  click("open-json", openRecordInput);
   click("refresh-folder", async () => {
     templateFolder = await platform.refreshTemplateFolder();
     render();
@@ -1329,6 +1332,7 @@ async function openDocumentTemplate(
       render();
     }
     if (workflow === "append") await switchSourceMode("append");
+    return session;
   }
 }
 async function openDocument(file: OpenDocument) {
@@ -3780,9 +3784,18 @@ function recordImportError(error: unknown) {
   const colon = message.indexOf(":");
   if (colon < 0) return errorText(error);
   const code = message.slice(0, colon);
-  return code === "recordUnknownField" || code === "recordInvalidField"
-    ? `${t(code)} ${message.slice(colon + 1)}`
-    : errorText(error);
+  const detail = message.slice(colon + 1);
+  if (code === "recordInputSyntax")
+    return `${t("sourceLine")} ${detail} · ${t(code)}`;
+  if (
+    code === "recordUnknownField" ||
+    code === "recordInvalidField" ||
+    code === "recordInputDuplicate" ||
+    code === "recordInputNested" ||
+    code === "recordInputNumber"
+  )
+    return `${t(code)} ${detail}`;
+  return errorText(error);
 }
 
 function currentRecordValue(value: string | null) {
@@ -4093,33 +4106,90 @@ ${esc(proposed)}</textarea>
   focus("extract-source");
 }
 
-async function importRecord(s: Session) {
-  const text = await platform.importTemplates();
-  if (text === null) return;
-  let changes: ReturnType<typeof planRecordMerge>;
-  try {
-    changes = planRecordMerge(s, text);
-  } catch (error) {
-    const [key, ...name] = (error instanceof Error ? error.message : "").split(
-      ":",
-    );
-    if (
-      (key === "recordUnknownField" || key === "recordInvalidField") &&
-      name.length
-    ) {
-      await actionDialog(
-        "importRecord",
-        `<p>${esc(t(key))} ${esc(name.join(":"))}</p>`,
-        `<button value="done" autofocus>${esc(t("done"))}</button>`,
-      );
-      return;
-    }
-    throw error;
-  }
-  if (!changes.length) {
-    notify("recordNoChanges");
-    return;
-  }
+async function acquireRecord(
+  draft: { text: string; filename: string },
+  accept: (values: ReturnType<typeof readRecordInput>) => void,
+  title: "openRecordInput" | "importRecord",
+) {
+  const choice = await actionDialog(
+    title,
+    `<p class="hint">${esc(t("recordInputHelp"))}</p>
+     <button id="record-file-button" type="button">${esc(t("chooseRecordFile"))}</button>
+     <input id="record-file" type="file" accept=".json,.json5,application/json" hidden>
+     <label for="record-text">${esc(t("pasteRecordInput"))}</label>
+     <textarea id="record-text" rows="8" spellcheck="false" autofocus></textarea>
+     <p id="record-input-error" class="record-error" role="alert"></p>`,
+    `<button value="cancel">${esc(t("cancel"))}</button><button id="review-record-data" value="review" class="primary">${esc(t("reviewRecordInput"))}</button>`,
+    (dialog) => {
+      const form = dialog.querySelector("form")!;
+      const input = dialog.querySelector<HTMLInputElement>("#record-file")!;
+      const editor = dialog.querySelector<HTMLTextAreaElement>("#record-text")!;
+      const error = dialog.querySelector<HTMLElement>("#record-input-error")!;
+      const review = dialog.querySelector<HTMLButtonElement>(
+        "#review-record-data",
+      )!;
+      const choose = dialog.querySelector<HTMLButtonElement>(
+        "#record-file-button",
+      )!;
+      editor.value = draft.text;
+      editor.oninput = () => {
+        error.textContent = "";
+        editor.removeAttribute("aria-invalid");
+      };
+      function validate() {
+        draft.text = editor.value;
+        try {
+          accept(readRecordInput(draft.text));
+          dialog.close("review");
+        } catch (reason) {
+          error.textContent = recordImportError(reason);
+          editor.setAttribute("aria-invalid", "true");
+          editor.focus();
+        }
+      }
+      choose.onclick = () => input.click();
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file) return;
+        editor.readOnly = choose.disabled = review.disabled = true;
+        error.textContent = "";
+        try {
+          if (!/\.json5?$/i.test(file.name)) throw Error("recordInputFile");
+          if (file.size > recordInputLimit) throw Error("recordInputLimit");
+          const content = new TextDecoder("utf-8", { fatal: true }).decode(
+            await file.arrayBuffer(),
+          );
+          if (!dialog.open) return;
+          editor.value = content;
+          draft.filename = file.name;
+          validate();
+        } catch (reason) {
+          error.textContent =
+            reason instanceof TypeError
+              ? t("recordInputFile")
+              : recordImportError(reason);
+          choose.focus();
+        } finally {
+          editor.readOnly = choose.disabled = review.disabled = false;
+          if (dialog.open && editor.getAttribute("aria-invalid") !== "true")
+            choose.focus();
+        }
+      };
+      form.onsubmit = (event) => {
+        if (event.submitter !== review) return;
+        event.preventDefault();
+        if (!review.disabled) validate();
+      };
+    },
+  );
+  return choice === "review";
+}
+
+async function reviewRecordChanges(
+  s: Session,
+  changes: ReturnType<typeof planRecordValues>,
+) {
   const showValue = (value: string | null) => esc(currentRecordValue(value));
   const review = changes
     .map(
@@ -4134,10 +4204,135 @@ async function importRecord(s: Session) {
     `<dl class="record-import-review">${review}</dl>`,
     `<button value="cancel" autofocus>${esc(t("cancel"))}</button><button value="apply" class="primary">${esc(t("recordApply"))}</button>`,
   );
-  if (choice !== "apply") return;
+  return choice === "apply";
+}
+
+async function importRecord(s: Session) {
+  let changes: ReturnType<typeof planRecordValues> = [];
+  if (
+    !(await acquireRecord(
+      { text: "", filename: "" },
+      (values) => {
+        changes = planRecordValues(s, values);
+      },
+      "importRecord",
+    ))
+  )
+    return;
+  if (!changes.length) {
+    notify("recordNoChanges");
+    return;
+  }
+  if (!(await reviewRecordChanges(s, changes))) return;
   applyRecordChanges(s, changes);
   notify("recordApplied");
   focus("source-form-tools-summary");
+}
+
+async function openRecordInput() {
+  const draft = { text: "", filename: "" };
+  let values: ReturnType<typeof readRecordInput> = new Map();
+  let output = "";
+  while (
+    await acquireRecord(
+      draft,
+      (record) => {
+        values = record;
+      },
+      "openRecordInput",
+    )
+  ) {
+    const name =
+      draft.filename
+        .replace(/\.json5?$/i, "")
+        .replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ")
+        .slice(0, 250)
+        .trim() || t("recordInputFormName");
+    let definition: Template | undefined;
+    const choice = await actionDialog(
+      "reviewRecordInput",
+      `<p class="hint">${esc(t("recordOutputHelp"))}</p>
+       <dl class="record-import-review record-data-preview" tabindex="0" aria-label="${esc(t("recordFieldValues"))}">${[
+         ...values,
+       ]
+         .map(
+           ([key, value]) =>
+             `<dt>${esc(key)}</dt><dd><pre>${esc(currentRecordValue(value))}</pre></dd>`,
+         )
+         .join("")}</dl>
+       <details ${output ? "open" : ""}><summary>${esc(t("recordCustomOutput"))}</summary>
+       <label for="record-output">${esc(t("recordOutputLabel"))}</label>
+       <textarea id="record-output" rows="4" spellcheck="false" maxlength="${recordInputLimit}"></textarea>
+       <p class="hint">${esc(t("recordOutputExample"))}</p></details>
+       <p id="record-output-error" class="record-error" role="alert"></p>`,
+      `<button value="back" class="quiet">${esc(t("recordBack"))}</button>
+       <button value="existing">${esc(t("recordUseExisting"))}</button>
+       <button value="open" class="primary">${esc(t("recordOpenFilled"))}</button>`,
+      (dialog) => {
+        const editor =
+          dialog.querySelector<HTMLTextAreaElement>("#record-output")!;
+        const error = dialog.querySelector<HTMLElement>(
+          "#record-output-error",
+        )!;
+        editor.value = output;
+        editor.oninput = () => {
+          output = editor.value;
+          error.textContent = "";
+          editor.removeAttribute("aria-invalid");
+        };
+        dialog.querySelector("form")!.onsubmit = (event) => {
+          if ((event.submitter as HTMLButtonElement | null)?.value !== "open")
+            return;
+          event.preventDefault();
+          try {
+            definition = sourceDefinition(
+              recordFormSource(name, values, output),
+              name,
+            );
+            dialog.close("open");
+          } catch (reason) {
+            error.textContent = recordImportError(reason);
+            if (output.trim()) {
+              editor.setAttribute("aria-invalid", "true");
+              editor.focus();
+            }
+            error.scrollIntoView({ block: "nearest" });
+          }
+        };
+      },
+    );
+    if (choice === "back") continue;
+    if (definition && choice === "open") {
+      await openDocumentTemplate(definition);
+    } else if (choice === "existing") {
+      const file = await platform.pickDocument(true);
+      if (!file) continue;
+      try {
+        const form = documentTemplate(file);
+        const source = parseSource(form.content);
+        if (source.snippets || source.workflow === "csv")
+          throw Error("recordNeedsForm");
+        const initial = startSession(form);
+        const changes = planRecordValues(initial, values);
+        if (changes.length && !(await reviewRecordChanges(initial, changes)))
+          continue;
+        const opened = await openDocumentTemplate(form, undefined, file);
+        if (opened && changes.length) {
+          applyRecordChanges(opened, changes);
+          notify("recordApplied");
+          focus(controlFocus(`form-field-${opened.active}`));
+        }
+      } catch (reason) {
+        await actionDialog(
+          "recordUseExisting",
+          `<p>${esc(recordImportError(reason))}</p>`,
+          `<button value="back" autofocus>${esc(t("recordBack"))}</button>`,
+        );
+        continue;
+      }
+    }
+    return;
+  }
 }
 
 async function useCustomFormWithFile(s: Session) {
