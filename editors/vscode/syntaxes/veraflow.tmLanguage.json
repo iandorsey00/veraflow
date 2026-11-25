@@ -37,8 +37,27 @@
           "name": "punctuation.definition.metadata.veraflow"
         }
       },
-      "contentName": "meta.embedded.block.json",
+      "contentName": "meta.embedded.block.json5",
       "patterns": [
+        {
+          "begin": "/\\*",
+          "end": "\\*/",
+          "name": "comment.block.json5"
+        },
+        {
+          "match": "//.*$",
+          "name": "comment.line.double-slash.json5"
+        },
+        {
+          "include": "#quotedSingle"
+        },
+        {
+          "include": "#quotedDouble"
+        },
+        {
+          "match": "[\\p{L}_$][\\p{L}\\p{M}\\p{N}_$]*(?=\\s*:)",
+          "name": "support.type.property-name.json5"
+        },
         {
           "include": "source.json"
         }

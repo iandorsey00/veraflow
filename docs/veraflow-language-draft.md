@@ -18,7 +18,11 @@ Hello {{name}},
 
 ## Advanced source
 
-Start with the exact first line `--- veraflow 2`, followed by a JSON object and a line containing only `---`. Use LF or CRLF header lines. This is a source-language version, separate from the JSON exchange envelope version. An unsupported explicit version yields an error.
+Start with the exact first line `--- veraflow 2`, followed by a JSON5 object and a line containing only `---`. Use LF or CRLF header lines. This is a source-language version, separate from the JSON exchange envelope version. An unsupported explicit version yields an error.
+
+Headers accept strict JSON and JSON5. Use comments, trailing commas, single quotes, and identifier keys. Quote field IDs that contain spaces or punctuation. Duplicate keys, including keys that decode to the same name, and non-finite numbers are errors. The parser accepts up to 64 levels of metadata. The template body keeps its existing syntax. Record files and JSON archives use strict JSON.
+
+Existing source files keep their original text when a definition export needs no changes. Generated prefilled copies and exports that rewrite the header use strict JSON, without source-header comments. JSON5-authored files require an implementation with JSON5 header support. Converting a header to JSON can help older readers if they support all the features the file uses.
 
 Set the optional top-level `"workflow"` property to `"form"` (the default), `"csv"` for [linked CSV](#linked-csv), or `"append"` for [Append row](#append-row). Older files with `"workflow": "scanner"` open as forms with the app’s existing verification preference unless they declare a default. This property controls how VeraFlow obtains input. Renderers that already have values can ignore it.
 
@@ -317,11 +321,13 @@ An optional `"outputs"` object keys settings by output ID. Use an `"instructions
 
 Existing files with delivery properties directly under an output ID continue to work.
 
-Use **Save record as JSON…** to store field IDs with their raw values. Unanswered values are `null`. **Save prefilled form** saves the source and values together for reopening. The optional header property `"filename"` sets the suggested filename stem for saves. It can use `{{timestamp}}`, `{{template_name}}`, `{{workflow_name}}`, `{{output_name}}`, and `{{field.Reference}}`. It also accepts built-ins such as `{{@date "%Y-%m-%d"}}` and `{{@row}}`. An unanswered field inserts nothing. The app sanitizes the stem, adds the extension, and lets you choose whether to replace an existing file in the native save dialog.
+Use **Save record as JSON…** to store a strict JSON object of stable field IDs and string or `null` values. Use **Import record JSON…** on an open source form to review the before and after values, then apply the changes together. Missing keys leave the current record alone. A supplied `null` clears the response and suppresses its default in saved copies. An empty string is explicit where the field allows it. Unknown fields and invalid values prevent import. Unchanged values retain their verification. Changed values need a fresh check when the field requires one. These records are plain text and contain entered values.
+
+Use **Use with form file…** in a custom form to seed a reusable source form by exact field ID. The custom form stays open in its own session. The chosen file provides the named outputs and verification rules. **Save prefilled form** saves the source and values together for reopening. The optional header property `"filename"` sets the suggested filename stem for saves. It can use `{{timestamp}}`, `{{template_name}}`, `{{workflow_name}}`, `{{output_name}}`, and `{{field.Reference}}`. It also accepts built-ins such as `{{@date "%Y-%m-%d"}}` and `{{@row}}`. An unanswered field inserts nothing. The app sanitizes the stem, adds the extension, and lets you choose whether to replace an existing file in the native save dialog.
 
 ## Form steps
 
-Add a top-level `"steps"` list when information arrives in stages. Each step collects its own fields and prepares one named text output. Earlier values and checks remain in the same record. A step can reference its own fields and any fields assigned to earlier steps.
+Add a top-level `"steps"` list when information arrives in stages. Each step collects its own fields and can prepare zero, one, or several named text outputs. Earlier values and checks remain in the same record. A step can reference its own fields and any fields assigned to earlier steps.
 
 ```json
 {
@@ -329,20 +335,20 @@ Add a top-level `"steps"` list when information arrives in stages. Each step col
     {
       "title": "Prepare shipment",
       "fields": ["Reference", "Recipient"],
-      "output": "dispatch"
+      "outputs": ["dispatch"]
     },
-    { "title": "Record pickup", "fields": ["Tracking"], "output": "pickup" }
+    { "title": "Record pickup", "fields": ["Tracking"], "outputs": ["pickup"] }
   ]
 }
 ```
 
-Use 2–100 steps. Give each step a title and list exact field names in `fields`. An empty field list is allowed for a step that reuses earlier values. Assign each field and each named output to exactly one step. References to later fields are rejected, including references in conditional branches. A field assigned early for a later output is available on its assigned step. Mark it optional if it can be left blank. Steps are for forms with text outputs.
+Use 2–100 steps. Give each step a title and list exact field names in `fields`. An empty field list is allowed for a step that reuses earlier values. Use `"outputs": []` for a collection-only step. List output IDs in the order they should appear in the picker. The singular `"output"` still works for existing files. Providing both properties is an error. Assign each field and each named output to exactly one step. References to later fields are rejected, including references in conditional branches. A field assigned early for a later output is available on its assigned step. Mark it optional if it can be left blank. Steps are for forms with text outputs.
 
-Choose **Prepare output sections** to resolve the current step’s required fields and checks. Copying and **Next step** are separate actions. Use **Previous step** to return to earlier fields. If an edit affects a prepared output, VeraFlow flags its step for review. If sections were copied or a paste was requested, reprepare and transfer those sections again to clear the warning.
+Choose **Prepare output sections** for the selected output, or **Prepare all step outputs** to validate the entire step’s set and open it for review. A collection-only step checks its fields when you advance. Each output is reviewed and transferred separately. Copying and **Next step** are separate actions. Use **Previous step** to return to earlier fields. If an edit affects a prepared output, VeraFlow flags its step for review. If sections were copied or a paste was requested, reprepare and transfer those sections again to clear the warning.
 
 **Save to recent forms** resumes the selected step with the saved values and checks. **Save prefilled form** opens at the first step with the saved values and checks. Transfer warnings are tracked during the open session.
 
-[Try the shipment follow-up example](../examples/source/shipment-steps.veraflow).
+[Try the shipment follow-up example](../examples/source/shipment-steps.veraflow) or the [bilingual housing example](../examples/source/housing-application.vf).
 
 ## Conditions and source evidence
 

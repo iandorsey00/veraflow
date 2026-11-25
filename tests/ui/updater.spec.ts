@@ -77,7 +77,7 @@ test("unsaved changes and active sessions block the updater", async ({
 }) => {
   await updates(page, 'throw Error("updateCheckFailed");');
   await page
-    .getByLabel("Keep capture window on top", { exact: true })
+    .getByLabel("Keep the session window on top", { exact: true })
     .uncheck();
   await page.getByRole("button", { name: "Update app…", exact: true }).click();
   await expect(page.getByText(/Finish or cancel your session/)).toBeVisible();

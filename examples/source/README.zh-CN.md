@@ -26,3 +26,5 @@
 将[发货记录模板](shipment-log.veraflow)和[配套 CSV](shipment-log.csv)复制到同一目录，试用表单、CSV 浏览和追加行。输入编号 `VF-104` 可查看查重提示，也可输入新编号并追加一条记录。
 
 打开[发货跟进](shipment-steps.veraflow)，先准备发货邮件，再填写取件和送达信息。返回第一步修改编号，可查看哪些已复制的输出需要重新检查。
+
+打开[双语住房申请](housing-application.vf)，试用 JSON5、只收集信息的步骤，以及同一条虚构记录的两个输出。

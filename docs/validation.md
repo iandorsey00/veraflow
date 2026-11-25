@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.21.0 release preparation
+
+Passed 91 TypeScript unit tests, 96 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. The browser tests use the packaged housing demo's incoming JSON record and exercise the collection-only step, both outputs, and custom form handoff. The demo archive contains the walkthrough, form, record, and offline paste destination. Window pinning and cross-app paste still need an interactive check on packaged Windows and macOS builds.
+
+Version consistency, formatting, frontend build, test-build isolation, and Clippy passed. npm reported zero vulnerabilities. The cached RustSec audit reported no vulnerability-class advisories and 11 informational warnings.
+
 ## 0.20.0 release preparation
 
 Passed 89 TypeScript unit tests, 94 browser tests, 21 Rust tests, nine portable rendering fixtures, and the macOS native text conversion check. Type checking, formatting, version consistency, isolated test configuration, and Clippy passed. Browser coverage includes shared verification across steps, separate Copy and Next actions, stale transfer warnings, and resuming at the saved step. Packaged clipboard and paste checks remain for Windows and macOS.

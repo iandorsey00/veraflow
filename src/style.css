@@ -1587,3 +1587,12 @@ input.toggle-switch:checked::before {
   padding-inline-start: 1.5rem;
   margin-block: 1rem;
 }
+
+.record-import-review dd {
+  margin: 0 0 1rem;
+}
+
+.record-import-review pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

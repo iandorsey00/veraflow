@@ -31,6 +31,7 @@ pub struct Document {
     recent_token: Option<u32>,
     session_id: Option<String>,
     output_id: Option<String>,
+    step_index: Option<usize>,
 }
 
 fn format(path: &Path) -> Option<&'static str> {
@@ -69,6 +70,7 @@ fn read(path: PathBuf) -> Option<Document> {
         recent_token: None,
         session_id: None,
         output_id: None,
+        step_index: None,
     })
 }
 
@@ -350,6 +352,7 @@ pub struct SessionSnapshot {
     title: String,
     content: String,
     output_id: Option<String>,
+    step_index: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -516,6 +519,7 @@ pub fn open_recent_document(app: tauri::AppHandle, index: usize) -> Result<Docum
         recent_token: entry.path.and_then(|path| issue_document(&app, path)),
         session_id: Some(entry.snapshot.id),
         output_id: entry.snapshot.output_id,
+        step_index: entry.snapshot.step_index,
     })
 }
 
@@ -608,6 +612,7 @@ mod tests {
                 title: "Sample".into(),
                 content: value.into(),
                 output_id: Some("brief".into()),
+                step_index: Some(1),
             },
             path: None,
             time: 1_800_000_000_000,
@@ -619,6 +624,7 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].snapshot.content, "Alex Updated");
         assert_eq!(entries[0].snapshot.output_id.as_deref(), Some("brief"));
+        assert_eq!(entries[0].snapshot.step_index, Some(1));
         assert_eq!(entries[1].snapshot.content, "Morgan Example");
         write_recent(&path, &[]).unwrap();
         assert!(!path.exists());

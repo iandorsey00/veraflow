@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VeraFlow housing demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      body {
+        box-sizing: border-box;
+        max-width: 48rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      label {
+        display: block;
+        margin-block: 1.25rem 0.4rem;
+        font-weight: 600;
+      }
+      textarea {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 0.75rem;
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Housing application demo</h1>
+      <p>
+        Use fictional data. This page runs locally and has no submit button.
+      </p>
+      <h2>Source to verify</h2>
+      <p>Legal name: <strong>Drew Example</strong></p>
+      <p lang="zh-CN">搬家原因：现在的住处离公司太远。</p>
+
+      <h2>Paste destinations</h2>
+      <label for="application">English application</label>
+      <textarea id="application" rows="5" autocomplete="off"></textarea>
+      <label for="review" lang="zh-CN">中文核对</label>
+      <textarea id="review" rows="5" autocomplete="off"></textarea>
+    </main>
+  </body>
+</html>

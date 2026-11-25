@@ -2,6 +2,7 @@ import type { TemplateContext } from "./core/variables";
 import { compareSourceText } from "./core/batch";
 import {
   recordValues,
+  planRecordMerge,
   selectedSourceOutput,
   sourceFilename,
 } from "./core/source-record";
@@ -80,6 +81,8 @@ import {
   prepareWorkflow,
   activeSourceFields,
   activateFormStep,
+  applyRecordChanges,
+  currentFormStep,
   sessionSteps,
   noteStepPrepared,
   noteStepTransfer,
@@ -1293,17 +1296,25 @@ async function openDocumentTemplate(
   );
   if (opened && session) {
     if (file) templateDocuments.set(session, file);
-    if (
-      file?.outputId &&
-      parseSource(template.content).outputs.some(
-        (output) => output.id === file.outputId,
-      )
-    ) {
-      if (source.steps) activateFormStep(session, file.outputId);
-      else session.outputId = file.outputId;
+    const outputId = file?.outputId ?? undefined;
+    const savedStep =
+      file?.stepIndex ??
+      source.steps?.findIndex(
+        (step) => outputId !== undefined && step.outputs.includes(outputId),
+      );
+    if (source.steps && savedStep !== undefined && source.steps[savedStep]) {
+      activateFormStep(session, savedStep, outputId);
       resetOutputOptions(session);
       render();
-      if (source.steps) focusStepField(session);
+      focusStepField(session);
+    } else if (
+      !source.steps &&
+      outputId &&
+      source.outputs.some((output) => output.id === outputId)
+    ) {
+      session.outputId = outputId;
+      resetOutputOptions(session);
+      render();
     }
     if (workflow === "append") await switchSourceMode("append");
   }
@@ -2228,13 +2239,20 @@ function picker(
   </div></div>`;
 }
 
+function availableOutputs(s: Session) {
+  const source = parseSource(s.template.content);
+  const step = currentFormStep(s);
+  return step
+    ? step.outputs.map((id) => sourceOutput(source, id))
+    : source.outputs;
+}
+
 function outputSelector(s: Session) {
   if (s.template.placeholderStyle !== "source") return "";
-  const source = parseSource(s.template.content);
-  if (source.steps || (source.outputs.length < 2 && !csvSessions.has(s)))
-    return "";
-  const selected = s.outputId ?? source.outputs[0].id;
-  const options = source.outputs
+  const outputs = availableOutputs(s);
+  if (outputs.length < 2 && !csvSessions.has(s)) return "";
+  const selected = s.outputId ?? outputs[0].id;
+  const options = outputs
     .map(
       (output) =>
         `<option value="${esc(output.id)}" ${output.id === selected ? "selected" : ""}>${esc(output.label)}</option>`,
@@ -2246,7 +2264,7 @@ function outputSelector(s: Session) {
     options,
     "previousOutput",
     "nextNamedOutput",
-    source.outputs.length > 1,
+    outputs.length > 1,
   );
 }
 
@@ -2301,7 +2319,7 @@ function outputInstructions(template: Template, outputId?: string) {
   const source = parseSource(template.content);
   const text = sourceOutput(
     source,
-    outputId ?? source.steps?.[0].output,
+    outputId ?? source.steps?.[0].outputs[0],
   ).instructions;
   return text
     ? `<p class="field-instructions output-instructions">${esc(text)}</p>`
@@ -2589,7 +2607,7 @@ function stepHeading(
   s: Session,
   steps: NonNullable<ReturnType<typeof sessionSteps>>,
 ) {
-  const index = steps.findIndex((step) => step.output === s.outputId);
+  const index = s.stepIndex ?? 0;
   return `<div class="form-step-heading">
     <p class="eyebrow">${esc(t("formStep"))} ${index + 1}/${steps.length}</p>
     <h2 id="form-step-heading" tabindex="-1">${esc(steps[index].title)}</h2>
@@ -2597,13 +2615,21 @@ function stepHeading(
 }
 
 function stepWarnings(s: Session) {
-  const items = (sessionSteps(s) ?? []).flatMap((step) => {
-    const progress = s.stepOutputs?.get(step.output);
-    if (!progress?.needsReview && !progress?.staleSections.size) return [];
-    return [
-      `<li><strong>${esc(step.title)}</strong> · ${esc(t(progress.staleSections.size ? "formStepCopiedStale" : "formStepOutputStale"))}</li>`,
-    ];
-  });
+  if (!s.stepOutputs?.size) return "";
+  const source = parseSource(s.template.content);
+  const items = (source.steps ?? []).flatMap((step) =>
+    step.outputs.flatMap((id) => {
+      const progress = s.stepOutputs?.get(id);
+      if (!progress?.needsReview && !progress?.staleSections.size) return [];
+      const label =
+        step.outputs.length === 1
+          ? step.title
+          : `${step.title} · ${sourceOutput(source, id).label}`;
+      return [
+        `<li><strong>${esc(label)}</strong> · ${esc(t(progress.staleSections.size ? "formStepCopiedStale" : "formStepOutputStale"))}</li>`,
+      ];
+    }),
+  );
   return items.length ? `<ul class="step-warnings">${items.join("")}</ul>` : "";
 }
 
@@ -2628,8 +2654,8 @@ function focusStepField(s: Session) {
   else focus("form-step-heading");
 }
 
-async function openFormStep(s: Session, output: string) {
-  activateFormStep(s, output);
+async function openFormStep(s: Session, index: number) {
+  activateFormStep(s, index);
   delete s.prepared;
   resetOutputOptions(s);
   lastStep = null;
@@ -2640,16 +2666,21 @@ function moveFormStep(offset: number) {
   const s = session!;
   const steps = sessionSteps(s);
   if (!steps) return;
-  const current = steps.findIndex((step) => step.output === s.outputId);
-  const next = steps[current + offset];
-  if (next && (offset < 0 || (s.mode === "delivery" && s.prepared)))
-    return openFormStep(s, next.output);
+  const current = s.stepIndex ?? 0;
+  const next = current + offset;
+  if (
+    steps[next] &&
+    (offset < 0 ||
+      (s.mode === "delivery" && s.prepared) ||
+      !steps[current].outputs.length)
+  )
+    return openFormStep(s, next);
 }
 
 function templateFormView(s: Session): string {
   const active = activeSourceFields(s);
   const steps = sessionSteps(s);
-  const stepIndex = steps?.findIndex((step) => step.output === s.outputId) ?? 0;
+  const stepIndex = s.stepIndex ?? 0;
   const step = steps?.[stepIndex];
   const own = step && new Set(step.fields);
   const fields = s.fields
@@ -2669,10 +2700,10 @@ function templateFormView(s: Session): string {
   fields.sort((a, b) => rank(a.field.name) - rank(b.field.name));
   if (s.unifiedForm)
     return `<main class="capture-panel template-form unified-form">
-    <header><h1>${esc(s.template.name)}</h1>${templateInstructions(s)}${steps ? stepHeading(s, steps) : outputSelector(s)}
+    <header><h1>${esc(s.template.name)}</h1>${templateInstructions(s)}${steps ? stepHeading(s, steps) : ""}${outputSelector(s)}
       <div class="task-toolbar">
-        ${s.template.placeholderStyle === "source" ? (steps ? "" : sourceModeButtons("form")) + button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") : ""}
-        ${s.scanner ? button("scanner-add", "addField", "quiet") : ""}
+        ${s.template.placeholderStyle === "source" ? (steps ? "" : sourceModeButtons("form")) + button("batch-compare", "batchCompare", "quiet") + button("save-record", "saveRecord", "quiet") + button("import-record", "importRecord", "quiet") : ""}
+        ${s.scanner ? button("scanner-add", "addField", "quiet") + button("custom-form-use-file", "customFormUseFile", "quiet") : ""}
         ${button("pause-task", "pauseTask", "quiet")}
       </div>
       ${focusedWorkflow ? `<p class="task-progress">${esc(progressText(s))}</p>` : ""}
@@ -2682,9 +2713,9 @@ function templateFormView(s: Session): string {
       ${unifiedFormFields(s, fields, active)}
       ${steps ? `<div id="step-warnings" aria-live="polite">${stepWarnings(s)}</div>` : ""}
       <div id="form-attention" aria-live="polite">${formAttentionView(s)}</div>
-      <div class="actions">${steps && stepIndex > 0 ? button("step-previous", "formStepPrevious", "quiet") : ""}${s.scanner ? "" : button("finish", s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}</div>
+      <div class="actions">${steps && stepIndex > 0 ? button("step-previous", "formStepPrevious", "quiet") : ""}${s.scanner ? "" : button("finish", step && !step.outputs.length ? (steps![stepIndex + 1] ? "formStepNext" : "closeSession") : s.template.placeholderStyle === "source" ? "prepareSections" : s.template.email?.enabled ? "emailPrepare" : "finish", "primary")}${step && step.outputs.length > 1 ? button("prepare-step-outputs", "prepareStepOutputs") : ""}</div>
       ${s.scanner ? `<details class="form-tools"><summary>${esc(t("formTools"))}</summary>${scannerControls(true)}</details>` : ""}
-    </div><div id="form-output" ${library.preferences.hideLivePreview ? "hidden" : ""}>${library.preferences.hideLivePreview ? "" : s.scanner ? freeScannerPreview(s) : outputPreview(s.template, s)}</div></div>
+    </div><div id="form-output" ${library.preferences.hideLivePreview || step?.outputs.length === 0 ? "hidden" : ""}>${library.preferences.hideLivePreview || step?.outputs.length === 0 ? "" : s.scanner ? freeScannerPreview(s) : outputPreview(s.template, s)}</div></div>
     <div class="actions">${button("cancel-session", "closeSession", "quiet")}</div>
   </main>`;
   const f = s.fields[s.active];
@@ -3069,7 +3100,7 @@ function sectionOrderView(parts: NonNullable<Session["prepared"]>) {
 }
 function sectionDeliveryView(s: Session) {
   const steps = sessionSteps(s);
-  const stepIndex = steps?.findIndex((step) => step.output === s.outputId) ?? 0;
+  const stepIndex = s.stepIndex ?? 0;
   const csv = csvSessions.get(s);
   const pickers = (csv ? csvSelector(s, csv) : "") + outputSelector(s);
   if (csv?.error)
@@ -3088,7 +3119,7 @@ function sectionDeliveryView(s: Session) {
         : ""
       : navigation.join(" → ");
   return `<main class="capture-panel delivery-panel">
-    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${steps ? stepHeading(s, steps) : pickers}<p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
+    <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${steps ? stepHeading(s, steps) : ""}${pickers}<p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
     ${outputInstructions(s.template, s.outputId)}
     <pre class="output delivery-text" tabindex="0">${esc(parts[index].text)}</pre>
     <div class="toolbar delivery-primary">${button("copy-section", "copySection", "primary")}${s.prepared!.length > 1 && !groupSections ? button("copy-output", "copyEntireOutput") : ""}${button("save-sections", "saveSections", "quiet")}</div>
@@ -3564,7 +3595,7 @@ async function batchCompare(s: Session) {
 }
 
 function adjacentOutput(s: Session, step: -1 | 1) {
-  const outputs = parseSource(s.template.content).outputs;
+  const outputs = availableOutputs(s);
   const current = outputs.findIndex(
     (output) => output.id === selectedSourceOutput(s).id,
   );
@@ -3626,6 +3657,7 @@ async function selectOutput(outputId: string, focusId = "source-output") {
   resetOutputOptions(s);
   if (prepared) {
     s.prepared = prepared;
+    noteStepPrepared(s);
     s.deliveryIndex = 0;
     s.deliveryDone = false;
     lastStep = null;
@@ -3660,10 +3692,11 @@ async function goToFormAttention(index: number | undefined) {
   if (index === undefined) return;
   const s = session!;
   if (appending.has(s)) await switchSourceMode("form");
-  const owner = sessionSteps(s)?.find((step) =>
+  const owner = sessionSteps(s)?.findIndex((step) =>
     step.fields.includes(s.fields[index].name),
   );
-  if (owner && owner.output !== s.outputId) await openFormStep(s, owner.output);
+  if (owner !== undefined && owner >= 0 && owner !== s.stepIndex)
+    await openFormStep(s, owner);
   focusFormField(index);
 }
 
@@ -3705,6 +3738,75 @@ function bindUnifiedForm(s: Session) {
   });
 }
 
+async function importRecord(s: Session) {
+  const text = await platform.importTemplates();
+  if (text === null) return;
+  let changes: ReturnType<typeof planRecordMerge>;
+  try {
+    changes = planRecordMerge(s, text);
+  } catch (error) {
+    const [key, ...name] = (error instanceof Error ? error.message : "").split(
+      ":",
+    );
+    if (
+      (key === "recordUnknownField" || key === "recordInvalidField") &&
+      name.length
+    ) {
+      await actionDialog(
+        "importRecord",
+        `<p>${esc(t(key))} ${esc(name.join(":"))}</p>`,
+        `<button value="done" autofocus>${esc(t("done"))}</button>`,
+      );
+      return;
+    }
+    throw error;
+  }
+  if (!changes.length) {
+    notify("recordNoChanges");
+    return;
+  }
+  const showValue = (value: string | null) =>
+    esc(
+      value === null
+        ? t("recordUnanswered")
+        : value === ""
+          ? t("recordEmptyValue")
+          : value,
+    );
+  const review = changes
+    .map(
+      ({ index, previous, value }) =>
+        `<dt><strong>${esc(fieldLabel(s, s.fields[index].name))}</strong></dt>
+      <dd><small>${esc(t("recordCurrent"))}</small><pre>${showValue(previous)}</pre>
+      <small>${esc(t("recordIncoming"))}</small><pre>${showValue(value)}</pre></dd>`,
+    )
+    .join("");
+  const choice = await actionDialog(
+    "recordReview",
+    `<dl class="record-import-review">${review}</dl>`,
+    `<button value="cancel" autofocus>${esc(t("cancel"))}</button><button value="apply" class="primary">${esc(t("recordApply"))}</button>`,
+  );
+  if (choice !== "apply") return;
+  applyRecordChanges(s, changes);
+  notify("recordApplied");
+  focus("import-record");
+}
+
+async function useCustomFormWithFile(s: Session) {
+  const file = await platform.pickDocument(true);
+  if (!file) return;
+  const definition = documentTemplate(file);
+  const source = parseSource(definition.content);
+  if (source.snippets || source.workflow === "csv")
+    throw Error("recordNeedsForm");
+  const values = new Map(
+    s.fields.flatMap(({ name, value }) =>
+      value === null ? [] : [[name, value] as const],
+    ),
+  );
+  await openDocumentTemplate(definition, values, file);
+}
+
 function bindSession() {
   if (session?.unifiedForm) bindUnifiedForm(session);
   if (session && isSnippetCollection(session)) {
@@ -3723,7 +3825,10 @@ function bindSession() {
   );
   click("step-previous", () => moveFormStep(-1));
   click("step-next", () => moveFormStep(1));
+  click("prepare-step-outputs", () => perform("finish", false, true));
   click("batch-compare", () => batchCompare(session!));
+  click("import-record", () => importRecord(session!));
+  click("custom-form-use-file", () => useCustomFormWithFile(session!));
   click("save-record", async () => {
     const s = session!;
     const values = Object.fromEntries(recordValues(s));
@@ -4383,7 +4488,7 @@ async function accept(
 function dispatch(action: Action) {
   void run(() => perform(action, true));
 }
-async function perform(action: Action, global = false) {
+async function perform(action: Action, global = false, allOutputs = false) {
   const s = session;
   if (!s || s.mode === "complete") return;
   // Global navigation is frozen while an editor/settings screen or confirmation is open.
@@ -4561,7 +4666,29 @@ async function perform(action: Action, global = false) {
         return;
       }
       if (s.template.placeholderStyle === "source") {
+        const step = currentFormStep(s);
+        if (step?.outputs.length === 0) {
+          if ((sessionSteps(s)?.length ?? 0) > (s.stepIndex ?? 0) + 1)
+            await moveFormStep(1);
+          else await requestSessionClose(s, true);
+          return;
+        }
         const parts = prepareSections(s);
+        if (allOutputs) {
+          for (const outputId of step?.outputs ?? []) {
+            if (outputId === s.outputId) continue;
+            const candidate = { ...s, outputId };
+            const issue = formAttention(candidate)[0];
+            if (issue) {
+              await selectOutput(outputId);
+              await goToFormAttention(issue.index);
+              return;
+            }
+            prepareSections(candidate);
+          }
+          for (const outputId of step?.outputs ?? [])
+            noteStepPrepared(s, outputId);
+        }
         const shortcutError = await configureSessionShortcuts(true);
         await platform.compact(true, library.preferences.alwaysOnTop);
         s.prepared = parts;
@@ -4711,6 +4838,7 @@ async function saveBeforeClose(
       )
     )
       parts = exportSections(s);
+    if (parts?.length === 0) parts = undefined;
   } catch {
     // Unfinished responses can still be saved as an editable template.
   }
@@ -4743,6 +4871,7 @@ async function saveBeforeClose(
         title: s.template.name,
         content: prefilledContent(s),
         outputId: s.outputId,
+        stepIndex: s.stepIndex,
       },
       sourceDocument?.recentToken,
     );

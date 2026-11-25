@@ -10,6 +10,18 @@ Shared standards: ../guidelines. Product exceptions: the utility uses a compact 
 
 Framework references: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), [global shortcut plugin](https://v2.tauri.app/plugin/global-shortcut/).
 
+## Composable source forms
+
+Manual entry, selection capture, CSV and JSON all feed a working record keyed by stable field IDs. The existing field model stores string values or `null`; selection IDs are independent of display labels. Verification is tied to the stored value, and the renderer consumes the values and an explicit context. Steps coordinate what to collect and which named text outputs to prepare. Clipboard and paste operate on prepared text.
+
+- **Authoring.** The source header parser accepts inert JSON5 and validates the resulting definition. The body parser, JSON record exchange, template archives, and the older portable profile keep their own grammars. Native file handling provides bounded UTF-8 input to the shared parser.
+- **Records.** Explicit JSON imports merge by field ID after a before-and-after review. Missing keys preserve values, a supplied null clears a response, and unchanged values preserve local checks. The existing strict JSON map keeps current exports usable. A versioned envelope with a semantic definition identifier and round-trip provenance remains a follow-up.
+- **Composition.** Steps can collect and check information before rendering, or offer several outputs. Each output has its own dependencies and transfer review state. Plain forms, CSV browsing, and Append row keep their existing entry points. Staged forms currently use text outputs.
+- **External runtimes.** The separate VeraFlow Web project vendors a desktop core revision. Refresh that revision and its dependencies together before claiming JSON5 or multi-output step compatibility. Use the fictional housing example to check the next milestone, an offline prefilled HTML form that returns a strict JSON record for review and merge.
+- **Follow-ups.** External field mappings, locale-aware presentation, and reusable derived values can build on record exchange. Bilingual labels work as literal strings today. The housing example uses a separate manually supplied English field; translation dependencies and invalidation are future work.
+
+The Scanner sections below document historical workflows and compatibility behavior.
+
 ## Email template and output phase
 
 Optional template email metadata holds Subject/To/Cc/Bcc templates and their enabled flags; existing `content` is Body. `templateSource` aggregates only enabled sections for shared placeholder ordering. `renderEmail` applies the common completeness/verification gate and validates resolved headers. Automatic delivery advances the memory-only cursor only after native success. Explicit manual Back/Next recovery changes the cursor without injected keys and never establishes paste success. Existing finish/previous global shortcuts become Paste+Tab/Shift+Tab in that phase, with no trailing Tab for Body and explicit completion. Native output uses the same clipboard lock as capture, and does not claim delivery or automate Send.

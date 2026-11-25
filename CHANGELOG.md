@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.0
+
+- Accept JSON5 source headers and preserve strict JSON for record exchange.
+- Let a step collect and verify with zero outputs, or prepare one or several named outputs.
+- Review and merge an incoming JSON record while preserving checks on unchanged values.
+- Reuse custom form values with a source form, and honor the window pin preference in full-size forms.
+- Include a bilingual housing demo with a sample record and offline paste destination.
+
 ## 0.20.0
 
 - Add optional form steps so fields can be entered and verified as information arrives. Each step prepares one named output from the same record.

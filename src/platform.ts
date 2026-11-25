@@ -80,6 +80,7 @@ type SessionSnapshot = {
   title: string;
   content: string;
   outputId?: string;
+  stepIndex?: number;
 };
 const browserRecent: {
   file?: File;
@@ -128,6 +129,7 @@ export type OpenDocument = {
   recentToken?: number | null;
   sessionId?: string | null;
   outputId?: string | null;
+  stepIndex?: number | null;
 };
 export type CSVAppendDestination = {
   token: number;
@@ -210,6 +212,7 @@ export const platform = {
       recentToken: entry.file && issueBrowserDocument(entry.file),
       sessionId: entry.snapshot.id,
       outputId: entry.snapshot.outputId,
+      stepIndex: entry.snapshot.stepIndex,
     };
   },
   async clearRecentDocuments() {
@@ -455,7 +458,7 @@ export const platform = {
       if (compact === compactWindow) {
         if (formSize) await w.setSize(formSize);
         formWindow = form;
-        await w.setAlwaysOnTop(compact && top);
+        await w.setAlwaysOnTop((compact || form) && top);
         return;
       }
       const nativePlacement = await invoke<boolean>("session_window", {
@@ -476,7 +479,7 @@ export const platform = {
       if (formSize) await w.setSize(formSize);
       formWindow = form;
       compactWindow = compact;
-      await w.setAlwaysOnTop(compact && top);
+      await w.setAlwaysOnTop((compact || form) && top);
       if (!compact) normalBounds = null;
     }
   },

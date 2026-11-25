@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.21.0 composable form steps and reviewed record imports
+
+Full release cycle for JSON5 source headers, reviewed record merging, and multi-output steps. The release includes `VeraFlow_Demo.zip` in the asset checksums. On a packaged app, follow the [housing demo](../examples/source/housing-demo.md) to verify both output transfers and window pinning in Windows and macOS.
+
+To roll back to [0.20.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.20.0), retain the original files and use a copy with a strict JSON header. Remove its `steps` array to use the regular output picker. Save any required responses or rendered text before changing versions.
+
 ## 0.20.0 form steps and output instructions
 
 Full release cycle for the new source settings and staged form workflow. On macOS and Windows, open [Shipment follow-up](../examples/source/shipment-steps.veraflow), verify the reference, and copy the first output. Advance, enter the tracking number, then return and edit the reference. Check that VeraFlow flags the affected output and keeps the tracking value. Save to recent forms, reopen at the saved step, and try copying and native paste.

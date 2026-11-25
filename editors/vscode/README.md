@@ -2,6 +2,8 @@
 
 English · [简体中文](README.zh-CN.md)
 
+The header highlighter recognizes JSON5 comments, single quotes, and unquoted keys. The included header snippets also work as strict JSON.
+
 Open a `.veraflow` or `.vf` file in Visual Studio Code for syntax highlighting, collapsible headers and blocks, bracket matching, and paired braces. Type `vf-` and press **Ctrl+Space** to see snippets for headers, fields, output sections, and conditions. You can also find them with **Insert Snippet** from the Command Palette.
 
 Download `VeraFlow_VSCode.vsix` from a public release that includes the extension, or `VeraFlow-VSCode.vsix` from the matching source preview. Install it with **Extensions → … → Install from VSIX…**. To build it from this directory, run `npx @vscode/vsce@3.6.0 package`. [Releases](https://github.com/iandorsey00/veraflow/releases)

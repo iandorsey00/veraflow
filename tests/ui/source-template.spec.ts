@@ -1441,3 +1441,85 @@ test("steps share verified values, keep copy separate from advance, and flag sta
     "Shipment VF-105 (PK-12) delivered on 2026-11-23.",
   );
 });
+
+test("collect-only step resumes and multiple outputs prepare from one reviewed record", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await pickDocument(
+    page,
+    "housing-application.vf",
+    (await fixture("housing-application.vf")).toString(),
+  );
+  const heading = page.locator("#form-step-heading");
+  const legalName = "Legal name / 法定姓名";
+  await page.getByLabel(legalName, { exact: true }).fill("Alex Example");
+  const pick = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Import record JSON…" }).click();
+  await (
+    await pick
+  ).setFiles({
+    name: "housing-response.json",
+    mimeType: "application/json",
+    buffer: await fixture("housing-response.json"),
+  });
+  const dialog = page.getByRole("dialog", { name: "Review record changes" });
+  await expect(dialog).toContainText("Alex Example");
+  await expect(dialog).toContainText("Drew Example");
+  await dialog.getByRole("button", { name: "Apply all changes" }).click();
+  await verifyFormValue(page, legalName, "Drew Example");
+
+  await page.locator("#cancel-session").click();
+  await page.getByRole("button", { name: "Save to recent forms" }).click();
+  await page.locator("[data-recent]").click();
+  await expect(heading).toContainText("Collect applicant details");
+  await expect(page.locator("#source-output")).toHaveCount(0);
+  await page.getByRole("button", { name: "Next step", exact: true }).click();
+  await expect(heading).toContainText("Review application");
+  await page.locator(".form-optional summary").click();
+  await page
+    .getByLabel("English wording / 英文表述", { exact: true })
+    .fill("The current home is too far from work.");
+  await page.evaluate(() => navigator.clipboard.writeText("unchanged"));
+  await page.getByRole("button", { name: "Prepare all step outputs" }).click();
+  await expect(page.locator(".output")).toContainText("Employment: Employed");
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("unchanged");
+  await page.getByLabel("Output", { exact: true }).selectOption("review");
+  await expect(page.locator(".output")).toContainText(
+    "搬家原因：现在的住处离公司太远。",
+  );
+});
+
+test("a custom form can seed a source form with named outputs", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator("#nav-scanner").click();
+  await page.locator("#start-scanner").click();
+  await page.locator("#dialog-fields").fill("Contact\nReference");
+  await page.getByRole("button", { name: "Open form", exact: true }).click();
+  await page.getByLabel("Contact", { exact: true }).fill("Alex Example");
+  await page.getByLabel("Reference", { exact: true }).fill("VF-104");
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Use with form file…" }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: "shared-record.veraflow",
+    mimeType: "text/plain",
+    buffer: await fixture("shared-record.veraflow"),
+  });
+  await expect(page.getByLabel("Contact", { exact: true })).toHaveValue(
+    "Alex Example",
+  );
+  await page.getByLabel("Output", { exact: true }).selectOption("row");
+  await expect(page.locator("#form-output pre")).toContainText("VF-104");
+  await page.locator("#resume-slot-freeScanner").click();
+  await expect(page.getByLabel("Contact", { exact: true })).toHaveValue(
+    "Alex Example",
+  );
+});

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { defaultComparison, type Template } from "../src/core/model";
 import {
   activeSourceFields,
+  applyRecordChanges,
   prepareSections,
   spreadsheetRow,
   renderTemplateValues,
@@ -13,6 +14,7 @@ import {
   beginReverification,
   verify,
 } from "../src/core/session";
+import { planRecordMerge } from "../src/core/source-record";
 import {
   parseSource,
   prefillSource,
@@ -277,7 +279,8 @@ test("source syntax errors identify malformed metadata and the opening line of a
     { line: 5, detail: /missing its closing/ },
   );
   assert.throws(
-    () => parseSource('--- veraflow 2\n{ "title": "Example", }\n---\n{{name}}'),
+    () =>
+      parseSource('--- veraflow 2\n{ "title": : "Example" }\n---\n{{name}}'),
     { line: 2, detail: /invalid JSON/ },
   );
 });
@@ -594,4 +597,91 @@ test("steps reject duplicate fields, missing assignments, and forward references
       ),
     { detail: 'Field "Delivered" is missing from "steps".' },
   );
+});
+
+test("JSON5 headers accept comments and quoted keys while generated copies use strict JSON", () => {
+  const header = String.raw`--- veraflow 2
+{
+  // Escapes, comments, and field keys are metadata only.
+  title: 'Example // office',
+  /*
+---
+  */
+  fields: {'参考 #': {type: 'text', label: 'A\x42',},},
+}
+---
+Hello {{参考 #}}.`;
+  for (const source of [header, header.replaceAll("\n", "\r\n")]) {
+    const parsed = parseSource(source);
+    assert.equal(parsed.controls.get("参考 #")?.label, "AB");
+    assert.equal(parsed.title, "Example // office");
+    assert.equal(sourceDefinitionText(source), source);
+    const saved = prefillSource(
+      source,
+      new Map([["参考 #", "VF-104"]]),
+      "form",
+    );
+    assert.equal(
+      JSON.parse(saved.split("\n---\n")[0].split("\n").slice(1).join("\n"))
+        .title,
+      parsed.title,
+    );
+    assert.deepEqual(
+      prepareSections(startSession(template(saved)))[0].text,
+      "Hello VF-104.",
+    );
+  }
+  assert.throws(
+    () =>
+      parseSource(String.raw`--- veraflow 2
+{fields:{ x:{type:'text', "\u0074ype":'text'}}}
+---
+Hi`),
+    { line: 2, detail: /Duplicate metadata key "type"/ },
+  );
+  for (const number of ["NaN", "-Infinity", "1e400"])
+    assert.throws(
+      () => parseSource(`--- veraflow 2\n{title: ${number}}\n---\nHi`),
+      /invalidSource/,
+    );
+  const safe = parseSource(
+    "--- veraflow 2\n{fields:{__proto__:{type:'text'}}}\n---\nHello {{__proto__}}",
+  );
+  assert.equal(safe.controls.get("__proto__")?.kind, "text");
+});
+
+test("record merge preserves explicit emptiness and unchanged local verification", () => {
+  const doc = template(`--- veraflow 2
+{"fields":{"Reference":{"type":"text","verify":true},"Notes":{"type":"text","optional":true},"State":{"type":"text","default":"OR"}},"responses":{"Reference":"VF-104","Notes":"Old note"},"verification":{"Reference":"form"}}
+---
+{{Reference}} / {{Notes}} / {{State}}`);
+  const session = startSession(doc);
+  const changes = planRecordMerge(
+    session,
+    '{"Reference":"VF-104","Notes":"","State":null}',
+  );
+  assert.equal(changes.length, 2);
+  applyRecordChanges(session, changes);
+  assert.deepEqual(
+    session.fields.map(({ value, status }) => [value, status]),
+    [
+      ["VF-104", "verified"],
+      ["", "captured"],
+      [null, "empty"],
+    ],
+  );
+  assert.throws(
+    () => planRecordMerge(session, '{"Unknown":"data"}'),
+    /recordUnknownField:Unknown/,
+  );
+  assert.throws(
+    () => planRecordMerge(session, '{"Notes":"a","Notes":"b"}'),
+    /invalidImport/,
+  );
+  assert.throws(() => planRecordMerge(session, "{Notes:'a'}"), /invalidImport/);
+  applyRecordChanges(
+    session,
+    planRecordMerge(session, '{"Reference":"VF-105"}'),
+  );
+  assert.equal(session.fields[0].status, "captured");
 });

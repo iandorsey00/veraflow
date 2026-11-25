@@ -28,3 +28,5 @@ Open [Quick snippets](quick-snippets.veraflow) for one-click clipboard actions, 
 Copy [the shipment template](shipment-log.veraflow) and [its CSV](shipment-log.csv) into the same folder to try Form, CSV browsing, and Append row. Use reference `VF-104` to see the duplicate check, or use a new reference to append and start another record.
 
 Open [Shipment follow-up](shipment-steps.veraflow) to prepare a dispatch email, then add pickup and delivery details. Revisit the first step and change the reference to see which copied outputs need review.
+
+Open [Bilingual housing application](housing-application.vf) to try JSON5, a collection-only step, and two outputs from one fictional record.

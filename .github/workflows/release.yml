@@ -104,6 +104,10 @@ jobs:
       - name: Package the VS Code extension
         working-directory: editors/vscode
         run: npx --yes @vscode/vsce@3.6.0 package --out ../../release-assets/VeraFlow_VSCode.vsix
+      - name: Package the local demo
+        run: |
+          python3 -m zipfile -c release-assets/VeraFlow_Demo.zip examples/source
+          python3 -m zipfile -t release-assets/VeraFlow_Demo.zip
       - name: Publish verified preview assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -111,7 +115,7 @@ jobs:
         run: |
           set -euo pipefail
           cd release-assets
-          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 10
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 11
           sha256sum VeraFlow_* latest.json > SHA256SUMS.txt
           sha256sum --check SHA256SUMS.txt
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
