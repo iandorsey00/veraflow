@@ -1627,6 +1627,23 @@ input.toggle-switch:checked::before {
   margin: 0;
 }
 
+.record-recent-forms {
+  margin-block-start: 1rem;
+}
+
+.pdf-tools .hint {
+  overflow-wrap: anywhere;
+}
+
+.pdf-markdown {
+  max-block-size: min(48vh, 27rem);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-block: 1px solid var(--line);
+  padding-block: 0.75rem;
+}
+
 .candidate-field {
   margin: 0 0 1rem;
   min-inline-size: 0;

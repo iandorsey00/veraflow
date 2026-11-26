@@ -1,0 +1,75 @@
+--- veraflow 2
+{
+  title: "Résumé PDF",
+  workflow: "form",
+  filename: "{{field.name}}-résumé",
+  "verify-by-default": false,
+  fields: {
+    name: {type: "text", label: "Name"},
+    email: {type: "text", optional: true},
+    phone: {type: "text", optional: true},
+    headline: {type: "text", optional: true},
+    links_markdown: {type: "textarea", optional: true},
+    summary: {type: "textarea", optional: true},
+    experience_markdown: {type: "textarea", optional: true},
+    education_markdown: {type: "textarea", optional: true},
+    skills_markdown: {type: "textarea", optional: true},
+    projects_markdown: {type: "textarea", optional: true},
+  },
+}
+---
+---
+mainfont: Arial Unicode MS
+mainfontoptions: [AutoFakeBold=2]
+geometry: margin=0.8in
+colorlinks: true
+urlcolor: MidnightBlue
+fontsize: 11pt
+pagestyle: empty
+---
+
+# {{name}}
+
+{{#when headline is not blank}}
+**{{headline}}**
+
+{{/when}}
+{{#when email is not blank}}
+<{{email}}>\
+{{/when}}
+{{#when phone is not blank}}
+{{phone}}\
+{{/when}}
+{{#when links_markdown is not blank}}
+{{links_markdown}}
+{{/when}}
+
+{{#when summary is not blank}}
+{{summary}}
+
+{{/when}}
+{{#when experience_markdown is not blank}}
+## Experience
+
+{{experience_markdown}}
+
+{{/when}}
+{{#when education_markdown is not blank}}
+## Education
+
+{{education_markdown}}
+
+{{/when}}
+{{#when skills_markdown is not blank}}
+\newpage
+
+## Skills
+
+{{skills_markdown}}
+
+{{/when}}
+{{#when projects_markdown is not blank}}
+## Selected Projects
+
+{{projects_markdown}}
+{{/when}}

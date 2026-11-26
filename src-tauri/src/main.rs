@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod documents;
 mod output_history;
+#[cfg(target_os = "macos")]
+mod pdf;
 mod storage;
 mod updater;
 mod workspace;
@@ -462,6 +464,19 @@ fn main() {
             documents::remember_document,
             documents::open_recent_document,
             documents::clear_recent_documents,
+            documents::recent_record_forms,
+            documents::remember_record_form,
+            documents::open_record_form,
+            #[cfg(target_os = "macos")]
+            pdf::pdf_tools,
+            #[cfg(target_os = "macos")]
+            pdf::pick_pdf_tool,
+            #[cfg(target_os = "macos")]
+            pdf::configure_pdf,
+            #[cfg(target_os = "macos")]
+            pdf::save_pdf,
+            #[cfg(target_os = "macos")]
+            pdf::cancel_pdf,
             output_history::list_outputs,
             output_history::read_output,
             output_history::record_output,
@@ -581,7 +596,7 @@ async fn export_templates(
             ]
             .contains(&name.as_str())
                 || name.rsplit_once('.').is_some_and(|(stem, extension)| {
-                    matches!(extension, "veraflow" | "json" | "txt")
+                    matches!(extension, "veraflow" | "json" | "txt" | "md")
                         && !stem.is_empty()
                         && stem.len() <= 280
                         && stem
@@ -593,6 +608,7 @@ async fn export_templates(
     let (label, ext) = match filename.rsplit('.').next() {
         Some("veraflow") => ("VeraFlow template", "veraflow"),
         Some("txt") => ("Text", "txt"),
+        Some("md") => ("Markdown", "md"),
         _ => ("JSON", "json"),
     };
     tauri::async_runtime::spawn_blocking(move || {

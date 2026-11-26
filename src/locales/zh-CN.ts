@@ -142,6 +142,41 @@ export const zh: Record<keyof typeof en, string> = {
   saveRecord: "将记录保存为 JSON…",
   copySection: "复制当前区段",
   saveSections: "将输出保存为文本",
+  savePdf: "另存为 PDF…",
+  saveMarkdown: "保存 Markdown…",
+  recentRecordForms: "最近使用的表单文件",
+  pdfSetup: "PDF 设置",
+  pdfSetupHelp:
+    "请安装 Pandoc 及包含 XeLaTeX 的 TeX 发行版。核验后，VeraFlow 会在此 Mac 上记住程序路径。",
+  locatePandoc: "定位 Pandoc…",
+  locatePdfEngine: "定位 PDF 引擎…",
+  pdfToolNotFound: "需要选择可执行文件",
+  pdfUseTools: "使用这些工具",
+  pdfReview: "审阅用于生成 PDF 的 Markdown",
+  pdfPreparedMarkdown: "已准备的 Markdown",
+  pdfTrustHelp:
+    "请仅在信任表单及导入内容时继续。Markdown 和 LaTeX 可以包含本地资源。转换前请审阅完整文档。",
+  pdfChooseDestination: "选择 PDF 保存位置…",
+  pdfConverting: "正在生成 PDF…",
+  pdfCancelling: "正在取消…",
+  pdfCancelled: "已取消生成 PDF。",
+  pdfSaved: "已保存 PDF。",
+  pdfPandocMissing: "请在 PDF 设置中选择已安装的 Pandoc 可执行文件。",
+  pdfEngineMissing: "请在 PDF 设置中选择已安装的 XeLaTeX 可执行文件。",
+  pdfMarkdownLimit: "PDF 导出需要非空的预备输出，大小不能超过 16 MiB。",
+  pdfBusy: "正在生成另一份 PDF。",
+  pdfConvertFailed:
+    "Pandoc 或 XeLaTeX 无法生成 PDF。请检查 Markdown 和 LaTeX，或先保存 Markdown 以排查问题。",
+  pdfFontFailed:
+    "XeLaTeX 无法使用某个字体。请核对 Markdown 中的字体名称，并在此 Mac 上安装该字体。",
+  pdfLatexPackage:
+    "XeLaTeX 缺少所需的 LaTeX 宏包。请检查 TeX 安装，或先保存 Markdown 以排查问题。",
+  pdfTimedOut:
+    "生成 PDF 超过 90 秒。请简化文档，或先保存 Markdown 以排查问题。",
+  pdfInvalidResult: "转换程序未生成可读的 PDF。",
+  pdfDestination: "请选择可写入的文件夹和普通的 .pdf 文件。",
+  pdfDestinationChanged:
+    "生成 PDF 时目标文件发生了变化。如需替换，请重新选择。",
   closeSourceTitle: "关闭前保存？",
   closeSourceHelp:
     "可将响应保存到此设备的最近打开的表单或预填表单文件，也可将输出导出为文本。",

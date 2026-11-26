@@ -1,0 +1,29 @@
+--- veraflow 2
+{
+  title: "Dispatch report",
+  workflow: "form",
+  filename: "Dispatch-{{field.reference}}",
+  "verify-by-default": false,
+  fields: {
+    reference: {type: "text"},
+    contact: {type: "text"},
+    destination: {type: "text"},
+    packages: {type: "text"},
+    priority: {type: "text", optional: true},
+    notes: {type: "textarea", optional: true},
+    tracking: {type: "text", optional: true},
+  },
+}
+---
+---
+mainfont: Arial Unicode MS
+mainfontoptions: [AutoFakeBold=2]
+---
+
+# Dispatch {{reference}}
+
+- **Destination** {{destination}}
+- **Contact** {{contact}}
+- **Packages** {{packages}}
+
+{{notes}}

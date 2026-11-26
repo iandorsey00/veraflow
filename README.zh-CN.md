@@ -17,7 +17,7 @@ JSON 是记录交换格式。直接填写表单时，工作记录保存在内存
 
 ## 安装
 
-从 [v0.23.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.23.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
+从 [v0.24.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.24.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
 
 - **macOS 12 或更新版本**：Apple 芯片选 `macos-arm64.zip`，Intel 芯片选 `macos-x64.zip`。解压后将 VeraFlow.app 移到「应用程序」。预览版尚无 Developer ID 签名和 Apple 公证。如果系统拦截且你信任下载来源，可在「隐私与安全性」中为该应用选择「仍要打开」。跨应用采集和粘贴需要「辅助功能」权限。
 - **Windows**：运行 `windows-x64-setup.exe`。Windows 可能提示发布者未知。如果系统缺少 WebView2，安装程序可能会安装它。
@@ -50,6 +50,8 @@ JSON 是记录交换格式。直接填写表单时，工作记录保存在内存
 Windows 默认输出快捷键为 **Ctrl+Alt+X**，macOS 为 **Cmd+Opt+X**。其他操作使用 Ctrl+Alt+1–7 或 Cmd+Opt+1–7。升级时会保留已有的快捷键设置。可在设置中修改。部分受保护的应用会拦截模拟按键，此时可手动复制和粘贴。
 
 可在设置中启用 **会话窗口置顶**，在其他应用中工作时仍能看到表单。暂停回到首页时会解除置顶。[五分钟住房申请演示](examples/source/housing-demo.zh-CN.md)。发布页提供 `VeraFlow_Demo.zip`。[显示器换货演示](examples/source/service-demo.zh-CN.md)介绍批量提取、候选值审阅和字段核对。
+
+在 macOS 上，**另存为 PDF…** 可先审阅 Markdown，再使用已安装的 Pandoc 与 XeLaTeX 在本地转换。也可保存可编辑的 Markdown。[设置步骤与虚构简历演示](examples/source/pdf-demo.zh-CN.md) · [命令行用法](examples/source/pdf-demo.zh-CN.md#在命令行中运行)
 
 ## 本地数据与源码
 

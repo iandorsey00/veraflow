@@ -131,12 +131,47 @@ export type OpenDocument = {
   outputId?: string | null;
   stepIndex?: number | null;
 };
+export type PdfTool = "pandoc" | "xelatex";
+type PdfTools = Record<PdfTool, string | null>;
 export type CSVAppendDestination = {
   token: number;
   name: string;
   content: string;
 };
 export const platform = {
+  pdfAvailable: desktop && /Mac/i.test(navigator.platform),
+  pdfTools(): Promise<{ tools: PdfTools; configured: boolean }> {
+    return invoke("pdf_tools");
+  },
+  pickPdfTool(tool: PdfTool): Promise<string | null> {
+    return invoke("pick_pdf_tool", { tool });
+  },
+  configurePdf(tools: PdfTools): Promise<void> {
+    return invoke("configure_pdf", { tools });
+  },
+  savePdf(
+    markdown: string,
+    filename: string,
+    onStart: () => void,
+  ): Promise<boolean> {
+    const progress = new Channel<null>();
+    progress.onmessage = onStart;
+    return invoke("save_pdf", { markdown, filename, progress });
+  },
+  cancelPdf(): Promise<void> {
+    return invoke("cancel_pdf");
+  },
+  recentRecordForms(): Promise<string[]> {
+    return desktop ? invoke("recent_record_forms") : Promise.resolve([]);
+  },
+  openRecordForm(index: number): Promise<OpenDocument> {
+    return invoke("open_record_form", { index });
+  },
+  rememberRecordForm(token: number | null | undefined): Promise<void> {
+    return token == null || !desktop
+      ? Promise.resolve()
+      : invoke("remember_record_form", { token });
+  },
   async pickAppendCSV(
     token?: number | null,
     relative?: string,

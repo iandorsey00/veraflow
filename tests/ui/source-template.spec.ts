@@ -1792,3 +1792,103 @@ test("pasted JSON5 can start from Home and fill an existing form after review", 
   );
   await expect(page.getByLabel("Contact", { exact: true })).toHaveValue("Alex");
 });
+
+test("PDF export reviews the selected Markdown, configures tools, and reuses the chosen form", async ({
+  page,
+}) => {
+  const form = {
+    name: "résumé 样例.vf",
+    format: "source",
+    content: (await fixture("resume-pdf.vf")).toString(),
+    recentToken: 1,
+  };
+  await page.route("**/src/platform.ts*", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body:
+        (await response.text()) +
+        `
+        const form = ${JSON.stringify(form)};
+        let usedForm = false;
+        let configured = false;
+        let cancel;
+        platform.pdfAvailable = true;
+        platform.pickDocument = async () => form;
+        platform.rememberRecordForm = async token => { usedForm = token === 1; };
+        platform.recentRecordForms = async () => usedForm ? [form.name] : [];
+        platform.openRecordForm = async () => form;
+        platform.pdfTools = async () => ({
+          configured,
+          tools: { pandoc: '/opt/homebrew/bin/pandoc', xelatex: configured ? '/Library/TeX/texbin/xelatex' : null },
+        });
+        platform.pickPdfTool = async () => '/Library/TeX/texbin/xelatex';
+        platform.configurePdf = async () => { configured = true; };
+        platform.savePdf = async (text, filename, start) => {
+          window.pdfRequest = { text, filename };
+          start();
+          return new Promise((_, reject) => { cancel = () => reject('pdfCancelled'); });
+        };
+        platform.cancelPdf = async () => cancel();
+      `,
+    });
+  });
+  const record = (await fixture("resume-pdf.json")).toString();
+  async function chooseRecord(text: string) {
+    await page.getByRole("button", { name: "Open JSON / JSON5…" }).click();
+    await page.getByLabel("Or paste JSON or JSON5").fill(text);
+    await page.getByRole("button", { name: "Review data" }).click();
+  }
+  await page.goto("/");
+  await chooseRecord(record);
+  await page.getByRole("button", { name: "Use a form file…" }).click();
+  await page.getByRole("button", { name: "Apply all changes" }).click();
+  await page.getByRole("button", { name: "Prepare output sections" }).click();
+  const prepared = await page.locator(".output").textContent();
+  await page.getByRole("button", { name: "Save as PDF…" }).click();
+  const review = page.getByRole("dialog", { name: "Review Markdown for PDF" });
+  await expect(review.locator("pre")).toContainText("\\newpage");
+  await expect(review.locator("pre")).toContainText("林晓");
+  await review.getByRole("button", { name: "Choose PDF destination…" }).click();
+  const setup = page.getByRole("dialog", { name: "PDF setup" });
+  await expect(setup.getByText("/opt/homebrew/bin/pandoc")).toBeVisible();
+  await expect(
+    setup.getByRole("button", { name: "Use these tools" }),
+  ).toBeDisabled();
+  await setup.getByRole("button", { name: "Locate PDF Engine…" }).click();
+  await setup.getByRole("button", { name: "Use these tools" }).click();
+  const progress = page.getByRole("dialog", { name: "Save as PDF…" });
+  await expect(progress.getByText("Creating PDF…")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            pdfRequest: { text: string; filename: string };
+          }
+        ).pdfRequest,
+    ),
+  ).toEqual({ text: prepared, filename: "Alex-Lin-林晓-résumé.pdf" });
+  await progress.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByText("PDF creation cancelled.")).toBeVisible();
+  await expect(page.locator(".output")).toHaveText(prepared!);
+  await page.getByRole("button", { name: "Save as PDF…" }).click();
+  const markdown = page.waitForEvent("download");
+  await review.getByRole("button", { name: "Save Markdown…" }).click();
+  expect(await readFile((await (await markdown).path())!, "utf8")).toBe(
+    prepared,
+  );
+  await page
+    .getByRole("button", { name: "Close session", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close without saving" }).click();
+
+  await chooseRecord('{"headline":"Sample without required name"}');
+  await page.getByRole("button", { name: "résumé 样例.vf" }).click();
+  await page.getByRole("button", { name: "Apply all changes" }).click();
+  const prepare = page.getByRole("button", { name: "Prepare output sections" });
+  if (await prepare.isEnabled()) await prepare.click();
+  await expect(page.getByRole("button", { name: "Save as PDF…" })).toHaveCount(
+    0,
+  );
+});

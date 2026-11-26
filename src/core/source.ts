@@ -99,6 +99,7 @@ type Source = {
   verification: ReadonlyMap<string, VerificationWorkflow>;
   delivery: Delivery;
   outputs: SourceOutput[];
+  defaultOutput?: string;
   steps?: FormStep[];
   snippets: boolean;
   recordOnlyFields: string[];
@@ -311,6 +312,7 @@ function metadata(text: string) {
         "syntax",
         "delivery",
         "outputs",
+        "defaultOutput",
         "steps",
         "filename",
         "csv",
@@ -538,6 +540,10 @@ function metadata(text: string) {
     rawSteps: header.steps,
     outputSettings:
       header.outputs === undefined ? {} : object(header.outputs, '"outputs"'),
+    defaultOutput:
+      header.defaultOutput === undefined
+        ? undefined
+        : string(header.defaultOutput, '"defaultOutput"'),
     filename:
       header.filename === undefined
         ? undefined
@@ -553,6 +559,7 @@ function metadata(text: string) {
     | "verification"
     | "delivery"
     | "filename"
+    | "defaultOutput"
     | "csv"
     | "append"
   > & {
@@ -1038,6 +1045,7 @@ export function parseSource(text: string): Source {
     verification,
     delivery,
     outputSettings,
+    defaultOutput,
     rawSteps,
     filename,
     csv,
@@ -1053,6 +1061,7 @@ export function parseSource(text: string): Source {
         syntax: undefined,
         delivery: defaultDelivery,
         outputSettings: {},
+        defaultOutput: undefined,
         rawSteps: undefined,
         filename: undefined,
         csv: undefined,
@@ -1081,7 +1090,8 @@ export function parseSource(text: string): Source {
       responses.size ||
       verification.size ||
       rawSteps !== undefined ||
-      Object.keys(outputSettings).length)
+      Object.keys(outputSettings).length ||
+      defaultOutput !== undefined)
   )
     fail(
       "Snippet collections use action blocks and built-in variables. Remove fields, workflows, and output settings.",
@@ -1196,6 +1206,11 @@ export function parseSource(text: string): Source {
       delivery: outputDelivery,
     };
   });
+  if (
+    defaultOutput !== undefined &&
+    !outputs.some(({ id }) => id === defaultOutput)
+  )
+    fail(`Unknown default output "${defaultOutput}".`);
   for (const name of Object.keys(outputSettings))
     if (!outputs.some((output) => output.id === name))
       fail(`Settings refer to unknown output "${name}".`);
@@ -1274,6 +1289,7 @@ export function parseSource(text: string): Source {
     : undefined;
   const parsed = {
     outputs,
+    defaultOutput,
     steps,
     snippets: !!actions,
     csv,
@@ -1471,10 +1487,11 @@ export function sourceParts(
 }
 
 export function sourceOutput(source: Source, id?: string) {
+  const selected = id ?? source.defaultOutput;
   const output =
-    id === undefined
+    selected === undefined
       ? source.outputs[0]
-      : source.outputs.find((output) => output.id === id);
+      : source.outputs.find((output) => output.id === selected);
   if (!output) throw Error("invalidSource");
   return output;
 }

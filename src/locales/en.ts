@@ -155,6 +155,42 @@ export const en = {
   saveRecord: "Save record as JSON…",
   copySection: "Copy current section",
   saveSections: "Save output as text",
+  savePdf: "Save as PDF…",
+  saveMarkdown: "Save Markdown…",
+  recentRecordForms: "Recently used form files",
+  pdfSetup: "PDF setup",
+  pdfSetupHelp:
+    "Install Pandoc and a TeX distribution with XeLaTeX. VeraFlow remembers the verified executables on this Mac.",
+  locatePandoc: "Locate Pandoc…",
+  locatePdfEngine: "Locate PDF Engine…",
+  pdfToolNotFound: "Executable needed",
+  pdfUseTools: "Use these tools",
+  pdfReview: "Review Markdown for PDF",
+  pdfPreparedMarkdown: "Prepared Markdown",
+  pdfTrustHelp:
+    "Continue only if you trust the form and the imported text. Markdown and LaTeX can include local resources. Review the full document before converting.",
+  pdfChooseDestination: "Choose PDF destination…",
+  pdfConverting: "Creating PDF…",
+  pdfCancelling: "Cancelling…",
+  pdfCancelled: "PDF creation cancelled.",
+  pdfSaved: "PDF saved.",
+  pdfPandocMissing: "Locate an installed Pandoc executable in PDF setup.",
+  pdfEngineMissing: "Locate an installed XeLaTeX executable in PDF setup.",
+  pdfMarkdownLimit:
+    "PDF export needs a nonempty prepared output of up to 16 MiB.",
+  pdfBusy: "A PDF is already being created.",
+  pdfConvertFailed:
+    "Pandoc or XeLaTeX could not produce the PDF. Review the Markdown and LaTeX, or save the Markdown to diagnose it.",
+  pdfFontFailed:
+    "XeLaTeX could not use a font. Check the font name in the Markdown and install the font on this Mac.",
+  pdfLatexPackage:
+    "XeLaTeX is missing a required LaTeX package. Check your TeX installation or save the Markdown to diagnose it.",
+  pdfTimedOut:
+    "PDF creation took more than 90 seconds. Simplify the document or save the Markdown to diagnose it.",
+  pdfInvalidResult: "The converter did not produce a readable PDF.",
+  pdfDestination: "Choose a writable folder and a regular .pdf file.",
+  pdfDestinationChanged:
+    "The destination changed while the PDF was being made. Choose it again before replacing it.",
   closeSourceTitle: "Save before closing?",
   closeSourceHelp:
     "Save your responses to Recent Sessions on this device, save a prefilled form file, or export the output as text.",

@@ -21,7 +21,7 @@ Try the [Dispatch note example](examples/source/dispatch-note.veraflow) to see t
 
 ## Install
 
-Get the [v0.23.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.23.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.24.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.24.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
 - **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
@@ -51,6 +51,8 @@ On a source form, **Extract from source…** brings in a block of text. **Form t
 The default output shortcut is **Ctrl+Alt+X** on Windows and **Cmd+Opt+X** on macOS. The other actions use Ctrl+Alt+1–7 or Cmd+Opt+1–7. Existing shortcut preferences are kept on upgrade. Change them in Settings. Some protected apps block synthetic input, so copy and paste manually if direct transfer fails. When a paste fails partway through, inspect the destination before resuming; the pending output stays available to copy.
 
 Use **Settings → Keep the session window on top** to keep the form visible while working in another app. Pausing returns to the launcher and releases the pin. [Five-minute housing demo](examples/source/housing-demo.md). Download `VeraFlow_Demo.zip` from the release page. The [display replacement demo](examples/source/service-demo.md) walks through bulk extraction, candidate review, and verification.
+
+On macOS, **Save as PDF…** reviews the prepared Markdown and converts it locally using installed Pandoc and XeLaTeX. You can also save the editable Markdown. [Setup and fictional résumé demo](examples/source/pdf-demo.md) · [Command-line usage](examples/source/pdf-demo.md#run-from-the-command-line)
 
 ## Local data and rollback
 

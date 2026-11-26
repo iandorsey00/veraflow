@@ -34,3 +34,5 @@ Open [Bilingual housing application](housing-application.vf) to try JSON5, a col
 Try the [JSON demo](json-demo.md) to create an output from a JSON5 record, write a short dispatch note, and export the values as JSON.
 
 Try the [display replacement demo](service-demo.md) in a build with bulk extraction. It includes labeled text, an external email and transcript candidate file, and offline paste targets.
+
+Try [the PDF walkthrough](pdf-demo.md) on macOS with a fictional résumé and a dispatch report.

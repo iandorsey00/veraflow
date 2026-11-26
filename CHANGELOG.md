@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.0
+
+- Review prepared Markdown and save it as PDF on macOS using local Pandoc and XeLaTeX. Save Markdown on its own if needed.
+- Reuse recently used form files from JSON record review and declare a default named output in a form.
+- Render JSON and JSON5 records from a source checkout with the headless CLI. Use the same native PDF converter on macOS.
+- Introduce the black-and-white transfer icon and add bilingual résumé and dispatch PDF examples.
+
 ## 0.23.0
 
 - Open or paste a flat JSON or JSON5 record from Home or an open form.

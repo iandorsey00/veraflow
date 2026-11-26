@@ -1,0 +1,12 @@
+{
+  "education_markdown": "### B.A. · Example College\n2016 – 2020",
+  "email": "alex.lin@example.com",
+  "experience_markdown": "### Dispatch Coordinator · North Depot\nPortland · 2023 – 2026\n\n- Coordinated 32 monthly shipments.\n- 支持中英文文件。\n\n### Operations Assistant · Harbor Studio\nSeattle · 2020 – 2023\n\n- Prepared daily handoff notes.",
+  "headline": "Logistics and documentation coordinator",
+  "links_markdown": "[Portfolio](<https://example.com/portfolio>)",
+  "name": "Alex Lin 林晓",
+  "phone": "+1 503 555 0148",
+  "projects_markdown": "### Intake redesign\n\n- Built a bilingual checklist.\n\n### Dispatch playbook\n\n- Consolidated procedures into one guide.",
+  "skills_markdown": "- Dispatch documentation\n- English and Mandarin",
+  "summary": "Coordinates readable bilingual documents and reliable shipment handoffs."
+}

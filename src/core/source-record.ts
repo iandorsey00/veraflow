@@ -18,7 +18,7 @@ export function recordValues(s: Session) {
 
 export function sourceFilename(
   s: Session,
-  extension: "veraflow" | "json" | "txt",
+  extension: "veraflow" | "json" | "txt" | "md" | "pdf",
 ) {
   const source = parseSource(s.template.content);
   const context = {

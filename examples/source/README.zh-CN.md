@@ -32,3 +32,5 @@
 试用 [JSON 演示](json-demo.zh-CN.md)，从 JSON5 记录生成摘要、编写简短派送通知，并将字段值导出为 JSON。
 
 在支持批量提取的版本中试用[显示器换货演示](service-demo.zh-CN.md)，包括带标签的文本、邮件和通话候选文件，以及离线粘贴页面。
+
+在 macOS 上[试用 PDF 演示](pdf-demo.zh-CN.md)，从虚构简历或派送记录生成 PDF。

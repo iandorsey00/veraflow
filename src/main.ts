@@ -101,6 +101,7 @@ import {
   noteStepPrepared,
   noteStepTransfer,
   prepareSections,
+  sectionText,
   fieldRequiresVerification,
   formAttention,
   spreadsheetRow,
@@ -135,6 +136,7 @@ import {
   type FolderListing,
   type RecentDocument,
   type OutputLabel,
+  type PdfTool,
 } from "./platform";
 
 type Key = keyof typeof en;
@@ -1796,7 +1798,7 @@ async function navigate(next: typeof view) {
 }
 function settingsView(): string {
   const p = (settingsDraft ??= structuredClone(library.preferences));
-  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1>${button("update-app", "updateApp")}</header><p class="hint">${esc(t("updateHelp"))}</p><details class="legacy-library"><summary>${esc(t("legacyLibrary"))}</summary><p>${esc(t("legacyLibraryHelp"))}</p>${button("open-legacy-library", "templates")}</details><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("tabBetweenSections", "sectionTab", p.tabBetweenSections ?? false)}<label for="outputHistoryLimit">${esc(t("outputHistoryLimit"))}</label><input id="outputHistoryLimit" type="number" min="0" max="${maxOutputHistoryLimit}" step="1" value="${historyLimit(p)}" aria-describedby="output-history-help"><p id="output-history-help" class="hint">${esc(t("outputHistoryHelp"))}</p></section>
+  return `<main class="settings"><header class="section-head"><h1>${esc(t("settings"))}</h1><div class="toolbar">${platform.pdfAvailable ? button("pdf-settings", "pdfSetup") : ""}${button("update-app", "updateApp")}</div></header><p class="hint">${esc(t("updateHelp"))}</p><details class="legacy-library"><summary>${esc(t("legacyLibrary"))}</summary><p>${esc(t("legacyLibraryHelp"))}</p>${button("open-legacy-library", "templates")}</details><div class="settings-grid"><section><h2>${esc(t("general"))}</h2><label for="language">${esc(t("language"))}</label><select id="language"><option value="en" ${p.language === "en" ? "selected" : ""}>English</option><option value="zh-CN" ${p.language === "zh-CN" ? "selected" : ""}>简体中文</option></select><label for="theme">${esc(t("theme"))}</label><select id="theme">${(["SYSTEM", "LIGHT", "DARK"] as const).map((theme) => `<option value="${theme}" ${theme === p.theme ? "selected" : ""}>${esc(t(theme))}</option>`).join("")}</select>${check("launchAtLogin", "launchAtLogin", p.launchAtLogin)}${check("minimizeToTray", "minimizeToTray", p.minimizeToTray)}${check("alwaysOnTop", "alwaysOnTop", p.alwaysOnTop)}${check("autoAdvance", "autoAdvance", p.autoAdvance)}${check("focusedWorkflow", "focusedView", p.focusedWorkflow ?? false)}${check("hideLivePreview", "hideLivePreview", p.hideLivePreview ?? false)}${check("tabBetweenSections", "sectionTab", p.tabBetweenSections ?? false)}<label for="outputHistoryLimit">${esc(t("outputHistoryLimit"))}</label><input id="outputHistoryLimit" type="number" min="0" max="${maxOutputHistoryLimit}" step="1" value="${historyLimit(p)}" aria-describedby="output-history-help"><p id="output-history-help" class="hint">${esc(t("outputHistoryHelp"))}</p></section>
   <section><h2>${esc(t("verification"))}</h2>${check("verificationDefault", "verificationDefault", p.verificationDefault)}${check("verifiedBackground", "verifiedBackground", p.verifiedBackground)}${comparisonView(p.comparison, "default")}</section>
   <section><h2>${esc(t("privacy"))}</h2>${check("clearAfterCompletion", "clearAfterCompletion", p.clearAfterCompletion)}${check("restoreClipboard", "restoreClipboard", p.restoreClipboard)}<p class="hint">${esc(t("clipboardDefaultHelp"))}</p><p class="hint">${esc(t("quitPrivacy"))}</p></section>
   <section><h2>${esc(t("shortcuts"))}</h2><p class="hint">${esc(t("keyboardHelp"))}</p><p class="hint">${esc(t("shortcutHelp"))}</p>${check("globalShortcuts", "globalShortcuts", p.globalShortcuts)}${button("alternate-shortcuts", "alternateShortcuts")}${actions.map((action) => field("key-" + action, action === "cancel" ? "cancelSession" : action, keyLabel(p.shortcuts[action]), 'class="shortcut-input"')).join("")}</section></div><div class="actions">${button("save-settings", "saveSettings", "primary", locked)}</div><section class="about" aria-labelledby="about-heading"><h2 id="about-heading">${esc(t("about"))}</h2><p>${esc(t("copyright"))}</p><a id="repository-link" href="https://github.com/iandorsey00/veraflow" target="_blank" rel="noopener noreferrer">${esc(t("repository"))}</a></section></main>`;
@@ -1857,6 +1859,9 @@ async function updateApp() {
 }
 function bindSettings() {
   click("update-app", updateApp);
+  click("pdf-settings", async () => {
+    await configurePdf(true);
+  });
   click("alternate-shortcuts", () => {
     actions.forEach((action, index) => {
       settingsDraft!.shortcuts[action] =
@@ -2267,7 +2272,7 @@ function outputSelector(s: Session) {
   if (s.template.placeholderStyle !== "source") return "";
   const outputs = availableOutputs(s);
   if (outputs.length < 2 && !csvSessions.has(s)) return "";
-  const selected = s.outputId ?? outputs[0].id;
+  const selected = selectedSourceOutput(s).id;
   const options = outputs
     .map(
       (output) =>
@@ -3152,7 +3157,7 @@ function sectionDeliveryView(s: Session) {
     <header class="scanner-header"><h1>${esc(t("outputHeading"))}</h1>${steps ? stepHeading(s, steps) : ""}${pickers}<p class="task-progress" role="status">${esc(parts[index].label)} · ${index + 1}/${parts.length}</p></header>
     ${outputInstructions(s.template, s.outputId)}
     <pre class="output delivery-text" tabindex="0">${esc(parts[index].text)}</pre>
-    <div class="toolbar delivery-primary">${button("copy-section", "copySection", "primary")}${s.prepared!.length > 1 && !groupSections ? button("copy-output", "copyEntireOutput") : ""}${button("save-sections", "saveSections", "quiet")}</div>
+    <div class="toolbar delivery-primary">${button("copy-section", "copySection", "primary")}${s.prepared!.length > 1 && !groupSections ? button("copy-output", "copyEntireOutput") : ""}${button("save-sections", "saveSections", "quiet")}${platform.pdfAvailable ? button("save-pdf", "savePdf") : ""}</div>
     <p class="hint">${esc(t("sectionDeliveryHelp"))} <kbd>${esc(keyLabel(library.preferences.shortcuts.finish))}</kbd></p>
     ${lastStep ? lastStepView() : ""}
     ${steps ? stepWarnings(s) : ""}
@@ -4249,6 +4254,7 @@ async function openRecordInput() {
         .slice(0, 250)
         .trim() || t("recordInputFormName");
     let definition: Template | undefined;
+    const recent = await platform.recentRecordForms().catch(() => []);
     const choice = await actionDialog(
       "reviewRecordInput",
       `<p class="hint">${esc(t("recordOutputHelp"))}</p>
@@ -4264,7 +4270,13 @@ async function openRecordInput() {
        <label for="record-output">${esc(t("recordOutputLabel"))}</label>
        <textarea id="record-output" rows="4" spellcheck="false" maxlength="${recordInputLimit}"></textarea>
        <p class="hint">${esc(t("recordOutputExample"))}</p></details>
-       <p id="record-output-error" class="record-error" role="alert"></p>`,
+       <p id="record-output-error" class="record-error" role="alert"></p>
+       ${
+         recent.length
+           ? `<details class="record-recent-forms" open><summary>${esc(t("recentRecordForms"))}</summary>
+       <div class="toolbar">${recent.map((name, index) => `<button value="recent-${index}">${esc(name)}</button>`).join("")}</div></details>`
+           : ""
+       }`,
       `<button value="back" class="quiet">${esc(t("recordBack"))}</button>
        <button value="existing">${esc(t("recordUseExisting"))}</button>
        <button value="open" class="primary">${esc(t("recordOpenFilled"))}</button>`,
@@ -4304,10 +4316,13 @@ async function openRecordInput() {
     if (choice === "back") continue;
     if (definition && choice === "open") {
       await openDocumentTemplate(definition);
-    } else if (choice === "existing") {
-      const file = await platform.pickDocument(true);
-      if (!file) continue;
+    } else if (choice === "existing" || /^recent-\d+$/.test(choice)) {
       try {
+        const file =
+          choice === "existing"
+            ? await platform.pickDocument(true)
+            : await platform.openRecordForm(Number(choice.slice(7)));
+        if (!file) continue;
         const form = documentTemplate(file);
         const source = parseSource(form.content);
         if (source.snippets || source.workflow === "csv")
@@ -4322,6 +4337,8 @@ async function openRecordInput() {
           notify("recordApplied");
           focus(controlFocus(`form-field-${opened.active}`));
         }
+        if (opened)
+          await platform.rememberRecordForm(file.recentToken).catch(() => {});
       } catch (reason) {
         await actionDialog(
           "recordUseExisting",
@@ -4434,6 +4451,7 @@ function bindSession() {
     if (await saveSectionText(s, exportSections(s)))
       await rememberOutput(s, sectionText(s.prepared!));
   });
+  click("save-pdf", () => savePreparedPdf(session!));
   click("reorder-sections", () => {
     sectionOrderOpen = !sectionOrderOpen;
     pasteOptionsOpen = true;
@@ -5284,11 +5302,6 @@ async function perform(action: Action, global = false, allOutputs = false) {
   render();
   focus(manualOpen ? "manual-value" : `field-${session?.active ?? 0}`);
 }
-function sectionText(parts: NonNullable<Session["prepared"]>) {
-  return parts.length === 1
-    ? parts[0].text
-    : parts.map((part) => `${part.label}\n${part.text}`).join("\n\n");
-}
 function emailOutputText(s: Session) {
   return renderEmail(s)
     .map((part) => `${t(part.key)}\n${part.text}`)
@@ -5300,6 +5313,144 @@ function saveSectionText(s: Session, parts: NonNullable<Session["prepared"]>) {
       ? "veraflow-output.txt"
       : sourceFilename(s, "txt");
   return platform.exportTemplates(sectionText(parts), name);
+}
+
+async function configurePdf(force = false) {
+  const { tools, configured } = await platform.pdfTools();
+  if (configured && !force) return true;
+  const entries = [
+    ["pandoc", "locatePandoc"],
+    ["xelatex", "locatePdfEngine"],
+  ] as const;
+  const choice = await actionDialog(
+    "pdfSetup",
+    `<p>${esc(t("pdfSetupHelp"))}</p>
+     <div class="pdf-tools">${entries
+       .map(
+         ([tool, label]) =>
+           `<div><button id="pick-${tool}" type="button">${esc(t(label))}</button>
+       <p id="path-${tool}" class="hint" aria-live="polite"></p></div>`,
+       )
+       .join("")}</div>
+     <p id="pdf-setup-error" class="record-error" role="alert"></p>`,
+    `<button value="cancel">${esc(t("cancel"))}</button>
+     <button id="pdf-configure" value="configure" class="primary">${esc(t("pdfUseTools"))}</button>`,
+    (dialog) => {
+      const ok = dialog.querySelector<HTMLButtonElement>("#pdf-configure")!;
+      const error = dialog.querySelector<HTMLElement>("#pdf-setup-error")!;
+      const picker = (tool: PdfTool) =>
+        dialog.querySelector<HTMLButtonElement>(`#pick-${tool}`)!;
+      const showPaths = (working = false) => {
+        for (const [tool] of entries) {
+          picker(tool).disabled = working;
+          dialog.querySelector<HTMLElement>(`#path-${tool}`)!.textContent =
+            tools[tool] ?? t("pdfToolNotFound");
+        }
+        ok.disabled = working || !tools.pandoc || !tools.xelatex;
+      };
+      const safely = async (work: () => Promise<void>) => {
+        showPaths(true);
+        error.textContent = "";
+        try {
+          await work();
+        } catch (reason) {
+          error.textContent = errorText(reason);
+        } finally {
+          showPaths();
+        }
+      };
+      for (const [tool] of entries) {
+        picker(tool).onclick = () =>
+          void safely(async () => {
+            const path = await platform.pickPdfTool(tool);
+            if (path) tools[tool] = path;
+          });
+      }
+      dialog.querySelector("form")!.onsubmit = (event) => {
+        if (event.submitter !== ok) return;
+        event.preventDefault();
+        if (!ok.disabled)
+          void safely(async () => {
+            await platform.configurePdf(tools);
+            dialog.close("configured");
+          });
+      };
+      showPaths();
+    },
+  );
+  return choice === "configured";
+}
+
+async function savePreparedPdf(s: Session) {
+  // Recheck the selected output before showing the review or running a tool.
+  const csv = csvSessions.get(s);
+  if (csv?.error) throw Error("incomplete");
+  if (!csv) prepareSections(s);
+  const markdown = sectionText(exportSections(s));
+  const review = await actionDialog(
+    "pdfReview",
+    `<p>${esc(t("pdfTrustHelp"))}</p>
+     <pre class="pdf-markdown" tabindex="0" aria-label="${esc(t("pdfPreparedMarkdown"))}">${esc(markdown)}</pre>`,
+    `<button value="cancel" autofocus>${esc(t("cancel"))}</button>
+     <button value="markdown">${esc(t("saveMarkdown"))}</button>
+     <button value="pdf" class="primary">${esc(t("pdfChooseDestination"))}</button>`,
+  );
+  if (review === "markdown") {
+    await platform.exportTemplates(markdown, sourceFilename(s, "md"));
+    return;
+  }
+  if (review !== "pdf" || !(await configurePdf())) return;
+  let saved = false;
+  let failure: unknown;
+  await actionDialog(
+    "savePdf",
+    `<p id="pdf-progress" role="status">${esc(t("pdfChooseDestination"))}</p>`,
+    `<button id="cancel-pdf" type="button" disabled>${esc(t("cancel"))}</button>`,
+    (dialog) => {
+      const cancel = dialog.querySelector<HTMLButtonElement>("#cancel-pdf")!;
+      const status = dialog.querySelector<HTMLElement>("#pdf-progress")!;
+      cancel.onclick = () => {
+        cancel.disabled = true;
+        status.textContent = t("pdfCancelling");
+        void platform.cancelPdf().catch((error) => {
+          status.textContent = errorText(error);
+          cancel.disabled = false;
+        });
+      };
+      dialog.addEventListener("cancel", (event) => {
+        event.preventDefault();
+        if (!cancel.disabled) cancel.click();
+      });
+      queueMicrotask(async () => {
+        try {
+          saved = await platform.savePdf(
+            markdown,
+            sourceFilename(s, "pdf"),
+            () => {
+              status.textContent = t("pdfConverting");
+              cancel.disabled = false;
+              cancel.focus();
+            },
+          );
+        } catch (reason) {
+          failure = reason;
+        } finally {
+          dialog.close();
+        }
+      });
+    },
+  );
+  if (
+    failure instanceof Error
+      ? failure.message === "pdfCancelled"
+      : failure === "pdfCancelled"
+  ) {
+    notify("pdfCancelled");
+  } else if (failure) {
+    throw failure;
+  } else if (saved) {
+    notify("pdfSaved");
+  }
 }
 async function requestSessionClose(s: Session, confirmDiscard: boolean) {
   if (s.template.placeholderStyle === "source") {

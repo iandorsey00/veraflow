@@ -20,6 +20,8 @@ static NEXT_TOKEN: AtomicU32 = AtomicU32::new(1);
 #[derive(Default)]
 pub struct IssuedDocuments(Mutex<VecDeque<(u32, PathBuf)>>);
 static RECENTS_LOCK: Mutex<()> = Mutex::new(());
+static RECORD_FORMS_LOCK: Mutex<()> = Mutex::new(());
+const RECORD_FORM_LIMIT: usize = 5;
 type Pending = Mutex<VecDeque<PathBuf>>;
 
 #[derive(Serialize)]
@@ -496,7 +498,83 @@ pub fn remember_document(
 #[tauri::command]
 pub fn clear_recent_documents(app: tauri::AppHandle) -> Result<(), String> {
     let _lock = RECENTS_LOCK.lock().map_err(|_| "storageFailed")?;
+    let _forms = RECORD_FORMS_LOCK.lock().map_err(|_| "storageFailed")?;
+    match std::fs::remove_file(record_forms_path(&app)?) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err("storageFailed".into()),
+    }
     write_recent(&recent_path(&app)?, &[])
+}
+
+fn record_forms_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(recent_path(app)?.with_file_name("recent-record-forms.json"))
+}
+
+fn record_form_paths(path: &Path) -> Result<Vec<PathBuf>, String> {
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(_) => return Err("storageFailed".into()),
+    };
+    let mut paths: Vec<PathBuf> =
+        serde_json::from_reader(file.take(64 * 1024)).map_err(|_| "storageFailed")?;
+    paths.retain(|path| path.is_absolute() && format(path) == Some("source"));
+    paths.truncate(RECORD_FORM_LIMIT);
+    Ok(paths)
+}
+
+#[tauri::command]
+pub fn recent_record_forms(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let _guard = RECORD_FORMS_LOCK.lock().map_err(|_| "storageFailed")?;
+    Ok(record_form_paths(&record_forms_path(&app)?)?
+        .iter()
+        .map(|path| {
+            path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn remember_record_form(app: tauri::AppHandle, token: u32) -> Result<(), String> {
+    let source = app
+        .state::<IssuedDocuments>()
+        .0
+        .lock()
+        .map_err(|_| "storageFailed")?
+        .iter()
+        .find(|(id, _)| *id == token)
+        .map(|(_, path)| path.clone());
+    let Some(source) = source else {
+        return Ok(());
+    };
+    let _guard = RECORD_FORMS_LOCK.lock().map_err(|_| "storageFailed")?;
+    let path = record_forms_path(&app)?;
+    let mut paths = record_form_paths(&path)?;
+    paths.retain(|old| *old != source);
+    paths.insert(0, source);
+    paths.truncate(RECORD_FORM_LIMIT);
+    let dir = path.parent().ok_or("storageFailed")?;
+    std::fs::create_dir_all(dir).map_err(|_| "storageFailed")?;
+    let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| "storageFailed")?;
+    serde_json::to_writer(&mut temp, &paths).map_err(|_| "storageFailed")?;
+    temp.as_file().sync_all().map_err(|_| "storageFailed")?;
+    temp.persist(path).map_err(|_| "storageFailed")?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_record_form(app: tauri::AppHandle, index: usize) -> Result<Document, String> {
+    let _guard = RECORD_FORMS_LOCK.lock().map_err(|_| "storageFailed")?;
+    record_form_paths(&record_forms_path(&app)?)?
+        .into_iter()
+        .nth(index)
+        .and_then(|path| open(&app, path))
+        .filter(|document| document.content.is_some())
+        .ok_or_else(|| "recentMissing".into())
 }
 
 #[tauri::command]

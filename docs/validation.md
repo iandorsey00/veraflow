@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.24.0 release preparation
+
+Passed 98 TypeScript unit tests, 102 browser tests, 24 Rust tests, nine portable rendering fixtures, and the macOS native text conversion check. The separate installed-tools test converted the résumé and dispatch fixtures using paths with spaces and Chinese characters, and confirmed that a failed conversion preserved the existing PDF. The 0.24.0 CLI smoke test produced the two-page résumé from stdin and preserved the expected Chinese text and link.
+
+The macOS test bundle exercised first-run tool setup, the native save dialog, and reopening a recent form during development. Version consistency, frontend build, formatting, isolated test configuration, Clippy, and the demo archive check passed. npm reported zero vulnerabilities. The cached RustSec audit reported no vulnerability-class advisories and 11 informational warnings. Release installer builds and packaged Windows checks are pending.
+
 ## 0.23.0 release preparation
 
 Passed 95 TypeScript unit tests, 101 browser tests, 21 Rust tests, nine portable fixtures, and the macOS native text conversion check. Browser coverage includes the JSON5 demo at 340 pixels, reviewed merge into a reusable form, and JSON export and reopen. The navigation test that timed out on the 0.22.1 macOS runner passed ten consecutive local runs after its fixture stopped depending on file chooser event delivery.

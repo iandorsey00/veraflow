@@ -305,6 +305,8 @@ Place each independent output between `{{#output id "Label"}}` and `{{/output}}`
 
 Choose an output in the form to preview and prepare it. Changing the selection keeps the record and shows just the chosen output. In the output view, copy one paste section or use **Copy entire output**. Switch outputs directly on the Output screen. Switching starts at the first section. If an output has missing or unverified fields, VeraFlow keeps the current output available and shows an error. Use literal tabs in a body to make a row that can be pasted into a spreadsheet. Keep each value on one line when the destination treats a newline as a new row. See the [shared-record example](../examples/source/shared-record.veraflow).
 
+Set the optional top-level `"defaultOutput"` to an existing output ID to select it initially. In a staged form it is preferred on its own step. The CLI selects it automatically. When several named outputs exist and this property is omitted, pass `--output-id` to the CLI.
+
 An optional `"outputs"` object keys settings by output ID. Use an `"instructions"` string for guidance shown in the preview and above the output. Use `\n` for a line break. This plain text stays out of the generated sections. Put paste settings under that output’s `"delivery"` object. Omitted delivery properties inherit the top-level defaults. If specified, `after` replaces the default navigation map. Section IDs and navigation apply within one output.
 
 ```json

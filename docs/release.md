@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.24.0 PDF export and headless rendering
+
+Full release cycle for local PDF conversion, native output writes, and the CLI. Use the [PDF demo](../examples/source/pdf-demo.md) on macOS. Check first-run tool setup, the native save dialog, Unicode text and paths, and the recovery path after a failed conversion. On Windows, verify JSON entry, recent form reuse, Markdown output via the source CLI, and the new icon.
+
+To roll back to [0.23.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.23.0), keep the original form and record files. Remove `defaultOutput` from a copy of any form that declares it before opening the copy in 0.23.0. The existing PDF, Markdown, and JSON exports remain readable.
+
 ## 0.23.0 JSON and JSON5 input
 
 Full release cycle for opening and pasting external records, generating forms, and merging values into reusable forms. Follow the [JSON demo](../examples/source/json-demo.md) on packaged Windows and macOS. Check the native file picker, the narrow review layout, the leading zeroes in the reference, and the JSON export and reopen round trip.
