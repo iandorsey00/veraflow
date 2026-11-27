@@ -1,0 +1,22 @@
+{
+  "name": "veraflow-web",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npm run build && esbuild --servedir=dist --serve=127.0.0.1:8000",
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "export:html": "node dist/export-html.mjs",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "test:browser": "npm run build && node --test tests/browser.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "esbuild": "0.28.2",
+    "playwright": "1.63.0",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "@humanwhocodes/momoa": "3.3.13"
+  }
+}

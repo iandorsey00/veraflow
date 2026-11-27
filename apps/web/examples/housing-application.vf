@@ -1,0 +1,39 @@
+--- veraflow 2
+{
+  title: 'Housing application / 住房申请',
+  instructions: 'Fictional practice record / 虚构示例',
+  fields: {
+    legal_name: { type: 'text', label: 'Legal name / 法定姓名', verify: true },
+    employment: {
+      type: 'radio',
+      label: 'Employment / 就业',
+      options: [
+        { id: 'employed', label: 'Employed / 在职', output: 'Employed' },
+        { id: 'self_employed', label: 'Self-employed / 自雇', output: 'Self-employed' },
+      ],
+    },
+    moving_reason: { type: 'textarea', label: 'Reason for moving / 搬家原因' },
+    reason_en: { type: 'textarea', label: 'English wording / 英文表述', optional: true },
+  },
+  defaultOutput: 'review',
+  steps: [
+    { title: 'Collect applicant details / 收集信息', fields: ['legal_name', 'employment', 'moving_reason'], outputs: [] },
+    { title: 'Review application / 审阅申请', fields: ['reason_en'], outputs: ['application', 'review'] },
+  ],
+  outputs: {
+    application: { instructions: 'Review the English wording before copying it to the application.' },
+    review: { instructions: '请核对姓名、就业状态及原文。' },
+  },
+}
+---
+{{#output application "English application"}}
+Name: {{legal_name}}
+Employment: {{employment}}
+Reason for moving: {{reason_en}}
+{{/output}}
+
+{{#output review "中文核对"}}
+姓名：{{legal_name}}
+就业状态：{{when employment=employed: '在职' else: '自雇'}}
+搬家原因：{{moving_reason}}
+{{/output}}
