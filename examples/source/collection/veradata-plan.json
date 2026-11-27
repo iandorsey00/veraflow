@@ -1,0 +1,8 @@
+{
+  "profile": "demo",
+  "format": "structured",
+  "records": [
+    { "id": "contact", "fields": { "name": true } },
+    { "id": "job", "fields": { "employer": true, "endDate": true } }
+  ]
+}

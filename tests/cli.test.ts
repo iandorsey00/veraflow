@@ -321,3 +321,98 @@ test("CLI reads CSV by data row and escapes spreadsheet formulas in delimited ou
     { column: "Note", value: "=1+1" },
   ]);
 });
+
+test("CLI saves private request state exclusively, correlates stdin replies, and reports ordinary gaps", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "vf-collection-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const working = join(dir, "working.vf");
+  const updated = join(dir, "updated.vf");
+  const form = fixture("collection/employment.vf");
+  const input =
+    "{full_name:'Fictional Applicant', employer:'Fictional Employer'}";
+  const parsed = (args: string[], stdin?: string) => {
+    const result = run(args, stdin);
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  const g = parsed(["gaps", form, "--record", "-"], input);
+  assert.equal(g.ready, false);
+  assert.deepEqual(g.missingRequired, ["job_title"]);
+  const collect = [
+    "collection-request",
+    form,
+    "--record",
+    "-",
+    "--output",
+    working,
+    "--required-only",
+  ];
+  const request = parsed(collect, input);
+  assert.deepEqual(
+    request.questions.map(({ id }: { id: string }) => id),
+    ["job_title"],
+  );
+  assert.doesNotMatch(JSON.stringify(request), /Fictional/);
+  const privateRecord = readFileSync(working, "utf8");
+  const repeat = run(collect, input);
+  assert.equal(repeat.status, 1);
+  assert.equal(repeat.stdout, "");
+  assert.equal(readFileSync(working, "utf8"), privateRecord);
+  const response = JSON.stringify(
+    parsed(
+      ["collection-respond", "-", fixture("collection/answers.json")],
+      JSON.stringify({
+        ...request,
+        questions: [
+          ...request.questions,
+          { id: "comments", label: "Notes", type: "textarea", required: false },
+        ],
+      }),
+    ),
+  );
+  const rejected = run(
+    ["collection-review", "-", working, "--json-errors"],
+    response,
+  );
+  assert.equal(JSON.parse(rejected.stderr).error.code, "collectionUnexpected");
+  const requestFile = join(dir, "request.json");
+  writeFileSync(requestFile, JSON.stringify(request));
+  const accepted = JSON.stringify(
+    parsed(
+      ["collection-respond", requestFile, "-"],
+      '{"job_title":"Architect"}',
+    ),
+  );
+  const review = parsed(["collection-review", "-", working], accepted);
+  assert.equal(review.format, "veraflow-collection-review");
+  assert.equal(review.changes[0].kind, "new");
+  assert.equal(run(["collection-apply", "-", working], accepted).status, 1);
+  const applied = run(["collection-apply", "-", working, "--accept"], accepted);
+  assert.equal(applied.status, 0, applied.stderr);
+  writeFileSync(updated, applied.stdout);
+  assert.equal(
+    parsed(["collection-review", "-", updated], accepted).status,
+    "duplicate",
+  );
+  const blocked = run(["record-export", updated, "--json-errors"]);
+  assert.equal(JSON.parse(blocked.stderr).error.code, "recordNotReady");
+});
+
+test("CLI can summarize a collect-only step and honor a later output scope", () => {
+  const form = fixture("housing-application.vf");
+  const first = run(["gaps", form, "--step", "1"]);
+  assert.equal(first.status, 0, first.stderr);
+  const collected = JSON.parse(first.stdout);
+  assert.deepEqual(collected.scope, { step: 0 });
+  assert.deepEqual(
+    new Set(collected.missingRequired),
+    new Set(["legal_name", "moving_reason"]),
+  );
+  assert.ok(collected.inapplicable.includes("reason_en"));
+  const next = run(["gaps", form, "--output-id", "application"]);
+  assert.equal(next.status, 0, next.stderr);
+  const output = JSON.parse(next.stdout);
+  assert.deepEqual(output.scope, { outputId: "application" });
+  assert.deepEqual(output.missingRequired, ["legal_name"]);
+  assert.deepEqual(output.missingOptional, ["reason_en"]);
+});

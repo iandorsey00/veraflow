@@ -407,3 +407,7 @@ An extractor should treat source text as data and emit canonical option IDs. Des
 Use `not ready` with a declared Boolean to test explicitly for false. An unanswered Boolean stays unresolved. Add `else if` before the final `else` to test alternatives in order. For a block use `{{else if review}}` on its own line. For inline output write `{{when not ready: 'Hold' else if review: 'Review' else: 'Ready'}}`.
 
 **Compare source text…** in a form compares filled fields with a pasted block. It checks lines such as `Reference: VF-104` against the field ID or label. A whole matching line without a label is weaker evidence. Multiple candidates, conflicts, and missing lines are reported separately. Batch comparison leaves verification status unchanged. Use the individual source check to verify a field. A requested paste is separate from proof of accurate transfer or completion in the destination app.
+
+## Selective collection and working records
+
+Gap analysis uses native field declarations and output conditions. Use authored field `label` and `instructions` for collection questions. Unknown controlling values defer the fields in those branches. Review the answer to the controlling question before generating the next request. Prefilled files may contain a private `recordState` v1. It preserves request correlation and field history and is removed from reusable definition exports. See the [record interoperability specification](record-interoperability.md).

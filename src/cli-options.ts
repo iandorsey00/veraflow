@@ -18,6 +18,12 @@ const options = {
   body: { type: "string" },
   source: { type: "string" },
   row: { type: "string" },
+  step: { type: "string" },
+  "required-only": { type: "boolean" },
+  "include-history": { type: "boolean" },
+  "request-id": { type: "string" },
+  accept: { type: "boolean" },
+  form: { type: "string" },
 } as const;
 
 type Option = keyof typeof options;
@@ -41,6 +47,75 @@ const commands = {
     flags: ["record", "output-id", "all"],
     description:
       "Validate a form or check whether a record is ready to render.",
+  },
+  gaps: {
+    args: ["form"],
+    flags: ["record", "output-id", "step"],
+    description:
+      "Report applicable gaps, deferred branches, and pending checks.",
+  },
+  "collection-request": {
+    args: ["form"],
+    flags: ["record", "output-id", "step", "required-only", "output"],
+    description:
+      "Write a private prefilled form to --output and print a minimal request.",
+  },
+  "collection-inspect": {
+    args: ["request"],
+    flags: [],
+    description: "Validate and print a public collection request.",
+  },
+  "collection-respond": {
+    args: ["request", "answers"],
+    flags: [],
+    description:
+      "Build a correlated response from the request and a flat record of answers.",
+  },
+  "collection-review": {
+    args: ["response", "prefilled-form"],
+    flags: [],
+    description: "Inspect correlated incoming changes without applying them.",
+  },
+  "collection-apply": {
+    args: ["response", "prefilled-form"],
+    flags: ["accept"],
+    description:
+      "With --accept, apply reviewed changes and print the updated prefilled form.",
+  },
+  "collection-close": {
+    args: ["prefilled-form"],
+    flags: ["request-id"],
+    description:
+      "Close a request in the current record and print the updated prefilled form.",
+  },
+  "transformation-review": {
+    args: ["proposal", "prefilled-form"],
+    flags: [],
+    description:
+      "Review proposed transformations against the current field values.",
+  },
+  "transformation-apply": {
+    args: ["proposal", "prefilled-form"],
+    flags: ["accept"],
+    description:
+      "With --accept, apply transformations with history and print an updated form.",
+  },
+  map: {
+    args: ["source", "mapping"],
+    flags: ["form"],
+    description:
+      "Map nested JSON to a flat VeraFlow record using explicit rules.",
+  },
+  "record-export": {
+    args: ["form"],
+    flags: ["record", "output-id", "step", "include-history"],
+    description:
+      "Export a complete, validated record without assigning human approval.",
+  },
+  "record-inspect": {
+    args: ["reviewed-record"],
+    flags: [],
+    description: "Check a reviewed record envelope and its fingerprint.",
   },
   normalize: {
     args: ["record"],
@@ -152,6 +227,8 @@ export function parseCommand(args: string[]) {
   }
   if (values.all && values["output-id"] !== undefined)
     throw new CliError("usage", "Choose either --all or --output-id.");
+  if (values.step !== undefined && values["output-id"] !== undefined)
+    throw new CliError("usage", "Choose either --step or --output-id.");
   const inputPaths = [...operands, values.record, values.source, values.body];
   if (inputPaths.filter((path) => path === "-").length > 1)
     throw new CliError("usage", "Use - for only one input.");

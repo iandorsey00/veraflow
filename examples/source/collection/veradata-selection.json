@@ -1,0 +1,11 @@
+{
+  "format": "veradata-selection",
+  "version": 1,
+  "records": [
+    { "kind": "contact", "fields": { "name": "Xiaoming Example" } },
+    {
+      "kind": "employment",
+      "fields": { "employer": "Juniper Example Labs", "endDate": "Present" }
+    }
+  ]
+}

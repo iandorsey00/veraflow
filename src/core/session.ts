@@ -14,6 +14,7 @@ import {
   validControlValue,
 } from "./form";
 import type { Session, Template, EmailHeader } from "./model";
+import { fieldId, type RecordOrigin } from "./record-state";
 export function verificationRequired(s: Session) {
   return s.typing
     ? s.template.typingVerification === true
@@ -242,6 +243,7 @@ export function startSession(template: Template): Session {
       value,
       status: verified ? "verified" : value === null ? "empty" : "captured",
       ...(verified === "form" ? { checkedByTyping: true } : {}),
+      ...(saved?.has(name) ? { recordInput: true as const } : {}),
     };
   });
   const s: Session = {
@@ -253,6 +255,9 @@ export function startSession(template: Template): Session {
     ...(source
       ? {
           sourceContext: { timestamp: new Date(), templateName: template.name },
+          ...(source.recordState
+            ? { recordState: structuredClone(source.recordState) }
+            : {}),
         }
       : {}),
   };
@@ -314,7 +319,34 @@ export function move(s: Session, offset: number): void {
       ? visible[0]
       : visible[(current + offset + visible.length) % visible.length];
 }
-export function capture(s: Session, value: string, advance = true): void {
+export function setFieldOrigin(
+  s: Session,
+  name: string,
+  origin?: RecordOrigin,
+) {
+  if (s.template.placeholderStyle !== "source" || !fieldId(name)) return;
+  if (!origin) {
+    const history = s.recordState?.history;
+    if (history && Object.hasOwn(history, name)) delete history[name];
+    return;
+  }
+  const state = (s.recordState ??= { version: 1 });
+  const history = (state.history ??= Object.create(null));
+  // Field identifiers may also be valid JavaScript property names.
+  Object.defineProperty(history, name, {
+    value: { origin },
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+}
+
+export function capture(
+  s: Session,
+  value: string,
+  advance = true,
+  origin: RecordOrigin = { source: "manual" },
+): void {
   editable(s);
   const field = s.fields[s.active];
   if (!field) throw new Error("noField");
@@ -332,7 +364,9 @@ export function capture(s: Session, value: string, advance = true): void {
     (field.status === "verified" && fieldRequiresVerification(s, field))
   )
     invalidateStepOutputs(s, field.name);
+  if (field.value !== text) setFieldOrigin(s, field.name, origin);
   field.value = text;
+  field.recordInput = true;
   field.status = "captured";
   delete field.checkedByTyping;
   delete field.candidate;
@@ -345,6 +379,8 @@ export function clear(s: Session): void {
   if (!field) return;
   if (field.value !== null) invalidateStepOutputs(s, field.name);
   field.value = null;
+  field.recordInput = true;
+  setFieldOrigin(s, field.name);
   field.status = "empty";
   delete field.removeBlankLines;
   delete field.checkedByTyping;
@@ -354,17 +390,21 @@ export function clear(s: Session): void {
 export function applyRecordChanges(
   s: Session,
   changes: readonly { index: number; value: string | null }[],
+  origin: RecordOrigin = { source: "json" },
 ) {
   editable(s);
   for (const { index, value } of changes) {
     const field = s.fields[index];
     invalidateStepOutputs(s, field.name);
     field.value = value;
+    field.recordInput = true;
+    setFieldOrigin(s, field.name, value === null ? undefined : origin);
     field.status = value === null ? "empty" : "captured";
     delete field.checkedByTyping;
     delete field.candidate;
     delete field.removeBlankLines;
   }
+  if (changes.length) delete s.prepared;
   s.mode = "capture";
 }
 
@@ -766,6 +806,7 @@ export function eraseSession(s: Session): void {
     delete field.removeBlankLines;
   }
   delete s.prepared;
+  delete s.recordState;
   s.stepOutputs?.clear();
   delete s.scannerOutputTemplate;
   delete s.scannerId;

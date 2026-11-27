@@ -42,3 +42,9 @@
 标准输出只包含结果。使用 `--json-errors` 时，失败会向标准错误输出一个 JSON 对象，并返回非零退出码。脚本可读取 `error.code`。可用 `--output-id` 选择命名输出，或者用 `--all` 获取全部输出的 JSON。需要核对的字段可在桌面版完成核对后保存为预填表单。更改已核对的值会清除相应的核对状态。
 
 命令在本机运行。以管道输入 PDF 数据时，需提供 `--output`。确认要覆盖已有文件时，再使用 `--force`。仅用可信的模板和数据生成 PDF。
+
+## 收集与审阅工作记录
+
+用 `gaps FORM [--record RECORD] [--output-id ID | --step N]` 分析缺项。资料未填完整时仍正常输出，退出状态为 0。收集交换可用 `collection-request`、`collection-inspect`、`collection-respond`、`collection-review`、`collection-apply` 和 `collection-close`。生成请求时用 `--output PRIVATE.vf` 保存私有工作记录，标准输出仅包含可分享的请求。审阅后加 `--accept` 才能应用，输出应另存为新文件。用 `map SOURCE MAPPING` 生成扁平记录，加 `--form FORM` 可生成保留来源的预填表单。
+
+用 `transformation-review` 和 `transformation-apply` 审阅并应用转换。用 `record-export` 校验当前范围并导出带指纹的记录。仅在确实需要时加 `--include-history`。用 `record-inspect` 校验记录指纹。人工批准由桌面版完成。[完整演示和 v1 交换规则](record-interoperability.zh-CN.md)

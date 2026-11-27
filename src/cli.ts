@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { basename, join, parse, resolve } from "node:path";
+import { link, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, parse, resolve } from "node:path";
 import { version } from "../package.json";
 import {
   CliError,
@@ -55,6 +55,26 @@ import {
   startSession,
 } from "./core/session";
 import { parseSource } from "./core/source";
+import { recordGaps } from "./core/gaps";
+import {
+  applyCollectionResponse,
+  closeCollection,
+  collectionQuestions,
+  createCollectionResponse,
+  prepareCollectionRequest,
+  readCollectionRequest,
+  readCollectionResponse,
+  rememberCollection,
+  reviewCollectionResponse,
+} from "./core/collection";
+import type { CollectionScope } from "./core/record-state";
+import {
+  applyTransformations,
+  mapSourceRecord,
+  planTransformations,
+  readReviewedRecord,
+  validatedRecord,
+} from "./core/interoperability";
 
 type Form = Awaited<ReturnType<typeof readForm>>;
 
@@ -156,6 +176,34 @@ function outputIds(source: Form["source"], choice?: string, all = false) {
       { outputs: ids },
     );
   return [output];
+}
+
+function recordScope(
+  form: Form,
+  options: { step?: string; "output-id"?: string },
+): CollectionScope {
+  if (
+    options.step !== undefined ||
+    (form.source.steps && options["output-id"] === undefined)
+  ) {
+    const step = Number(options.step ?? "1") - 1;
+    if (!Number.isInteger(step) || !form.source.steps?.[step])
+      throw new CliError("usage", "Choose an existing one-based step number.");
+    return { step };
+  }
+  return { outputId: outputIds(form.source, options["output-id"])[0] };
+}
+
+async function writePrivateForm(file: string, content: string) {
+  const destination = resolve(file);
+  const folder = await mkdtemp(join(dirname(destination), ".veraflow-record-"));
+  try {
+    const temporary = join(folder, "record");
+    await writeFile(temporary, content, { flag: "wx", mode: 0o600 });
+    await link(temporary, destination);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
 }
 
 function selectOutput(session: Session, source: Form["source"], id: string) {
@@ -311,6 +359,162 @@ async function main(args: string[]) {
       return;
     case "fields":
       json(extractionFields(formSession(await readForm(first))));
+      return;
+    case "gaps":
+    case "collection-request":
+    case "record-export": {
+      const form = await readForm(first);
+      if (form.source.snippets || form.source.workflow === "csv")
+        throw Error("recordNeedsForm");
+      const scope = recordScope(form, values);
+      const record =
+        values.record === undefined
+          ? undefined
+          : await readRecord(values.record);
+      const session = formSession(form);
+      if (name === "gaps") {
+        json(recordGaps(session, scope, record));
+        return;
+      }
+      if (record)
+        applyRecordChanges(session, planRecordValues(session, record));
+      if (name === "record-export") {
+        json(await validatedRecord(session, scope, values["include-history"]));
+        return;
+      }
+      if (!values.output || !/\.(vf|veraflow)$/i.test(values.output))
+        throw new CliError(
+          "usage",
+          "Use --output to save a new private .vf or .veraflow record.",
+        );
+      const { questions } = collectionQuestions(session, scope);
+      const { request, link } = await prepareCollectionRequest(
+        session,
+        scope,
+        questions.filter(
+          ({ required }) => !values["required-only"] || required,
+        ),
+      );
+      rememberCollection(session, link);
+      await writePrivateForm(values.output, prefilledContent(session));
+      json(request);
+      return;
+    }
+    case "collection-inspect":
+      json(readCollectionRequest(await readText(first, recordInputLimit)));
+      return;
+    case "collection-respond":
+      json(
+        createCollectionResponse(
+          readCollectionRequest(await readText(first, recordInputLimit)),
+          await readRecord(second),
+        ),
+      );
+      return;
+    case "collection-close": {
+      if (!values["request-id"])
+        throw new CliError(
+          "usage",
+          "Specify the request to close with --request-id.",
+        );
+      const session = formSession(await readForm(first));
+      closeCollection(session, values["request-id"]);
+      process.stdout.write(prefilledContent(session));
+      return;
+    }
+    case "collection-review":
+    case "collection-apply": {
+      const session = formSession(await readForm(second));
+      const response = readCollectionResponse(
+        await readText(first, recordInputLimit),
+      );
+      if (name === "collection-review") {
+        const review = await reviewCollectionResponse(session, response);
+        json({
+          format: "veraflow-collection-review",
+          version: formatVersion,
+          ...(review.status === "duplicate"
+            ? review
+            : {
+                status: review.status,
+                matching: review.matching,
+                changes: review.changes.map(({ index, previous, value }) => ({
+                  field: session.fields[index].name,
+                  kind:
+                    value === null
+                      ? "clear"
+                      : previous === null
+                        ? "new"
+                        : "conflict",
+                  previous,
+                  value,
+                })),
+              }),
+        });
+      } else {
+        if (!values.accept)
+          throw new CliError(
+            "usage",
+            "Review the changes with collection-review, then use --accept if you approve all changes.",
+          );
+        await applyCollectionResponse(
+          session,
+          response,
+          new Set(response.fields.keys()),
+        );
+        process.stdout.write(prefilledContent(session));
+      }
+      return;
+    }
+    case "transformation-review":
+    case "transformation-apply": {
+      const session = formSession(await readForm(second));
+      const changes = planTransformations(
+        session,
+        await readText(first, recordInputLimit),
+      );
+      if (name === "transformation-review") {
+        json({
+          format: "veraflow-transformation-review",
+          version: formatVersion,
+          changes: changes.map(({ index, ...change }) => ({
+            field: session.fields[index].name,
+            ...change,
+          })),
+        });
+      } else {
+        if (!values.accept)
+          throw new CliError(
+            "usage",
+            "Review the proposal with transformation-review, then use --accept if you approve all changes.",
+          );
+        if (changes.length) applyTransformations(session, changes);
+        process.stdout.write(prefilledContent(session));
+      }
+      return;
+    }
+    case "map": {
+      const mapped = mapSourceRecord(
+        await readText(first, recordInputLimit),
+        await readText(second, recordInputLimit),
+      );
+      if (!values.form) json(Object.fromEntries(mapped));
+      else {
+        const form = await readForm(values.form);
+        if (form.source.snippets || form.source.workflow === "csv")
+          throw Error("recordNeedsForm");
+        const session = formSession(form);
+        applyRecordChanges(session, planRecordValues(session, mapped), {
+          source: "mapped",
+        });
+        process.stdout.write(prefilledContent(session));
+      }
+      return;
+    }
+    case "record-inspect":
+      json(
+        await readReviewedRecord(await readText(first, recordInputLimit * 4)),
+      );
       return;
     case "validate": {
       const form = await readForm(first);

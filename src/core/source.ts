@@ -1,5 +1,6 @@
 import { parseSourceMetadata, sourceHeader } from "./source-header";
 import { filenamePatternError } from "./filenames";
+import { readRecordState, type RecordState } from "./record-state";
 import {
   normalizeText,
   validControlValue,
@@ -97,6 +98,7 @@ type Source = {
   workflow?: SourceWorkflow;
   responses: ReadonlyMap<string, string | null>;
   verification: ReadonlyMap<string, VerificationWorkflow>;
+  recordState?: RecordState;
   delivery: Delivery;
   outputs: SourceOutput[];
   defaultOutput?: string;
@@ -309,6 +311,7 @@ function metadata(text: string) {
         "workflow",
         "responses",
         "verification",
+        "recordState",
         "syntax",
         "delivery",
         "outputs",
@@ -525,6 +528,14 @@ function metadata(text: string) {
       fail(`Verification for "${name}" requires a saved response.`);
     verification.set(name, scope);
   }
+  let recordState: RecordState | undefined;
+  if (header.recordState !== undefined) {
+    try {
+      recordState = readRecordState(header.recordState);
+    } catch {
+      fail('The private "recordState" metadata is invalid.');
+    }
+  }
   return {
     controls,
     title,
@@ -534,6 +545,7 @@ function metadata(text: string) {
     syntax,
     responses,
     verification,
+    recordState,
     delivery: deliverySettings(header.delivery),
     csv,
     append,
@@ -557,6 +569,7 @@ function metadata(text: string) {
     | "workflow"
     | "responses"
     | "verification"
+    | "recordState"
     | "delivery"
     | "filename"
     | "defaultOutput"
@@ -1043,6 +1056,7 @@ export function parseSource(text: string): Source {
     syntax,
     responses,
     verification,
+    recordState,
     delivery,
     outputSettings,
     defaultOutput,
@@ -1068,6 +1082,7 @@ export function parseSource(text: string): Source {
         append: undefined,
         responses: new Map<string, string | null>(),
         verification: new Map<string, VerificationWorkflow>(),
+        recordState: undefined,
       };
   // Prefilled plain files have a metadata header but still use the plain grammar.
   const advanced = !!header && syntax !== "plain";
@@ -1262,6 +1277,11 @@ export function parseSource(text: string): Source {
     if (control && value !== null && !validStoredValue(control, value))
       fail(`The saved response for "${name}" does not match its field rules.`);
   }
+  if (
+    recordState?.history &&
+    Object.keys(recordState.history).some((name) => !fields.has(name))
+  )
+    fail('The private "recordState" refers to an unknown field.');
   const label =
     csv?.rowLabel === undefined
       ? undefined
@@ -1308,6 +1328,7 @@ export function parseSource(text: string): Source {
     workflow,
     responses,
     verification,
+    recordState,
     delivery,
   };
   cached = { text, parsed };
@@ -1328,12 +1349,14 @@ export function sourceDefinitionText(text: string, title?: string) {
   if (
     !Object.hasOwn(metadata, "responses") &&
     !Object.hasOwn(metadata, "verification") &&
+    !Object.hasOwn(metadata, "recordState") &&
     (!title || title === metadata.title)
   )
     return text;
   // Exports of reusable definitions must leave out responses from the current case.
   delete metadata.responses;
   delete metadata.verification;
+  delete metadata.recordState;
   if (title) metadata.title = title;
   const definition = sourceWithHeader(metadata, header?.body ?? source);
   parseSource(definition);
@@ -1346,6 +1369,7 @@ export function prefillSource(
   title?: string,
   verification: ReadonlyMap<string, VerificationWorkflow> = new Map(),
   legacyVerifyDefault?: boolean,
+  recordState?: RecordState,
 ) {
   const source = text.replace(/^\uFEFF/, "");
   const header = sourceHeader(source);
@@ -1353,6 +1377,7 @@ export function prefillSource(
     ? object(parseSourceMetadata(header.metadata, fail))
     : { syntax: "plain" };
   delete original.verification;
+  delete original.recordState;
   // A saved null suppresses the field default. Missing keys still inherit defaults.
   const saved = sourceWithHeader(
     {
@@ -1364,6 +1389,7 @@ export function prefillSource(
         ? { "verify-by-default": legacyVerifyDefault }
         : {}),
       responses: Object.fromEntries(responses),
+      ...(recordState ? { recordState } : {}),
       ...(verification.size
         ? { verification: Object.fromEntries(verification) }
         : {}),
@@ -1401,6 +1427,10 @@ export function sourceParts(
   context?: TemplateContext,
   row = false,
   missingFields?: Set<string>,
+  collection?: {
+    unresolved: Set<string>;
+    deferred: Set<string>;
+  },
 ) {
   let length = 0;
   const local = new Map<string, string>();
@@ -1427,11 +1457,15 @@ export function sourceParts(
       if (text || missing) parts.push({ text, missing });
     };
     // Field discovery and rendering walk the same branches. Inserted values stay literal.
-    const visit = (nodes: Node[]) => {
+    const visit = (nodes: Node[], deferred = false) => {
       for (const node of nodes) {
         if (typeof node === "string") {
-          if (!used) emit(node);
+          if (!used && !deferred) emit(node);
         } else if ("field" in node) {
+          if (deferred) {
+            if (!local.has(node.field)) collection!.deferred.add(node.field);
+            continue;
+          }
           if (used) {
             if (!local.has(node.field)) {
               used.add(node.field);
@@ -1447,7 +1481,7 @@ export function sourceParts(
           if (value === undefined) emit(`{{${node.field}}}`, true);
           else emit(options?.get(value) ?? value);
         } else if ("variable" in node) {
-          if (used) continue;
+          if (used || deferred) continue;
           const value = variableValue(node.variable, variables);
           if (
             value === undefined &&
@@ -1462,13 +1496,32 @@ export function sourceParts(
         } else if ("loop" in node) {
           for (const value of node.values) {
             local.set(node.loop, value);
-            visit(node.body);
+            visit(node.body, deferred);
           }
           local.delete(node.loop);
         } else {
           const condition = node.condition;
+          if (deferred) {
+            if (!local.has(condition.name))
+              collection!.deferred.add(condition.name);
+            visit(node.yes, true);
+            visit(node.no, true);
+            continue;
+          }
           if (!local.has(condition.name)) used?.add(condition.name);
           const actual = valueOf(condition.name);
+          if (
+            collection &&
+            !local.has(condition.name) &&
+            (actual === undefined ||
+              (!actual &&
+                ["boolean", "notBoolean", "option"].includes(condition.test)))
+          ) {
+            collection.unresolved.add(condition.name);
+            visit(node.yes, true);
+            visit(node.no, true);
+            continue;
+          }
           if (
             !actual &&
             ["boolean", "notBoolean", "option"].includes(condition.test)

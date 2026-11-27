@@ -1,0 +1,16 @@
+{
+  "format": "veraflow-transformations",
+  "version": 1,
+  "fields": {
+    "job_title": {
+      "kind": "translation",
+      "from": "软件架构师",
+      "to": "Software Architect"
+    },
+    "comments": {
+      "kind": "translation",
+      "from": "可以远程办公。",
+      "to": "Available to work remotely."
+    }
+  }
+}

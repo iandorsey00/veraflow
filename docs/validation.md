@@ -1,5 +1,13 @@
 # Validation record
 
+## 0.26.0 release preparation
+
+Passed 108 TypeScript unit tests, 103 browser tests, 24 Rust tests, nine portable rendering fixtures, and the macOS native text conversion check. The separate installed-tools test generated the fictional résumé and dispatch PDFs and preserved existing output after a failed conversion. Thirteen VeraFlow Web compatibility tests passed in a temporary copy using the updated Desktop core.
+
+The fictional VeraData CLI export matched the input used in the browser acceptance test. The test reopened the saved request, accepted a Mandarin response and reviewed transformation, reverified the changed field, approved the record, and confirmed readback in the local destination before submission. It included a narrow-window accessibility check.
+
+Version consistency, formatting, the frontend build, isolated test configuration, Clippy, and the demo archive check passed. The refreshed RustSec audit identified two advisories that were resolved by updating the lockfile to `cookie` 0.18.3 and `url` 2.5.9. The final audits reported zero npm vulnerabilities, zero Rust vulnerability-class advisories, and 11 Rust informational findings. Installer publication and packaged app smoke tests are pending.
+
 ## 0.25.1 release preparation
 
 Passed 102 TypeScript unit tests, 102 browser tests, 24 Rust tests, and nine portable rendering fixtures. The frontend build, formatting, version metadata, and isolated test configuration checks passed. Browser review confirmed the English and Simplified Chinese names, Light, Dark, and System appearance, a 300-pixel form, field verification, and named output preparation. Native window appearance and packaged installer checks are pending.

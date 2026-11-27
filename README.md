@@ -19,9 +19,11 @@ JSON is an exchange format for the record. When you fill a form directly, VeraFl
 
 Try the [Dispatch note example](examples/source/dispatch-note.veraflow) to see the live preview. Try [Shipment follow-up](examples/source/shipment-steps.veraflow) to see how Steps carry verified values across several outputs.
 
+Use **Form tools → Record tools…** to collect only missing fields, review correlated responses and transformations, and export an approved record. Try the [fictional employment workflow](docs/record-interoperability.md).
+
 ## Install
 
-Get the [v0.25.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.25.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.26.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.26.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
 - **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.

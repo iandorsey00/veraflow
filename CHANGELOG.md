@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.26.0
+
+- Analyze gaps in native forms and steps, stage questions for unresolved branches, and exchange minimal collection requests and correlated responses.
+- Review field replacements, keep origins and accepted transformations in private working records, and approve a scoped record for export.
+- Add CLI commands for collection, nested source mapping, transformation review, and validation of reviewed exports.
+
 ## 0.25.1
 
 - Refine the Desktop library, editor, and forms with white panes in light mode, clearer section titles, and blue selections and actions.

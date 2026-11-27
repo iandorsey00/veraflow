@@ -737,4 +737,92 @@ export const en = {
     "Storage could not be loaded. Restart after restoring your library to avoid overwriting it.",
   templateSettings: "Template options",
   values: "values",
+  recordTools: "Record tools…",
+  collectionCreate: "Collect missing information…",
+  collectionQuestionHelp:
+    "Choose the optional questions to include. Required questions are always included.",
+  collectionDeferred:
+    "Some questions depend on answers you do not have yet. Apply this response, then check the remaining gaps.",
+  collectionRequiredLabel: "Required",
+  collectionOptionalLabel: "Optional",
+  collectionInvalidLabel: "Invalid values",
+  collectionVerifyLabel: "Needs verification",
+  collectionDeferredLabel: "Waiting on a condition",
+  collectionNoGaps: "The current scope has no outstanding fields or checks.",
+  collectionPreview: "Preview collection request",
+  collectionPrivacy:
+    "This is the exact JSON to share. Check the labels and instructions for private details. VeraFlow saves the working record locally so you can match the response later.",
+  collectionSaveRequest: "Save record and export request",
+  collectionExported:
+    "Request exported. Reopen the working record from Recently opened forms to review a response.",
+  collectionNoQuestions:
+    "There are no selected questions to collect in this scope.",
+  collectionRequestLimit:
+    "This record has too many open requests. Close a request before creating another.",
+  collectionImport: "Import collection response…",
+  collectionManage: "Manage open requests…",
+  collectionOpenRequests: "Request ID · Responses processed",
+  collectionSelectRequest: "Choose a request to close.",
+  collectionCloseRequest: "Close request",
+  collectionReviewHelp:
+    "New values start selected. Select a replacement or clear explicitly. Any unchecked values will be kept.",
+  collectionAcceptClear: "Clear value",
+  collectionApplySelected: "Apply selected values",
+  collectionApplied: "Response reviewed and saved to the local working record.",
+  collectionDuplicate:
+    "This response was already processed in this working record.",
+  collectionUnknown:
+    "This request belongs to a different working record. Open the original working record and retry.",
+  collectionClosed: "This collection request is closed.",
+  collectionStale:
+    "The form or scope changed after the request was created. Create a new request.",
+  collectionUnexpected: "The response includes a field that was not requested.",
+  collectionRequired:
+    "The response is missing an answer to a required question.",
+  collectionInapplicable:
+    "An answer does not apply to the current branch. Review the record and create a new request if needed.",
+  collectionResponseLimit:
+    "This request has reached its response limit. Close it and create another request.",
+  invalidCollectionRequest:
+    "The collection request is invalid or exceeds its size or nesting limit.",
+  invalidCollectionResponse:
+    "The collection response is invalid or exceeds its size or nesting limit.",
+  invalidRecordState: "The private working record metadata is invalid.",
+  invalidRecordMapping: "The mapping or source JSON is invalid.",
+  recordMappingAmbiguous:
+    "A mapping selected more than one source record. Narrow the selection.",
+  recordMappingMissing: "A required source value is missing.",
+  recordMappingConversion:
+    "The mapping does not define a conversion for a source value.",
+  recordTransform: "Review transformations…",
+  invalidTransformation: "The transformation proposal is invalid.",
+  transformationStale:
+    "A proposed transformation no longer matches the current value.",
+  recordHistory: "Field history",
+  recordHistoryEmpty: "There is no recorded field history.",
+  recordApproval: "Review and approve record…",
+  recordApprovalHelp:
+    "Review the values for the current scope before approving a snapshot for export.",
+  recordIncludeHistory: "Include field origins and previous transformed values",
+  recordApprovalExact:
+    "These values will be exported with an approval timestamp. Approve only for the intended use.",
+  recordApproveExport: "Approve and export",
+  recordNotReady:
+    "Finish required fields and checks before exporting a validated record.",
+  invalidReviewedRecord:
+    "The reviewed record is invalid or no longer matches its fingerprint.",
+  recordExactJSON: "Exact export contents",
+  recordOriginManual: "Entered manually",
+  recordOriginJSON: "Imported from JSON",
+  recordOriginCSV: "Read from CSV",
+  recordOriginMapped: "Mapped from another record",
+  recordOriginCandidate: "Accepted from extracted candidates",
+  recordOriginCapture: "Captured from another source",
+  recordOriginDefault: "Default from this form",
+  recordOriginCollection: "Accepted from a collection response",
+  recordOriginTransformation: "Transformed from a previous value",
+  recordOriginRequest: "Request ID",
+  recordOriginResponse: "Response ID",
+  recordTransformFrom: "Before",
+  recordTransformTo: "After",
 };

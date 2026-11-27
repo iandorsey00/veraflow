@@ -22,6 +22,23 @@ import {
   sourceFilename,
 } from "./core/source-record";
 import { shortcutAccelerator, shortcutLabel } from "./core/shortcuts";
+import {
+  applyCollectionResponse,
+  closeCollection,
+  collectionQuestions,
+  prepareCollectionRequest,
+  readCollectionResponse,
+  rememberCollection,
+  reviewCollectionResponse,
+} from "./core/collection";
+import { currentRecordScope, recordGaps } from "./core/gaps";
+import {
+  applyTransformations,
+  fieldsHistory,
+  planTransformations,
+  validatedRecord,
+} from "./core/interoperability";
+import type { RecordOrigin } from "./core/record-state";
 import { normalizeText, textLayoutError } from "./core/form";
 import {
   parseSource,
@@ -96,6 +113,7 @@ import {
   activeSourceFields,
   activateFormStep,
   applyRecordChanges,
+  setFieldOrigin,
   currentFormStep,
   sessionSteps,
   noteStepPrepared,
@@ -1199,6 +1217,7 @@ type AppendSession = {
   written?: string;
 };
 const templateDocuments = new WeakMap<Session, OpenDocument>();
+const workingRecordIds = new WeakMap<Session, string>();
 const appendStates = new WeakMap<Session, AppendSession>();
 const appending = new WeakSet<Session>();
 const csvCache = new WeakMap<Session, CSVSession>();
@@ -1230,6 +1249,7 @@ function prepareCSVRow(s: Session, csv: CSVSession) {
           ),
           status: "captured" as const,
           checkedByTyping: undefined,
+          recordInput: true as const,
         }
       : {
           ...field,
@@ -2734,7 +2754,7 @@ function templateFormView(s: Session): string {
           s.template.placeholderStyle === "source"
             ? `<details id="source-form-tools" class="source-form-tools"><summary id="source-form-tools-summary">${esc(t("formTools"))}</summary><div class="toolbar">
           ${steps ? "" : sourceModeButtons("form")}
-          ${button("batch-compare", "batchCompare", "quiet")}${button("save-record", "saveRecord", "quiet")}${button("import-record", "importRecord", "quiet")}
+          ${button("batch-compare", "batchCompare", "quiet")}${button("save-record", "saveRecord", "quiet")}${button("import-record", "importRecord", "quiet")}${button("record-tools", "recordTools", "quiet")}
         </div></details>`
             : ""
         }
@@ -2819,9 +2839,16 @@ async function switchSourceMode(mode: SourceWorkflow, useRow = false) {
     else {
       taskGeneration++;
       manualDrafts.clear();
+      // A selected row starts a new working record and cannot inherit request IDs.
+      delete s.recordState;
+      workingRecordIds.set(s, crypto.randomUUID());
       for (const field of s.fields) {
         delete field.checkedByTyping;
-        if (field.value !== null) field.status = "captured";
+        if (field.value !== null) {
+          field.status = "captured";
+          if (csv.data.headers.includes(field.name))
+            setFieldOrigin(s, field.name, { source: "csv" });
+        }
       }
     }
     csvDrafts.delete(s);
@@ -3778,7 +3805,7 @@ function bindUnifiedForm(s: Session) {
       if (action === "copy") return copySelectedField(s, index);
       const value = await platform.mouseTransfer(preserveClipboard);
       s.active = index;
-      capture(s, value, false);
+      capture(s, value, false, { source: "capture" });
       render();
       focusFormField(index);
     });
@@ -4107,7 +4134,7 @@ ${esc(proposed)}</textarea>
     },
   );
   if (choice !== "apply") return;
-  if (changes.length) applyRecordChanges(s, changes);
+  if (changes.length) applyRecordChanges(s, changes, { source: "candidate" });
   notify(changes.length ? "recordApplied" : "recordNoChanges");
   focus("extract-source");
 }
@@ -4192,25 +4219,328 @@ async function acquireRecord(
   return choice === "review";
 }
 
-async function reviewRecordChanges(
+async function chooseRecordChanges(
   s: Session,
-  changes: ReturnType<typeof planRecordValues>,
+  changes: (ReturnType<typeof planRecordValues>[number] & { kind?: string })[],
+  selective = false,
+  matching: string[] = [],
 ) {
   const showValue = (value: string | null) => esc(currentRecordValue(value));
+  let accepted = new Set(changes.map(({ index }) => s.fields[index].name));
   const review = changes
     .map(
-      ({ index, previous, value }) =>
+      ({ index, previous, value, kind }) =>
         `<dt><strong>${esc(fieldLabel(s, s.fields[index].name))}</strong></dt>
-      <dd><small>${esc(t("recordCurrent"))}</small><pre>${showValue(previous)}</pre>
-      <small>${esc(t("recordIncoming"))}</small><pre>${showValue(value)}</pre></dd>`,
+      <dd>${kind ? `<p class="hint">${esc(kind)}</p>` : ""}
+      <small>${esc(t("recordCurrent"))}</small><pre>${showValue(previous)}</pre>
+      <small>${esc(t("recordIncoming"))}</small><pre>${showValue(value)}</pre>
+      ${selective ? `<label class="check"><input type="checkbox" data-record-accept="${index}" ${previous === null && value !== null ? "checked" : ""}> ${esc(t(value === null ? "collectionAcceptClear" : "acceptCandidate"))} · ${esc(fieldLabel(s, s.fields[index].name))}</label>` : ""}</dd>`,
     )
     .join("");
   const choice = await actionDialog(
     "recordReview",
-    `<dl class="record-import-review">${review}</dl>`,
-    `<button value="cancel" autofocus>${esc(t("cancel"))}</button><button value="apply" class="primary">${esc(t("recordApply"))}</button>`,
+    `${selective && changes.length ? `<p>${esc(t("collectionReviewHelp"))}</p>` : ""}
+    ${matching.length ? `<p>${esc(t("candidateMatchingValues"))} · ${esc(matching.map((id) => fieldLabel(s, id)).join(", "))}</p>` : ""}
+    <dl class="record-import-review">${review}</dl>`,
+    `<button value="cancel" autofocus>${esc(t("cancel"))}</button><button value="apply" class="primary">${esc(t(selective ? "collectionApplySelected" : "recordApply"))}</button>`,
+    selective
+      ? (dialog) =>
+          dialog.addEventListener("close", () => {
+            accepted = new Set(
+              [
+                ...dialog.querySelectorAll<HTMLInputElement>(
+                  "[data-record-accept]:checked",
+                ),
+              ].map((box) => s.fields[Number(box.dataset.recordAccept)].name),
+            );
+          })
+      : undefined,
   );
-  return choice === "apply";
+  return choice === "apply" ? accepted : null;
+}
+
+async function reviewRecordChanges(
+  s: Session,
+  changes: ReturnType<typeof planRecordValues>,
+) {
+  return (await chooseRecordChanges(s, changes)) !== null;
+}
+
+async function createCollectionRequest(s: Session) {
+  const scope = currentRecordScope(s);
+  const { questions, gaps } = collectionQuestions(s, scope, [
+    t("booleanYes"),
+    t("booleanNo"),
+  ]);
+  if (!questions.length) throw Error("collectionNoQuestions");
+  let selected = questions;
+  const choice = await actionDialog(
+    "collectionCreate",
+    `<p>${esc(t("collectionQuestionHelp"))}</p>
+    ${gaps.deferred.length ? `<p>${esc(t("collectionDeferred"))}</p>` : ""}
+    ${questions
+      .map((question, index) =>
+        question.required
+          ? `<p><strong>${esc(question.label)}</strong> · ${esc(t("collectionRequiredLabel"))}</p>`
+          : `<label class="check"><input type="checkbox" data-question="${index}" checked> ${esc(question.label)} · ${esc(t("collectionOptionalLabel"))}</label>`,
+      )
+      .join("")}`,
+    `<button value="cancel" autofocus>${esc(t("cancel"))}</button><button value="preview" class="primary">${esc(t("preview"))}</button>`,
+    (dialog) =>
+      dialog.addEventListener("close", () => {
+        selected = questions.filter(
+          (question, index) =>
+            question.required ||
+            dialog.querySelector<HTMLInputElement>(`[data-question="${index}"]`)
+              ?.checked,
+        );
+      }),
+  );
+  if (choice !== "preview") return;
+  const { request, link } = await prepareCollectionRequest(s, scope, selected);
+  const text = JSON.stringify(request, null, 2) + "\n";
+  const confirmed = await actionDialog(
+    "collectionPreview",
+    `<p>${esc(t("collectionPrivacy"))}</p><pre class="output record-data-preview" tabindex="0">${esc(text)}</pre>`,
+    `<button value="cancel" autofocus>${esc(t("cancel"))}</button><button value="save" class="primary">${esc(t("collectionSaveRequest"))}</button>`,
+  );
+  if (confirmed !== "save") return;
+  const draft = structuredClone(s);
+  rememberCollection(draft, link);
+  await commitWorkingRecord(s, draft);
+  if (await platform.exportTemplates(text, `request-${request.requestId}.json`))
+    notify("collectionExported");
+}
+
+async function importCollectionResponse(s: Session) {
+  const text = await platform.importTemplates();
+  if (text === null) return;
+  const response = readCollectionResponse(text);
+  const review = await reviewCollectionResponse(s, response);
+  if (review.status === "duplicate") {
+    notify("collectionDuplicate");
+    return;
+  }
+  const selected = await chooseRecordChanges(
+    s,
+    review.changes,
+    true,
+    review.matching,
+  );
+  if (!selected) return;
+  const draft = structuredClone(s);
+  await applyCollectionResponse(draft, response, selected);
+  await commitWorkingRecord(s, draft);
+  notify("collectionApplied");
+}
+
+async function importTransformations(s: Session) {
+  const text = await platform.importTemplates();
+  if (text === null) return;
+  const changes = planTransformations(s, text);
+  if (!changes.length) {
+    notify("recordNoChanges");
+    return;
+  }
+  const selected = await chooseRecordChanges(s, changes, true);
+  if (!selected?.size) return;
+  const draft = structuredClone(s);
+  applyTransformations(
+    draft,
+    changes.filter(({ index }) => selected.has(s.fields[index].name)),
+  );
+  await commitWorkingRecord(s, draft);
+  notify("recordApplied");
+}
+
+async function approveRecord(s: Session) {
+  let includeHistory = false;
+  const settings = await actionDialog(
+    "recordApproval",
+    `<p>${esc(t("recordApprovalHelp"))}</p>${check("approval-history", "recordIncludeHistory", false)}`,
+    `<button value="cancel" autofocus>${esc(t("cancel"))}</button><button value="preview" class="primary">${esc(t("preview"))}</button>`,
+    (dialog) =>
+      dialog.addEventListener("close", () => {
+        includeHistory =
+          dialog.querySelector<HTMLInputElement>("#approval-history")!.checked;
+      }),
+  );
+  if (settings !== "preview") return;
+  const record = await validatedRecord(
+    s,
+    currentRecordScope(s),
+    includeHistory,
+  );
+  const review = await actionDialog(
+    "recordApproval",
+    `<p>${esc(t("recordApprovalExact"))}</p>
+    <dl class="record-import-review record-data-preview" tabindex="0" aria-label="${esc(t("recordFieldValues"))}">
+      ${Object.entries(record.fields)
+        .map(
+          ([id, value]) =>
+            `<dt>${esc(fieldLabel(s, id))}</dt><dd><pre>${esc(currentRecordValue(value))}</pre></dd>`,
+        )
+        .join("")}
+    </dl>
+    <details><summary>${esc(t("recordExactJSON"))}</summary><pre class="output record-data-preview" tabindex="0" aria-label="${esc(t("recordExactJSON"))}">${esc(JSON.stringify(record, null, 2))}</pre></details>`,
+    `<button value="cancel" autofocus>${esc(t("cancel"))}</button><button value="approve" class="primary">${esc(t("recordApproveExport"))}</button>`,
+  );
+  if (review === "approve")
+    await platform.exportTemplates(
+      JSON.stringify(
+        {
+          ...record,
+          approval: {
+            at: new Date().toISOString(),
+            fingerprint: record.fingerprint,
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+      sourceFilename(s, "json"),
+    );
+}
+
+async function showHistory(s: Session) {
+  const sources: Record<RecordOrigin["source"], Key> = {
+    manual: "recordOriginManual",
+    json: "recordOriginJSON",
+    csv: "recordOriginCSV",
+    mapped: "recordOriginMapped",
+    candidate: "recordOriginCandidate",
+    capture: "recordOriginCapture",
+    default: "recordOriginDefault",
+    collection: "recordOriginCollection",
+    transformation: "recordOriginTransformation",
+  };
+  const entries = Object.entries(
+    fieldsHistory(
+      s,
+      s.fields.map(({ name }) => name),
+    ),
+  );
+  await actionDialog(
+    "recordHistory",
+    entries.length
+      ? entries
+          .map(
+            ([name, { origin, transformations }]) =>
+              `<details><summary>${esc(fieldLabel(s, name))}</summary>
+              <p>${esc(t(sources[origin.source]))}</p>
+              ${origin.requestId ? `<p class="hint">${esc(t("recordOriginRequest"))} <code>${esc(origin.requestId)}</code></p>` : ""}
+              ${origin.responseId ? `<p class="hint">${esc(t("recordOriginResponse"))} <code>${esc(origin.responseId)}</code></p>` : ""}
+              ${
+                transformations
+                  ?.map(
+                    ({ kind, from, to }) =>
+                      `<p class="hint">${esc(kind)}</p><dl class="record-import-review"><dt>${esc(t("recordTransformFrom"))}</dt><dd><pre>${esc(from)}</pre></dd><dt>${esc(t("recordTransformTo"))}</dt><dd><pre>${esc(to)}</pre></dd></dl>`,
+                  )
+                  .join("") ?? ""
+              }
+              </details>`,
+          )
+          .join("")
+      : `<p>${esc(t("recordHistoryEmpty"))}</p>`,
+    `<button value="done" autofocus>${esc(t("keep"))}</button>`,
+  );
+}
+
+async function manageCollectionRequests(s: Session) {
+  const requests = s.recordState?.requests ?? [];
+  const active = requests.filter((request) => !request.closed);
+  const result = await formDialog(
+    t("collectionManage"),
+    [
+      {
+        key: "request",
+        label: t("collectionOpenRequests"),
+        options: [
+          { value: "", label: t("chooseValue") },
+          ...active.map(({ id, applied }) => ({
+            value: id,
+            label: `${id} · ${applied.length}`,
+          })),
+        ],
+      },
+    ],
+    t("collectionCloseRequest"),
+    t("keep"),
+    ({ request }) => (request ? null : t("collectionSelectRequest")),
+  );
+  if (!result) return;
+  const draft = structuredClone(s);
+  closeCollection(draft, result.request);
+  await commitWorkingRecord(s, draft);
+  notify("collectionClosed");
+}
+
+async function recordTools(s: Session) {
+  // Native number inputs may have invalid text that is not represented in the model.
+  const invalid = new Set(
+    [
+      ...root.querySelectorAll<HTMLElement>(
+        '.template-form [data-form-row]:not([hidden]) [aria-invalid="true"][data-control]',
+      ),
+    ].map(({ dataset }) => s.fields[Number(dataset.control)].name),
+  );
+  const gaps = recordGaps(s, currentRecordScope(s));
+  for (const name of gaps.invalid) invalid.add(name);
+  const groups: [Key, string[]][] = [
+    [
+      "collectionRequiredLabel",
+      gaps.missingRequired.filter((id) => !invalid.has(id)),
+    ],
+    [
+      "collectionOptionalLabel",
+      gaps.missingOptional.filter((id) => !invalid.has(id)),
+    ],
+    ["collectionInvalidLabel", [...invalid]],
+    ["collectionVerifyLabel", gaps.pendingVerification],
+    ["collectionDeferredLabel", gaps.deferred],
+  ];
+  const status = groups
+    .filter(([, fields]) => fields.length)
+    .map(
+      ([key, fields]) =>
+        `<dt>${esc(t(key))}</dt><dd>${esc(fields.map((id) => fieldLabel(s, id)).join(", "))}</dd>`,
+    )
+    .join("");
+  const action = (value: string, key: Key, disabled = false) =>
+    `<button value="${value}" ${disabled ? "disabled" : ""}>${esc(t(key))}</button>`;
+  const choice = await actionDialog(
+    "recordTools",
+    `${status ? `<dl class="record-import-review">${status}</dl>` : `<p>${esc(t("collectionNoGaps"))}</p>`}
+    <div class="toolbar">
+    ${action("request", "collectionCreate", !gaps.missingRequired.length && !gaps.missingOptional.length && !gaps.invalid.length)}
+    ${action("response", "collectionImport", !s.recordState?.requests?.length)}
+    ${action("manage", "collectionManage", !s.recordState?.requests?.some(({ closed }) => !closed))}
+    ${action("transform", "recordTransform")}
+    ${action("history", "recordHistory")}
+    ${action("approve", "recordApproval", !gaps.ready || invalid.size > 0)}
+    ${action("save", "savePrefilled")}
+    </div>`,
+    `<button value="done" autofocus>${esc(t("keep"))}</button>`,
+  );
+  switch (choice) {
+    case "request":
+      return createCollectionRequest(s);
+    case "response":
+      return importCollectionResponse(s);
+    case "manage":
+      return manageCollectionRequests(s);
+    case "transform":
+      return importTransformations(s);
+    case "history":
+      return showHistory(s);
+    case "approve":
+      return approveRecord(s);
+    case "save":
+      await platform.exportTemplates(
+        prefilledContent(s),
+        sourceFilename(s, "veraflow"),
+      );
+  }
 }
 
 async function importRecord(s: Session) {
@@ -4390,6 +4720,7 @@ function bindSession() {
   click("batch-compare", () => batchCompare(session!));
   click("extract-source", () => extractSource(session!));
   click("import-record", () => importRecord(session!));
+  click("record-tools", () => recordTools(session!));
   click("custom-form-use-file", () => useCustomFormWithFile(session!));
   click("save-record", async () => {
     const s = session!;
@@ -4852,7 +5183,9 @@ function bindSession() {
   });
   click("mouse-transfer", async () => {
     if (!session || !["capture", "verify"].includes(session.mode)) return;
-    await accept(await platform.mouseTransfer(preserveClipboard));
+    await accept(await platform.mouseTransfer(preserveClipboard), undefined, {
+      source: "capture",
+    });
   });
   click("mouse-back", () => perform("previous"));
   click("mouse-forward", () => perform("next"));
@@ -4930,7 +5263,9 @@ function bindSession() {
       HTMLInputElement | HTMLTextAreaElement;
     await accept(input.value);
   });
-  click("use-clipboard", async () => accept(await platform.readClipboard()));
+  click("use-clipboard", async () =>
+    accept(await platform.readClipboard(), undefined, { source: "capture" }),
+  );
   for (const action of [
     "previous",
     "next",
@@ -4980,6 +5315,7 @@ function bindSession() {
 async function accept(
   value: string,
   advance = library.preferences.autoAdvance,
+  origin?: RecordOrigin,
 ) {
   if (!session || paused) return;
   const activeName = session.fields[session.active]?.name ?? "";
@@ -5010,7 +5346,7 @@ async function accept(
     } else if (["ready", "capture"].includes(session.mode as Session["mode"]))
       reverification = null;
   } else if (session.scanner) captureScanner(session, value, advance);
-  else capture(session, value, advance);
+  else capture(session, value, advance, origin);
   if (session.scanner && session.mode === "ready") session.mode = "capture";
   if (
     focusedWorkflow &&
@@ -5136,9 +5472,13 @@ async function perform(action: Action, global = false, allOutputs = false) {
       if (sourceScannerChoice(s) && s.mode !== "ready")
         throw Error("scannerChooseOption");
       if (s.mode === "verify")
-        await accept(await platform.capture(preserveClipboard), true);
+        await accept(await platform.capture(preserveClipboard), true, {
+          source: "capture",
+        });
       else if (s.mode !== "ready")
-        await accept(await platform.capture(preserveClipboard), true);
+        await accept(await platform.capture(preserveClipboard), true, {
+          source: "capture",
+        });
       return;
     case "verify":
       if (s.mode === "ready") {
@@ -5158,7 +5498,9 @@ async function perform(action: Action, global = false, allOutputs = false) {
       }
       if (s.mode === "verify") {
         if (sourceScannerChoice(s)) throw Error("scannerChooseOption");
-        await accept(await platform.capture(preserveClipboard), true);
+        await accept(await platform.capture(preserveClipboard), true, {
+          source: "capture",
+        });
       }
       return;
     case "previous":
@@ -5500,13 +5842,43 @@ function saveActiveDraft(s: Session) {
     : true;
 }
 
+async function saveWorkingRecord(
+  s: Session,
+  snapshot = s,
+  file = templateDocuments.get(s),
+) {
+  const id = workingRecordIds.get(s) ?? file?.sessionId ?? crypto.randomUUID();
+  await platform.rememberDocument(
+    {
+      id,
+      title: snapshot.template.name,
+      content: prefilledContent(snapshot),
+      outputId: snapshot.outputId,
+      stepIndex: snapshot.stepIndex,
+    },
+    file?.recentToken,
+  );
+  workingRecordIds.set(s, id);
+}
+
+async function commitWorkingRecord(s: Session, snapshot: Session) {
+  // Save a complete reviewed snapshot before replacing the live record.
+  await saveWorkingRecord(s, snapshot);
+  Object.assign(s, snapshot);
+  s.prepared = snapshot.prepared;
+  recentDocuments = await platform.recentDocuments();
+  await refreshTrayMenu().catch(() => {});
+}
+
 async function saveBeforeClose(
   s: Session,
   sourceDocument = templateDocuments.get(s),
 ) {
-  const hasResponses = s.fields.some(
-    (field) => field.value !== null || field.status === "skipped",
-  );
+  const hasResponses =
+    !!s.recordState?.requests?.length ||
+    s.fields.some(
+      (field) => field.value !== null || field.status === "skipped",
+    );
   let parts: Session["prepared"];
   try {
     if (
@@ -5542,16 +5914,7 @@ async function saveBeforeClose(
       sourceFilename(s, "veraflow"),
     );
   if (choice === "recent") {
-    await platform.rememberDocument(
-      {
-        id: sourceDocument?.sessionId ?? crypto.randomUUID(),
-        title: s.template.name,
-        content: prefilledContent(s),
-        outputId: s.outputId,
-        stepIndex: s.stepIndex,
-      },
-      sourceDocument?.recentToken,
-    );
+    await saveWorkingRecord(s, s, sourceDocument);
     recentDocuments = await platform.recentDocuments();
     await refreshTrayMenu().catch(() => {});
     return true;

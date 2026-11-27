@@ -155,3 +155,9 @@ Pausing unregisters session shortcuts and stops that session’s source-window t
 ## Prepared source output and prefilled filenames
 
 Preparing source output adds its rendered text and title to Recent outputs even if you do not copy or paste. The history is local plaintext. Its limit is configurable from 0 to 20, with 5 as the default. Set the limit to 0 or use Clear output history to remove stored results. Returning from the close dialog to the filled form or Scanner keeps the editable responses in the open session. A prefilled file saves those responses explicitly. Its suggested filename uses a sanitized title and UTC timestamp. The native save picker chooses the destination.
+
+## Collection and reviewed records
+
+A public collection request contains requested IDs, authored labels and instructions, applicable constraints, choices, and an opaque request ID. The preview shows what leaves Desktop. Review authored text for sensitive details. Keep the private working form, responses, and exports with field history separate from the public request. The private form may retain prior values and response IDs. VeraFlow uses local snapshots and does not host or send collection files. Use the newest saved private copy when resuming. Keep an explicit private backup for requests that outlive the recent forms list.
+
+Responses and transformations are untrusted inputs. VeraFlow validates format, scope and correlation before review. It never treats an incoming provenance or response claim as verification. The approved-record fingerprint binds the exported snapshot but does not authenticate its author or recipient. See the [exchange and recovery rules](record-interoperability.md).

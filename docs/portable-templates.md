@@ -143,3 +143,7 @@ For an additive import, validate the incoming graph, including ID uniqueness, de
 - VeraFlow session entry may treat a blank as unset. Scanner can explicitly skip a legacy placeholder. Verification can block output until a user checks a value. These are app policies. Exchange data preserves absence and explicit empty strings, and portable rendering takes resolved input strings directly.
 - The first profile covers the documented directive syntax and the shared cases. Error precedence for inputs with multiple independent problems, malformed directive recovery, locale-specific input widgets, application byte/count limits, and native clipboard behavior are outside the shared fixtures. The small Python reader renders valid definitions and exercises fixture errors. It leaves full archive validation and workspace merging to importers.
 - Version 1 is retained for both envelopes. Support for current dynamic directives depends on the implementation. Older VeraFlow versions can reject newer metadata or treat an unknown directive as a field. A format version alone does not guarantee every feature is supported.
+
+### Optional working-record exchange
+
+The separate [collection and reviewed-record contracts](record-interoperability.md#exchange-v1) support staged requests, correlated responses and validated snapshots. The portable template and flat record contracts above still apply. Private `recordState` in a Desktop prefilled form is optional and carries collection and provenance metadata for that working copy.

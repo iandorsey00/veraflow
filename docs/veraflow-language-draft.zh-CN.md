@@ -226,3 +226,7 @@ VeraFlow 支持手动输入、选中文字采集、带标签的文本、CSV 以�
 表单和追加行共享当前记录。浏览 CSV 时保留草稿并记住当前行。选择 **在表单中使用此行** 可编辑当前行，替换已有草稿前会确认。CSV 导入的数据需要重新核对。
 
 可试用[发货记录模板](../examples/source/shipment-log.veraflow)及[配套 CSV](../examples/source/shipment-log.csv)的副本。
+
+## 按需收集与工作记录
+
+缺项分析使用原生字段声明和输出条件。收集问题使用原有字段的 `label` 和 `instructions`。控制条件未确定时，相应分支的字段暂缓收集。请先审阅控制字段的答复，再生成下一次请求。预填文件可包含私有的 `recordState` v1，保存请求关联和字段历史。可复用表单定义不会导出该状态。[记录交换规范](record-interoperability.zh-CN.md)

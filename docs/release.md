@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.26.0 selective collection and reviewed records
+
+Full release cycle for new JSON exchange formats and private working-record persistence. On packaged Windows and macOS, follow the [fictional employment walkthrough](record-interoperability.md). Export a minimal request, close and reopen the working record, review a response, and check that a repeated import leaves the saved values alone. Inspect the approved JSON before sending it to the local demo adapter.
+
+Before rolling back to [0.25.1](https://github.com/iandorsey00/veraflow/releases/tag/v0.25.1), keep the latest private prefilled form and any outstanding requests separately. Export the reusable form definition and flat record for use in 0.25.1. Resume outstanding collections from their saved copies in 0.26.0 or later.
+
 ## 0.25.1 desktop appearance
 
 Proportional release cycle for desktop styling, icon assets, and localized branding. Use [Shipment follow-up](../examples/source/shipment-steps.veraflow) to check verification and preview in a narrow window, then try Light, Dark, and System appearance. To roll back, reinstall [0.25.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.25.0). Existing forms and saved records use the same formats.
@@ -245,7 +251,7 @@ Full release cycle (FRC): the complete first MVP was uncommitted, including secu
 
 ## Install and upgrade
 
-Close VeraFlow, back up `library.json` from the OS app-data directory, then replace the app/installer with the intended version. On macOS keep the app at a stable location such as Applications before granting Accessibility access. Confirm the new version launches, templates load, and capture permissions still work. Sessions are intentionally not recoverable after exit.
+Close VeraFlow, back up `library.json` from the OS app-data directory, then replace the app/installer with the intended version. On macOS keep the app at a stable location such as Applications before granting Accessibility access. Confirm the new version launches, templates load, and capture permissions still work. Save active work to Recent Forms or a private prefilled file before exiting.
 
 ## Rollback
 

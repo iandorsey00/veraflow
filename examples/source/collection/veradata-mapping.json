@@ -1,0 +1,22 @@
+{
+  "format": "veraflow-record-mapping",
+  "version": 1,
+  "fields": {
+    "full_name": {
+      "select": { "path": ["records"], "where": { "kind": "contact" } },
+      "path": ["fields", "name"],
+      "required": true
+    },
+    "employer": {
+      "select": { "path": ["records"], "where": { "kind": "employment" } },
+      "path": ["fields", "employer"],
+      "required": true
+    },
+    "employment_status": {
+      "select": { "path": ["records"], "where": { "kind": "employment" } },
+      "path": ["fields", "endDate"],
+      "values": { "Present": "employed" },
+      "required": true
+    }
+  }
+}

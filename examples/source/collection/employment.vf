@@ -1,0 +1,39 @@
+--- veraflow 2
+{
+  "title": "Employment intake / 就业信息采集",
+  "instructions": "A fictional record for selective collection practice.",
+  "fields": {
+    "full_name": {"type":"text","label":"姓名"},
+    "employment_status": {
+      "type":"radio",
+      "label":"就业状态",
+      "options":[
+        {"id":"employed","label":"在职","output":"Employed"},
+        {"id":"self_employed","label":"自雇","output":"Self-employed"},
+        {"id":"unemployed","label":"待业","output":"Unemployed"}
+      ]
+    },
+    "employer": {"type":"text","label":"用人单位"},
+    "job_title": {"type":"text","label":"职位","instructions":"请填写现任职位。","verify":true},
+    "business": {"type":"text","label":"业务名称"},
+    "incorporated": {"type":"boolean","label":"公司已注册"},
+    "registration": {"type":"text","label":"注册号"},
+    "seeking_role": {"type":"text","label":"希望从事的职业","optional":true},
+    "comments": {"type":"textarea","label":"补充说明","optional":true,"allowBlankLines":false}
+  }
+}
+---
+Name: {{full_name}}
+Employment: {{employment_status}}
+{{#when employment_status=employed}}
+Employer: {{employer}}
+Title: {{job_title}}
+{{else if employment_status=self_employed}}
+Business: {{business}}
+{{#when incorporated}}
+Registration: {{registration}}
+{{/when}}
+{{else}}
+Seeking: {{seeking_role}}
+{{/when}}
+Comments: {{comments}}

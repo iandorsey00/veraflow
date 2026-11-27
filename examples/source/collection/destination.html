@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fictional employment intake</title>
+  <style>
+    body {
+      font:
+        1rem/1.5 system-ui,
+        sans-serif;
+      max-width: 36rem;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    label {
+      display: block;
+      margin: 1rem 0;
+    }
+    input,
+    select,
+    textarea {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      font: inherit;
+    }
+  </style>
+  <h1>Fictional employment intake</h1>
+  <p>Local demonstration. Submission is simulated and sends no information.</p>
+  <form id="intake">
+    <label>Full name <input name="name" required /></label>
+    <label for="employment">Employment</label>
+    <select id="employment" name="employment" required>
+      <option value="">Select status</option>
+      <option value="employed">Employed</option>
+      <option value="self_employed">Self-employed</option>
+      <option value="unemployed">Unemployed</option>
+    </select>
+    <div data-branch="employed" hidden>
+      <label>Employer <input name="employer" /></label>
+      <label>Job title <input name="title" /></label>
+    </div>
+    <div data-branch="self_employed" hidden>
+      <label>Business name <input name="business" /></label>
+      <label for="registered">Registered</label>
+      <select id="registered" name="registered">
+        <option value="">Select</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+      <label id="registration-row" hidden
+        >Registration number <input name="registration"
+      /></label>
+    </div>
+    <div data-branch="unemployed" hidden>
+      <label>Role sought <input name="seeking" /></label>
+    </div>
+    <label>Comments <textarea name="comments"></textarea></label>
+    <button type="submit">Review submission</button>
+    <output id="submission" role="status"></output>
+  </form>
+  <script>
+    const form = document.getElementById("intake");
+    form.addEventListener("change", () => {
+      for (const panel of form.querySelectorAll("[data-branch]")) {
+        panel.hidden = panel.dataset.branch !== form.elements.employment.value;
+      }
+      document.getElementById("registration-row").hidden =
+        form.elements.registered.value !== "true";
+    });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      document.getElementById("submission").textContent =
+        "Simulated submission reached.";
+    });
+  </script>
+</html>

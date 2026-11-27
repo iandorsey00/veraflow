@@ -34,3 +34,7 @@ python3 examples/portable/reader.py examples/portable/booking-template.json exam
 旧版工作区 JSON 保存文件夹、数据表、行和片段。内部 ID 区分大小写且全局唯一，外部引用是描述性标签和值。缺失字段以省略键表示，空字符串是明确留空。`null` 对旧版工作区值无效。导入先验证引用，再为冲突的内部 ID 分配新 ID，并同步更新归档内的引用。已有记录保留。当前 VeraFlow 直接从文件读取选中的 CSV 行。可用[示例 CSV](../examples/portable/bookings.csv)和[旧版工作区归档](../examples/portable/booking-workspace.json)查看数据结构。
 
 实现其他读取器时，请对照[完整字段结构、错误规则和兼容性说明（英文）](portable-templates.md)。
+
+### 可选的工作记录交换
+
+[收集及已审阅记录规范](record-interoperability.zh-CN.md#交换格式-v1)支持分阶段收集、关联答复和已校验快照。原有的可移植模板和扁平记录规范仍然适用。桌面版预填表单中的私有 `recordState` 为可选项，用于保留当前工作副本的收集及来源元数据。

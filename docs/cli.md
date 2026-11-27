@@ -55,3 +55,9 @@ These examples use fictional data supplied in the checkout.
 Treat stdout as the result and stderr as diagnostics. JSON envelopes such as `veraflow-form-info`, `veraflow-render`, and `veraflow-error` have a `format` and `version`. With `--json-errors`, a failure produces one JSON object on stderr and exits with a nonzero status. Branch on `error.code`. Some errors add `field`, `fields`, `line`, or `outputId`. Use the message for display.
 
 The CLI runs locally. It reads the files you pass explicitly. For a CSV, select a row and pipe it into a form that accepts JSON records. The linked-CSV browser and interactive capture are available in Desktop. For `pdf` with stdin, supply `--output`. Use trusted templates and data when converting to PDF, and pass `--force` only when replacing an existing PDF is intentional.
+
+## Collect and review a working record
+
+Use `gaps FORM [--record RECORD] [--output-id ID | --step N]` to report incomplete work on stdout with exit status 0. Use `collection-request`, `collection-inspect`, `collection-respond`, `collection-review`, `collection-apply`, and `collection-close` for the exchange. The request command requires `--output PRIVATE.vf` to save the private state; stdout contains only the public request. Apply echoes an updated prefilled form and requires `--accept` after review. Use `map SOURCE MAPPING` for flat JSON or add `--form FORM` to preserve mapping provenance in a prefilled form.
+
+`transformation-review` and `transformation-apply` use a proposal and the current prefilled form. `record-export` checks readiness for a scope and emits a fingerprinted snapshot. Include history only with `--include-history`. `record-inspect` checks the fingerprint of reviewed JSON. CLI validation does not record human approval. Follow the [complete fictional walkthrough and v1 exchange rules](record-interoperability.md).

@@ -1,4 +1,4 @@
-import { parse, type ValueNode } from "@humanwhocodes/momoa";
+import { readExchangeJSON } from "./exchange-json";
 import { indexLabeledLines, sourceLabels, type SourceField } from "./batch";
 import { normalizeText, validControlValue, type Control } from "./form";
 import type { Session } from "./model";
@@ -137,25 +137,7 @@ export function candidateFile(candidates: ReadonlyMap<string, Candidate>) {
 function strictJSON(text: string): unknown {
   if (new TextEncoder().encode(text).length > candidateFileLimit)
     throw Error("candidateLimit");
-  function check(node: ValueNode, depth: number) {
-    if (depth > 8) throw Error("invalidCandidateFile");
-    if (node.type === "Object") {
-      const names = new Set<string>();
-      for (const { name, value } of node.members) {
-        if (name.type !== "String" || names.has(name.value))
-          throw Error("invalidCandidateFile");
-        names.add(name.value);
-        check(value, depth + 1);
-      }
-    } else if (node.type === "Array")
-      for (const { value } of node.elements) check(value, depth + 1);
-  }
-  try {
-    check(parse(text).body, 1);
-    return JSON.parse(text);
-  } catch {
-    throw Error("invalidCandidateFile");
-  }
+  return readExchangeJSON(text, candidateFileLimit, "invalidCandidateFile", 8);
 }
 
 function object(value: unknown, allowed?: string[]): Record<string, unknown> {

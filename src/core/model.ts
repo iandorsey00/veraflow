@@ -122,8 +122,10 @@ export type Field = {
   status: "empty" | "captured" | "verified" | "mismatch" | "skipped";
   candidate?: string;
   checkedByTyping?: boolean;
+  recordInput?: true;
 };
 export type Session = {
+  recordState?: import("./record-state").RecordState;
   unifiedForm?: boolean;
   readOnlySource?: boolean;
   scanner?: boolean;

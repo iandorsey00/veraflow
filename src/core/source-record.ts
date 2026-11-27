@@ -4,6 +4,7 @@ import type { Session } from "./model";
 import {
   parseSource,
   prefillSource,
+  sourceDefinitionText,
   sourceOutput,
   SourceSyntaxError,
 } from "./source";
@@ -22,9 +23,21 @@ export function recordValues(s: Session) {
 }
 
 export function prefilledContent(s: Session) {
+  const values = recordValues(s);
+  const responses = new Map(
+    s.fields.flatMap((field) => {
+      const value = values.get(field.name)!;
+      return field.recordInput ||
+        field.status === "skipped" ||
+        field.status === "verified" ||
+        (value !== null && value !== s.controls?.get(field.name)?.defaultValue)
+        ? [[field.name, value] as const]
+        : [];
+    }),
+  );
   return prefillSource(
     s.template.content,
-    recordValues(s),
+    responses,
     s.unifiedForm || s.typing ? "form" : "scanner",
     s.template.name.slice(0, 250).trim(),
     new Map(
@@ -37,6 +50,24 @@ export function prefilledContent(s: Session) {
     s.unifiedForm && parseSource(s.template.content).workflow === "scanner"
       ? s.template.verificationEnabled
       : undefined,
+    s.recordState,
+  );
+}
+
+export function workingDefinition(s: Session) {
+  const legacyVerifyDefault =
+    s.unifiedForm && parseSource(s.template.content).workflow === "scanner"
+      ? s.template.verificationEnabled
+      : undefined;
+  return sourceDefinitionText(
+    prefillSource(
+      s.template.content,
+      new Map(),
+      s.unifiedForm || s.typing ? "form" : "scanner",
+      s.template.name.slice(0, 250).trim(),
+      new Map(),
+      legacyVerifyDefault,
+    ),
   );
 }
 
@@ -183,6 +214,29 @@ export function recordFormSource(
   return content;
 }
 
+export type RecordChange = {
+  index: number;
+  previous: string | null;
+  value: string | null;
+};
+
+export function normalizeRecordValue(
+  session: Session,
+  name: string,
+  value: string | null,
+) {
+  const control = session.controls?.get(name);
+  const incoming = value === null ? null : normalizeText(control, value);
+  if (
+    incoming !== null &&
+    (incoming.includes("\0") ||
+      incoming.length > recordInputLimit ||
+      (control && !validStoredValue(control, incoming)))
+  )
+    throw Error("recordInvalidField:" + name);
+  return incoming;
+}
+
 export function planRecordValues(
   session: Session,
   values: ReadonlyMap<string, string | null>,
@@ -190,24 +244,12 @@ export function planRecordValues(
   const indices = new Map(
     session.fields.map((field, index) => [field.name, index]),
   );
-  const changes: {
-    index: number;
-    previous: string | null;
-    value: string | null;
-  }[] = [];
+  const changes: RecordChange[] = [];
   for (const [name, value] of values) {
     const index = indices.get(name);
     if (index === undefined) throw Error("recordUnknownField:" + name);
     const field = session.fields[index];
-    const control = session.controls?.get(field.name);
-    const incoming = value === null ? null : normalizeText(control, value);
-    if (
-      incoming !== null &&
-      (incoming.includes("\0") ||
-        incoming.length > 1024 * 1024 ||
-        (control && !validStoredValue(control, incoming)))
-    )
-      throw Error("recordInvalidField:" + field.name);
+    const incoming = normalizeRecordValue(session, field.name, value);
     const previous = field.status === "skipped" ? "" : field.value;
     if (previous !== incoming)
       changes.push({ index, previous, value: incoming });
