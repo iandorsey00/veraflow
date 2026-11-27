@@ -1,5 +1,9 @@
 # Validation record
 
+## 0.25.1 release preparation
+
+Passed 102 TypeScript unit tests, 102 browser tests, 24 Rust tests, and nine portable rendering fixtures. The frontend build, formatting, version metadata, and isolated test configuration checks passed. Browser review confirmed the English and Simplified Chinese names, Light, Dark, and System appearance, a 300-pixel form, field verification, and named output preparation. Native window appearance and packaged installer checks are pending.
+
 ## 0.25.0 release preparation
 
 Passed 102 TypeScript tests, 102 browser tests, 24 Rust tests, nine portable rendering fixtures, and the macOS native text conversion check. Verified the documented extraction, candidate validation, record validation, and structured render commands. The installed-tools test preserved an existing PDF after a failed conversion. The macOS CLI generated a one-page résumé from stdin with Helvetica, extractable Chinese text, and its portfolio link.

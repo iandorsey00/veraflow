@@ -555,7 +555,7 @@ export const en = {
     "Paste or navigation could not be confirmed. Check focus, permissions, and the destination before retrying; text may already have been pasted.",
   manualEntry: "Enter value manually",
   skipConfirm: "Clear this value and skip the field?",
-  app: "VeraFlow 核流",
+  app: "VeraFlow",
   templates: "Templates",
   settings: "Settings",
   about: "About",

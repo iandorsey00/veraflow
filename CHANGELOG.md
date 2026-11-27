@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.1
+
+- Refine the Desktop library, editor, and forms with white panes in light mode, clearer section titles, and blue selections and actions.
+- Improve narrow-window layout and make the active step, keyboard focus, and output easier to find.
+- Match the VeraFlow icon’s stroke and symbol height to VeraData’s. Show 核流 in the Simplified Chinese interface.
+
 ## 0.25.0
 
 - Expand the source-checkout CLI to inspect forms, validate or merge JSON and JSON5 records, review extraction evidence, read CSV rows, and render outputs.

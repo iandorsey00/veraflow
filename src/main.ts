@@ -463,7 +463,7 @@ function render() {
   rememberManualDraft();
   applyAppearance();
   root.className = view === "session" && !templateFormActive() ? "compact" : "";
-  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">VeraFlow <span lang="zh-CN">核流</span></span><nav aria-label="${esc(t("app"))}">${view !== "settings" && availableUpdate && !testBuild ? button("update-recent", "updateApp", "primary") : ""}${view !== "recent" ? button("nav-recent", "recentForms") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
+  root.innerHTML = `${view !== "session" ? `<header class="appbar"><span class="wordmark">${esc(t("app"))}</span><nav aria-label="${esc(t("app"))}">${view !== "settings" && availableUpdate && !testBuild ? button("update-recent", "updateApp", "primary") : ""}${view !== "recent" ? button("nav-recent", "recentForms") : ""}${button("nav-settings", "settings", view === "settings" ? "selected" : "")}</nav></header>` : ""}
     ${testBuild ? `<aside class="preview-banner" role="status">${esc(t("testBuildNotice"))} · ${esc(appVersion)} · ${esc(buildCommit)}</aside>` : ""}
     ${!desktop ? `<aside class="preview-banner">${esc(t("browserPreview"))}</aside>` : ""}
     <div id="notice" role="${failure ? "alert" : "status"}" class="notice ${failure ? "error" : "success"}" ${message ? "" : "hidden"}>${esc(message)}</div>
@@ -952,7 +952,7 @@ function libraryView(): string {
         a.folder.localeCompare(b.folder, library.preferences.language) ||
         a.name.localeCompare(b.name, library.preferences.language),
     );
-  return `<div class="library-layout"><aside class="sidebar"><div class="section-head"><h1>${esc(t("templates"))}</h1>${button("new", "newTemplate", "primary", locked)}</div>
+  return `<div class="library-layout"><aside class="sidebar"><div class="section-head"><h1>${esc(t("templates"))}</h1>${button("new", "newTemplate", "", locked)}</div>
     <label class="sr-only" for="search">${esc(t("search"))}</label><input type="search" id="search" placeholder="${esc(t("search"))}" value="${esc(search)}">
     <label class="sr-only" for="folder-filter">${esc(t("folder"))}</label><select id="folder-filter"><option value="">${esc(t("allFolders"))}</option>${[
       ...new Set(library.templates.map((x) => x.folder).filter(Boolean)),
@@ -963,8 +963,8 @@ function libraryView(): string {
           `<option ${name === folder ? "selected" : ""}>${esc(name)}</option>`,
       )
       .join("")}</select>
-    <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${captureFieldNames(item).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
-    <div class="toolbar template-transfer">${button("open-document", "openDocument", "primary")}${button("open-source", "openSource", "", locked)}${button("import-template", "importTemplate", "", locked)}${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
+    <div class="template-list">${items.map((item) => `<button class="template-item ${selected === item.id ? "selected" : ""}" data-template="${esc(item.id)}" ${selected === item.id ? 'aria-current="true"' : ""}><strong>${esc(item.name)}</strong><span>${esc(item.folder)}${item.folder ? " · " : ""}${captureFieldNames(item).length} ${esc(t("fieldCount"))}</span></button>`).join("") || `<p class="muted">${esc(t(library.templates.length ? "noResults" : "noTemplates"))}</p>`}</div>
+    <div class="toolbar template-transfer">${button("open-document", "openDocument")}${button("open-source", "openSource", "", locked)}${button("import-template", "importTemplate", "", locked)}${button("import-templates", "importTemplates", "", locked)}${button("export-templates", "exportTemplates", "", !library.templates.length)}</div><p class="sidebar-note">${esc(t("workflow"))}</p></aside>
     <main class="editor">${!session && lastTemplate ? sessionRecovery() : ""}${locked ? `<p role="alert">${esc(t("readOnly"))}</p>` : draft ? selectedTemplateView() : `<div class="empty-state"><p class="eyebrow">${esc(t("library"))}</p><h2>${esc(t("tagline"))}</h2><p>${esc(t("createHint"))}</p>${button("empty-new", "newTemplate", "primary")}</div>`}</main></div>`;
 }
 function comparisonView(rules: Comparison, prefix: string): string {
@@ -983,10 +983,10 @@ function libraryFormButtons() {
   );
 }
 function selectedTemplateView(): string {
-  if (!focusedWorkflow)
-    return `<div id="template-preview">${outputPreview(draft!)}</div>${editorView()}`;
-  return `<h2>${esc(draft!.name)}</h2>
-    <div id="template-preview">${outputPreview(draft!)}</div>
+  const title = `<h2 id="editor-title" class="editor-title">${esc(draft!.name.trim() || t("newTemplate"))}</h2>`;
+  const preview = `<div id="template-preview">${outputPreview(draft!)}</div>`;
+  if (!focusedWorkflow) return `${title}${editorView()}${preview}`;
+  return `${title}${preview}
     <div class="actions">${libraryFormButtons()}</div>
     <details id="template-edit" ${templateEditorOpen || dirty ? "open" : ""}>
       <summary>${esc(t("editTemplate"))}</summary>
@@ -996,16 +996,15 @@ function selectedTemplateView(): string {
 function editorView(): string {
   const d = draft!;
   if (d.placeholderStyle === "source") {
-    return `<div class="toolbar">${button("export-source", "exportSource")}${button("export-template", "exportTemplate")}${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div>
-      ${field("template-name", "name", d.name, 'maxlength="250"')}
-      ${field("template-folder", "folder", d.folder, 'maxlength="250"')}
+    return `<div class="toolbar editor-tools">${button("export-source", "exportSource")}${button("export-template", "exportTemplate")}${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div>
+      <div class="metadata"><div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
       <label for="template-content">${esc(t("sourceText"))}</label>
-      <textarea id="template-content" rows="12" spellcheck="false">
+      <textarea id="template-content" class="code" rows="10" spellcheck="false">
 ${esc(d.content)}</textarea><ol id="field-order" class="sr-only"></ol>
       <details><summary>${esc(t("templateSettings"))}</summary>${check("template-verify", "verificationEnabled", d.verificationEnabled)}${check("typing-verify", "typingVerification", d.typingVerification ?? false)}${comparisonView(d.comparison, "template")}</details>
       <div class="actions">${button("save", "save")}${button("source-csv", "sourceCSV")}${focusedWorkflow ? "" : libraryFormButtons()}</div>`;
   }
-  return `<div class="section-head"><p class="eyebrow">${esc(t("library"))}</p><div class="toolbar">${button("export-template", "exportTemplate")}${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div></div>
+  return `<div class="toolbar editor-tools">${button("export-template", "exportTemplate")}${button("duplicate", "duplicate")}${button("delete", "delete", "danger")}</div>
   <div class="metadata"> <div>${field("template-name", "name", d.name, 'maxlength="250"')}</div><div>${field("template-folder", "folder", d.folder, 'maxlength="250"')}</div></div>
   <label for="placeholder-style">${esc(t("placeholderStyle"))}</label><select id="placeholder-style"><option value="braces" ${d.placeholderStyle === "braces" ? "selected" : ""}>${esc(t("bracesStyle"))}</option><option value="angle" ${d.placeholderStyle !== "braces" ? "selected" : ""}>${esc(t("angleStyle"))}</option></select><p class="hint">${esc(t("escapeHelp"))}</p>
   ${check("email-enabled", "emailMode", d.email?.enabled ?? false)}
@@ -1530,6 +1529,8 @@ function bindLibrary() {
   if (!draft) return;
   on("template-name", "input", (e) => {
     draft!.name = (e.target as HTMLInputElement).value;
+    document.getElementById("editor-title")!.textContent =
+      draft!.name.trim() || t("newTemplate");
     dirty = true;
   });
   on("template-folder", "input", (e) => {

@@ -508,7 +508,7 @@ fn main() {
             } else {
                 tray
             };
-            tray.tooltip("VeraFlow 核流")
+            tray.tooltip("VeraFlow")
                 .on_menu_event(|app, event| {
                     let id = event.id.as_ref();
                     if let Some(w) = app.get_webview_window("main") {

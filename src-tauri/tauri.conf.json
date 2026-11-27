@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "VeraFlow",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "identifier": "com.veraflow.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "VeraFlow \u6838\u6d41",
+        "title": "VeraFlow",
         "width": 1040,
         "height": 740,
         "minWidth": 300,

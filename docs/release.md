@@ -2,6 +2,10 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.25.1 desktop appearance
+
+Proportional release cycle for desktop styling, icon assets, and localized branding. Use [Shipment follow-up](../examples/source/shipment-steps.veraflow) to check verification and preview in a narrow window, then try Light, Dark, and System appearance. To roll back, reinstall [0.25.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.25.0). Existing forms and saved records use the same formats.
+
 ## 0.25.0 automation CLI and résumé layout
 
 Full release cycle for the expanded CLI and the shared prefilled-form export. Verify the [CLI guide](cli.md) examples against the source checkout. On macOS, run the [PDF walkthrough](../examples/source/pdf-demo.md) and check the Helvetica résumé layout, links, and Chinese text. On Windows, run the record validation and structured render examples with Node.js.
