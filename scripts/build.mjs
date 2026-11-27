@@ -22,6 +22,16 @@ const runtime = await build({
   format: "iife",
   write: false,
 });
+const collection = await build({
+  ...options,
+  entryPoints: ["src/questionnaire.ts"],
+  format: "iife",
+  write: false,
+});
+const collectionScript = inline(
+  "\n" + collection.outputFiles[0].text.trimEnd() + "\n    ",
+  "script",
+);
 const css = inline(
   "\n" + (await readFile("src/style.css", "utf8")).trimEnd() + "\n    ",
   "style",
@@ -33,6 +43,8 @@ const script = inline(
 const license = await readFile("vendor/veraflow/LICENSE", "utf8");
 const momoaLicense = await readFile("vendor/momoa-LICENSE", "utf8");
 const define = {
+  COLLECTION_RUNTIME: JSON.stringify(collectionScript),
+  COLLECTION_SCRIPT_HASH: JSON.stringify(hash(collectionScript)),
   EXPORT_LICENSES: JSON.stringify(license + "\n" + momoaLicense),
   FORM_RUNTIME: JSON.stringify(script),
   FORM_STYLE: JSON.stringify(css),

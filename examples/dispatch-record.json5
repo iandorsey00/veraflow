@@ -1,0 +1,10 @@
+{
+  // Keep identifiers quoted so leading zeroes stay intact.
+  reference: '000184',
+  contact: '林晓 / Alex Lin',
+  destination: 'North Depot',
+  packages: 3,
+  priority: true,
+  notes: 'Leave at the front desk.\nAsk for a receipt.',
+  tracking: null,
+}

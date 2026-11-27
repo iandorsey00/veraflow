@@ -374,19 +374,28 @@ test("prefill is opt-in and discards saved verification while preserving explici
     "captured",
   );
 
-  const record = join(directory, "invalid.json");
-  for (const invalid of [
-    '{"legal_name":"First","legal_name":"Second"}',
-    '{"legal_name":"Drew",}',
-    '{legal_name: "Drew"}',
+  const record = join(directory, "record.json5");
+  for (const [invalid, message] of [
+    ['{"legal_name":"First","legal_name":"Second"}', /legal_name occurs more than once/],
+    ['{legal_name: {name: "Drew"}}', /legal_name contains an object or array/],
+    ['{legal_name: Infinity}', /legal_name needs a finite number/],
+    ['{Legal_name: "Drew"}', /Unknown field Legal_name/],
   ]) {
     await writeFile(record, invalid);
     assert.throws(
       () =>
         run(input, join(directory, "invalid.html"), ["--responses", record]),
-      /Choose a strict JSON record/,
+      message,
     );
   }
+
+  await writeFile(record, "{legal_name: 'Drew',}");
+  const json5 = join(directory, "json5.html");
+  run(input, json5, ["--responses", record]);
+  const imported = core.parseSource(embeddedTemplate(await readFile(json5, "utf8")).content);
+  assert.equal(imported.responses.get("legal_name"), "Drew");
+  assert.equal(imported.responses.get("moving_reason"), null);
+  assert.equal(imported.responses.get("reason_en"), "");
 });
 
 test("the bilingual housing form renders desktop outputs and its response JSON can be reviewed and merged", async (t) => {
@@ -447,6 +456,7 @@ test("the bilingual housing form renders desktop outputs and its response JSON c
   verifyName("Drew Example");
   assert.deepEqual(core.formAttention(s), []);
   core.activateFormStep(s, 1);
+  assert.equal(s.outputId, "review");
   const reason = s.fields.findIndex((field) => field.name === "reason_en");
   s.active = reason;
   const english = "My current home is too far from work.";
@@ -471,7 +481,7 @@ test("the bilingual housing form renders desktop outputs and its response JSON c
     ...template,
     content: await readFile(housingExample, "utf8"),
   });
-  const changes = desktop.planRecordMerge(target, responseJson(s, included));
+  const changes = desktop.planRecordValues(target, desktop.readRecordInput(responseJson(s, included)));
   assert.ok(
     changes.some(
       ({ index, previous, value }) =>
@@ -505,9 +515,9 @@ test("the bilingual housing form renders desktop outputs and its response JSON c
     moving_reason: null,
     reason_en: "",
   });
-  const sparseChanges = desktop.planRecordMerge(
+  const sparseChanges = desktop.planRecordValues(
     target,
-    responseJson(s, included),
+    desktop.readRecordInput(responseJson(s, included)),
   );
   assert.ok(
     !sparseChanges.some(
@@ -737,10 +747,10 @@ test("display replacement candidates stay separate from the desktop response rou
   const response = JSON.stringify(Object.fromEntries(values));
   const desktopSession = desktopCoreApi.startSession(template);
   assert.throws(
-    () => desktopCoreApi.planRecordMerge(desktopSession, callFile),
-    /recordUnknownField|invalidImport/,
+    () => desktopCoreApi.readRecordInput(callFile),
+    /recordInputNested/,
   );
-  const changes = desktopCoreApi.planRecordMerge(desktopSession, response);
+  const changes = desktopCoreApi.planRecordValues(desktopSession, desktopCoreApi.readRecordInput(response));
   assert.equal(
     desktopCoreApi.recordValues(desktopSession).get("serial_number"),
     null,
@@ -758,4 +768,93 @@ test("display replacement candidates stay separate from the desktop response rou
     desktopSession.fields.find(({ name }) => name === "serial_number").status,
     "captured",
   );
+});
+
+test("dispatch exchange shares candidate fields, response values, and ordered output JSON with Desktop", async (t) => {
+  const directory = await sandbox(t);
+  const form = fileURLToPath(new URL("../examples/dispatch-exchange.vf", import.meta.url));
+  const lead = fileURLToPath(new URL("../examples/dispatch-exchange.txt", import.meta.url));
+  const html = join(directory, "dispatch.html");
+  run(form, html);
+  const core = await loadCore(vendoredCore);
+  const template = embeddedTemplate(await readFile(html, "utf8"));
+  const session = core.startSession(template);
+  const source = core.parseSource(template.content);
+  session.unifiedForm = true;
+  core.prepareWorkflow(session, true);
+  assert.equal(source.defaultOutput, "log");
+  const fields = core.extractionFields(session);
+  assert.deepEqual(fields.fields.map(({ id }) => id), ["route", "reference", "tracking", "delivery_code"]);
+  assert.deepEqual(fields.fields[0].options.map(({ id }) => id), ["ground", "air"]);
+
+  function desktopCli(...args) {
+    return execFileSync(process.execPath, [
+      resolve(desktop, "scripts/veraflow"), ...args,
+    ], { encoding: "utf8" });
+  }
+  const sourceText = await readFile(lead, "utf8");
+  const candidateFields = core.candidateFields(session);
+  const localCandidates = core.candidateFile(core.extractCandidates(candidateFields, sourceText));
+  const candidateJson = desktop ? desktopCli("extract", lead, form) : JSON.stringify(localCandidates);
+  if (desktop) {
+    assert.deepEqual(JSON.parse(desktopCli("fields", form)), JSON.parse(JSON.stringify(fields)));
+  }
+  const reviewed = core.importCandidateFile(candidateFields, candidateJson, sourceText);
+  assert.equal(JSON.stringify(core.candidateFile(reviewed)), JSON.stringify(localCandidates));
+  assert.equal(reviewed.get("reference").alternatives[0].evidence[0].quote, "Reference: 000184");
+  const selected = new Map([
+    ["reference", reviewed.get("reference").alternatives[0].value],
+    ["route", reviewed.get("route").alternatives[0].value],
+  ]);
+  core.applyRecordChanges(session, core.planRecordValues(session, selected));
+  const optionalValues = core.readRecordInput("{tracking: null, delivery_code: '',}");
+  core.applyRecordChanges(session, core.planRecordValues(session, optionalValues));
+
+  const module = await build({
+    stdin: {
+      contents: 'export * from "./src/responses"; export * from "./src/output-json";',
+      resolveDir: process.cwd(),
+    },
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    write: false,
+  });
+  const { responseJson, outputJson } = await import(
+    `data:text/javascript;base64,${Buffer.from(module.outputFiles[0].contents).toString("base64")}`
+  );
+  const response = responseJson(session, new Set([...selected.keys(), ...optionalValues.keys()]));
+  assert.deepEqual(JSON.parse(response), {
+    reference: "000184",
+    route: "ground",
+    tracking: null,
+    delivery_code: "",
+  });
+  const outputs = source.outputs.map(({ id, label }) => ({
+    id,
+    label,
+    sections: core.prepareSections({ ...session, outputId: id }),
+  }));
+  const single = JSON.parse(outputJson([outputs[1]]));
+  assert.deepEqual(core.prepareSections(session), single.outputs[0].sections);
+  assert.deepEqual(single, {
+    format: "veraflow-render",
+    version: 1,
+    outputs: [{
+      id: "log",
+      label: "Dispatch log",
+      sections: [{ id: "body", label: "Log entry", text: "000184 | Ground service | Tracking:  | Delivery code: " }],
+    }],
+  });
+  assert.deepEqual(outputs[0].sections.map(({ id }) => id), ["subject", "body"]);
+  if (desktop) {
+    const record = join(directory, "responses.json");
+    await writeFile(record, response);
+    desktopCli("validate", form, "--record", record);
+    assert.deepEqual(single, JSON.parse(desktopCli("render", record, form, "--format", "json")));
+    assert.deepEqual(
+      JSON.parse(outputJson(outputs)),
+      JSON.parse(desktopCli("render", record, form, "--all", "--format", "json")),
+    );
+  }
 });

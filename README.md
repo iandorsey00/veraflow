@@ -1,6 +1,14 @@
 # VeraFlow Web
 
+[简体中文](README.zh-CN.md)
+
 Export a VeraFlow template as one interactive HTML file. Open the file in a browser, enter the case once, verify the critical values and create named outputs for email, tickets or logs.
+
+**Source → working record → named outputs → destination**
+
+The working record is the set of field values held by a form. JSON lets that record travel between tools using stable field IDs. Start with a JSON or JSON5 record to generate output or fill a reusable form. Start with a `.veraflow` or `.vf` template when you need a blank form. The exported HTML supports manual entry, reviewed record import, and extraction from labeled text or candidate JSON. See the [usage guide](docs/usage.md) for supported inputs and converter formats, or try the [examples](examples/README.md).
+
+Use **Open collection request…** to turn a Desktop request into a standalone offline HTML questionnaire. Respondents can download compatible response JSON. [Offline collection walkthrough](docs/collection.md)
 
 ## Run the exporter
 
@@ -22,15 +30,15 @@ npm run export:html -- examples/service-case.veraflow dist/service-case.html
 
 The command accepts `.veraflow` and `.vf` with JSON or JSON5 metadata headers. The VeraFlow Desktop parser rejects duplicate metadata keys and non-finite numbers. Pass `--timestamp` to append the current UTC timestamp to the HTML filename, including when you provide the destination. If you omit the destination, it adds an `.html` file next to the source. It reports a conflict if the destination already exists. The editable source is the VeraFlow template.
 
-On the authoring page, choose the template and click **Download HTML form**. The page reads the template locally and shows the name of the HTML file before download. Turn on **Add a timestamp to the filename** to keep successive exports, for example `service-case-2026-11-24_13-05-22.410Z.html`. Both the authoring page and exported forms can switch between English and Simplified Chinese. Template titles, field labels, instructions, and output text come from the template and stay in the language in which they were authored. The **Update app…** button appears beside the language switch when the hosting site advertises a newer version.
+On the authoring page, choose the template and click **Download HTML form**. The page reads the template locally and shows the name of the HTML file before download. Under **Form tools**, turn on **Add a timestamp to the filename** to keep successive exports, for example `service-case-2026-11-24_13-05-22.410Z.html`. Both the authoring page and exported forms can switch between English and Simplified Chinese. Template titles, field labels, instructions, and output text come from the template and stay in the language in which they were authored. The **Update app…** button appears beside the language switch when the hosting site advertises a newer version.
 
 In a clean VeraFlow Web Git checkout, run `npm run export:html -- --update` to fast-forward to the latest stable release tag on `origin`, install the locked dependencies, and rebuild. Run the command from an already built checkout. For a prebuilt site, use the latest release ZIP. For an exported offline form, re-export it to get the newer runtime.
 
 ### Prefill and response exchange
 
-Exports start with the template's authored defaults and omit saved responses by default. Select **Include prefilled responses** to include the template's saved answers. You can also select a strict JSON response file to add or replace values. The CLI equivalents are `--include-responses` for saved answers and `--responses record.json` for a separate file. Included values are readable in the HTML. Verification is performed in the current session.
+Exports start with the template's authored defaults and omit saved responses by default. In **Form tools**, select **Include prefilled responses** to include the template's saved answers. To review a separate record, use **Start from data → Open JSON / JSON5…** and select **Use a form file** in the review. The CLI accepts `--include-responses` to include saved answers and `--responses record.json5` to merge a separate record while exporting. Included values are readable in the HTML. Verification is performed in the current session.
 
-Use **Download response JSON** to save a partial or complete record. VeraFlow Web writes stable field IDs and string or null values. An omitted key leaves the existing desktop value alone, `null` clears it, and `""` records an explicit empty value. Untouched fields without saved responses are omitted, including any defaults they display. Find the record in VeraFlow Desktop using **Import record JSON…**, review the proposed changes, and choose **Apply all changes**. Imported responses need any required field verification in the receiving session.
+Use **Form tools → Download response JSON** to save a partial or complete record. VeraFlow Web writes stable field IDs and string or null values. An omitted key leaves the receiving form's value alone, `null` clears it, and `""` records an explicit empty value. Untouched fields without saved responses are omitted, including any defaults they display. Find the record in VeraFlow Desktop using **Form tools → Import JSON / JSON5…**, review the proposed changes, and choose **Apply all changes**. In an open HTML form, **Form tools → Open JSON / JSON5…** reviews an import against the current values. Unchanged fields keep their verification. Changed fields need any required checks again. Try the [dispatch walkthrough](examples/README.md#dispatch-from-json) or the [Desktop CLI and Web walkthrough](docs/desktop-cli.md).
 
 ### Desktop command
 
@@ -47,8 +55,8 @@ For another checkout layout, set `VERAFLOW_WEB_DIR` to the VeraFlow Web project 
 ## Standalone form
 
 - In-progress responses are held in memory until the tab closes or reloads. Download response JSON before closing if you want to pass the record back to the author.
-- **Needs attention** links to fields and required checks for the selected output and clears once those checks pass. **Preview output** shows the exact generated sections after the checks pass. Enter the independent value under **Verify field**. A mismatch preserves the original, and editing the original clears the verification.
-- Copy individual sections or copy the whole output using the template's delivery separator. When clipboard access is blocked, the form selects the requested text for manual copy. **Download text** saves the complete output. Use **Add a timestamp to the filename** to distinguish successive text downloads.
+- **Needs attention** above the fields counts missing values and pending checks for the current step or selected output. **Jump to next field** focuses the first outstanding input or opens its verification control. The list links to individual issues, and the panel clears when they are resolved. **Preview output** shows the exact generated sections after the checks pass. Enter the independent value under **Verify field**. A mismatch preserves the original, and editing the original clears the verification.
+- Copy individual sections or copy the whole output using the template's delivery separator. When clipboard access is blocked, the form selects the requested text for manual copy. **Download text** saves the complete output. **Download output JSON** saves the prepared output with its named sections, or the full set after **Prepare all step outputs**. Use **Add a timestamp to the filename** to distinguish successive text downloads.
 - The footer shows the VeraFlow Web version. Expand **Form details** for the VeraFlow core version and, if you opted in at export, the source filename. The CLI equivalent is `npm run export:html -- --include-source-name <template>`. A template without its own title still uses its filename stem as the title. It makes no automatic network requests. The footer link can open the GitHub repository when selected.
 - Linked CSV, CSV append, CSV context variables, clipboard and selection variables, and snippet action collections produce an export error. Desktop paste-navigation settings have no effect in a standalone form.
 
@@ -56,11 +64,11 @@ Open the downloaded file in a browser. A mail attachment preview or file preview
 
 ## Bulk extraction
 
-In an exported form, open **Extract from source…**. Paste labeled lines, explicitly read the clipboard, or open or drop one UTF-8 `.txt` file. The shared extractor matches field IDs, labels, and authored aliases against text like `Serial: ABC123458` or `序列号：ABC123458`. It reads colon, full-width colon, and tab separators.
+In an exported form, open **Extract from source…**. Paste labeled lines, including visible text copied from a web page, explicitly read the clipboard, or open or drop one UTF-8 `.txt` file. The shared extractor matches field IDs, labels, and authored aliases against text like `Serial: ABC123458` or `序列号：ABC123458`. It reads colon, full-width colon, and tab separators.
 
-In **Review candidates**, compare the current value, proposed value, alternative values, and quoted evidence. A single valid candidate for an unanswered field can start selected. Check a replacement or ambiguous candidate explicitly, and edit the proposed value if needed. Applying a changed value clears its existing verification and flags affected outputs for review. Unchanged answers retain their checks. Verify required fields in the form after applying.
+In **Review candidates**, conflicts, ambiguous matches, and invalid values appear under **Needs a decision**. **New values** groups straightforward additions, and **Matches current values** starts collapsed. Compare the current value, proposed value, alternatives, and quoted evidence. A single valid candidate for an unanswered field can start selected. Check a replacement or ambiguous candidate explicitly, and edit the proposed value if needed. Applying a changed value clears its existing verification and flags affected outputs for review. Unchanged answers retain their checks. Verify required fields in the form after applying.
 
-**External extraction files** imports strict VeraFlow candidate JSON. If you supply the original text before importing, the shared importer checks quotations against it. **Export field descriptions…** saves IDs, labels, aliases, field types, instructions, and choice labels. **Save candidates…** saves the candidate data and its quotations. Use **Download response JSON** in the form to send the selected answers back to Desktop. The exported form reads source and candidate files locally.
+Open **External extraction files** in the extraction dialog or from **Form tools** to import strict VeraFlow candidate JSON. If you supply the original text before importing, the shared importer checks quotations against it. **Export field descriptions…** saves IDs, labels, aliases, field types, instructions, and choice labels. **Save candidates…** saves the candidate data and its quotations. Use **Form tools → Download response JSON** in the form to send the selected answers back to Desktop. The exported form reads source and candidate files locally.
 
 ### Display replacement acceptance check
 
@@ -73,13 +81,13 @@ npm run export:html -- examples/service-intake.vf dist/display-replacement.html
 1. Open the HTML directly in Windows Edge and macOS Safari with networking disabled. Use **Extract from source…** and open [the labeled source](examples/service-intake-source.txt). Check that the two serial numbers require an explicit choice. Choose `ABC123458`, then apply the selected values.
 2. Paste [the email](examples/service-intake-email.txt) and import [the email candidates](examples/service-email-candidates.json). Check that **Affected units** proposes one and **Shipping address** has no candidate. Apply the proposed serial so you can test the correction.
 3. Paste [the transcript](examples/service-intake-call.txt) and import [the transcript candidates](examples/service-call-candidates.json). Apply its correction and verify `ABC123458` against the asset label on the [demo destination](examples/service-destination.html). Create **Service ticket**. The dispatch note still requires a street address.
-4. Download response JSON. In Desktop, open [the same template](examples/service-intake.vf), import the record, review the changes, and apply them. Check keyboard navigation and manual copy with the Clipboard API blocked. Use the browser Network panel to check for zero network requests. Open the exported HTML in a text editor and locate the styles, form and dialogs, embedded definition, and runtime.
+4. Use **Form tools → Download response JSON**. In Desktop, open the same template and use **Form tools → Import JSON / JSON5…**, review the changes, and apply them. Check keyboard navigation and manual copy with the Clipboard API blocked. Use the browser Network panel to check for zero network requests. Open the exported HTML in a text editor and locate the styles, form and dialogs, embedded definition, and runtime.
 
 ## Forms with steps
 
 VeraFlow Web supports ordinary forms and forms with a `steps` array. Each step names a `title`, the `fields` to enter, and an `outputs` array. Use `outputs: []` for collection only. The legacy singular `output` remains supported. The shared VeraFlow parser checks field and output assignments and rejects references to later steps. Form, field, and output instructions appear next to their respective controls.
 
-Each step uses the same in-memory record. Expand **Fields from earlier steps** to review reused values. Open **Previous step** to edit an earlier input. Use **Next step** after a collection step passes its field checks. For an output step, use **Create output** for the selected output or **Prepare all step outputs** to show each named output with its own copy and download controls. Then use **Next step** when ready. Copying, saving text, and moving between steps are separate actions. When an edit affects a prepared output, **Outputs to review** identifies the step. Copied sections remain flagged until the output is regenerated and those sections are copied again.
+Each step uses the same in-memory record. A form's `defaultOutput` is selected on its own step. On other output steps, the first listed output is selected. Expand **Fields from earlier steps** to review reused values. Open **Previous step** to edit an earlier input. Use **Next step** after a collection step passes its field checks. For an output step, use **Create output** for the selected output or **Prepare all step outputs** to show each named output with its own copy and download controls. Then use **Next step** when ready. Copying, saving text, and moving between steps are separate actions. When an edit affects a prepared output, **Outputs to review** identifies the step. Copied sections remain flagged until the output is regenerated and those sections are copied again.
 
 Use the desktop [shipment-steps.veraflow](examples/shipment-steps.veraflow) fixture for the offline browser check:
 
@@ -90,7 +98,7 @@ Use the desktop [shipment-steps.veraflow](examples/shipment-steps.veraflow) fixt
 
 ## Bilingual housing acceptance check
 
-The housing template and response file are copied from VeraFlow Desktop 0.21.0.
+The bilingual housing template and response file are shared with VeraFlow Desktop 0.22.0.
 
 ```sh
 npm run export:html -- --responses examples/housing-response.json \
@@ -99,7 +107,7 @@ npm run export:html -- --responses examples/housing-response.json \
 
 1. Move and rename the HTML file. Open it directly in Windows Edge and macOS Safari with the network disabled. Open the Network panel and confirm there are no HTTP requests. Check a narrow window and use Tab and Enter to verify the prefilled legal name.
 2. Use **Next step**, open **Optional fields**, and enter `My current home is too far from work.` Select **Prepare all step outputs** and compare the English and Chinese text with Desktop using the same values. Test the separate Copy controls and manual selection when clipboard access is blocked.
-3. Go to the previous step, change the legal name, and confirm both affected outputs are flagged. Download response JSON. In Desktop, open the same template, import the JSON, review the changes, and apply them. Confirm the earlier English wording is still present and verify the changed name locally.
+3. Go to the previous step, change the legal name, and confirm both affected outputs are flagged. Use **Form tools → Download response JSON**. In Desktop, open the same template and choose **Form tools → Import JSON / JSON5…**, review the changes, and apply them. Confirm the earlier English wording is still present and verify the changed name locally.
 4. Open the HTML in a text editor. Look for the title and styles in the head, the form sections, the embedded definition, and the bundled offline runtime. The definition stores source text as a readable array of JSON strings. The runtime is bundled in readable JavaScript, and the authoring HTML links its CSS and JavaScript near the top.
 
 ## Synthetic pilot
@@ -119,4 +127,4 @@ Build from a clean checkout and publish `index.html`, fingerprinted JavaScript a
 
 `npm test` builds the application and checks export errors, privacy, CSP integrity and named output fixtures. Set `VERAFLOW_DESKTOP_DIR` to a desktop checkout to compare against its `src/core` directly. `npm run test:browser` runs the end-to-end tests in Chromium. Set `VERAFLOW_BROWSER=edge` for installed Edge or `VERAFLOW_BROWSER=webkit` for the Playwright WebKit build. The browser runner requires a supported browser installed in the test environment.
 
-The MIT-licensed files in `vendor/veraflow/core/` are copied from VeraFlow desktop. The metadata in `vendor/veraflow/revision.json` records the desktop release and commit used for the build. Refresh the core, dependency metadata, and shared fixtures together when upgrading. Desktop 0.22.0 and the Web exporter use Momoa 3.3.13.
+The MIT-licensed files in `vendor/veraflow/core/` are copied from VeraFlow desktop. The metadata in `vendor/veraflow/revision.json` records the desktop release and commit used for the build. Refresh the core, dependency metadata, and shared fixtures together when upgrading. Desktop 0.25.1 and the Web exporter use Momoa 3.3.13.

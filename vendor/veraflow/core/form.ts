@@ -139,6 +139,17 @@ export function normalizeText(control: Control | undefined, value: string) {
     : value;
 }
 
+export function validStoredValue(control: Control, value: string) {
+  return (
+    (control.optional &&
+      (value === "" ||
+        ((control.kind === "text" || control.kind === "textarea") &&
+          !value.trim() &&
+          !textLayoutError(control, value)))) ||
+    validControlValue(control, value)
+  );
+}
+
 export function validControlValue(control: Control, value: string) {
   if (textLayoutError(control, value)) return false;
   if (control.options) return control.options.has(value);

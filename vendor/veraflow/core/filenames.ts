@@ -21,7 +21,7 @@ export function filenamePatternError(pattern: string, fields: Set<string>) {
 export function suggestedFilename(
   pattern: string,
   values: ReadonlyMap<string, string>,
-  extension: "veraflow" | "json" | "txt",
+  extension: "veraflow" | "json" | "txt" | "md" | "pdf",
   context?: TemplateContext,
 ) {
   const sanitized = pattern

@@ -4,6 +4,7 @@
     16px/1.55 system-ui,
     "PingFang SC",
     "Microsoft YaHei",
+    "Noto Sans CJK SC",
     sans-serif;
   --page: #f6f8fb;
   --surface: #fff;
@@ -231,7 +232,9 @@ dd {
   margin: 0;
 }
 .export-options {
-  padding-top: 1rem;
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.65rem;
 }
 .checkbox {
   display: flex;
@@ -263,7 +266,8 @@ dd {
   margin-bottom: 0;
 }
 .field {
-  margin-block: 1rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--border);
   min-width: 0;
   scroll-margin-block: 1rem;
 }
@@ -299,7 +303,19 @@ footer {
   margin-bottom: 1.25rem;
 }
 .field-attention {
-  margin-block: 1.25rem 0;
+  margin-block: 1rem;
+}
+.attention-counts {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1rem;
+  margin-block: 0.3rem 0.65rem;
+  font-variant-numeric: tabular-nums;
+}
+.field-attention button {
+  background: transparent;
+  border-color: currentColor;
+  margin-bottom: 0.55rem;
 }
 .attention h2 {
   margin-bottom: 0.25rem;
@@ -328,8 +344,7 @@ summary {
   font-weight: 650;
 }
 .optional-fields {
-  margin-block: 1rem;
-  border-top: 1px solid var(--border);
+  padding-top: 0.25rem;
 }
 .output-panel {
   margin-top: 1.25rem;
@@ -438,10 +453,6 @@ footer {
   margin-block: 0 0.85rem;
 }
 
-.prefill-options {
-  padding: 0.75rem 0 0.75rem 1.5rem;
-}
-.prefill-options input,
 .output-choice select {
   max-width: 100%;
 }
@@ -450,13 +461,6 @@ footer {
   padding-top: 1.5rem;
   border-top: 1px solid var(--border);
 }
-.record-actions {
-  margin-top: 1.5rem;
-}
-.record-actions p {
-  margin: 0;
-}
-
 #update {
   display: inline-flex;
   align-items: center;
@@ -472,8 +476,26 @@ footer {
   text-decoration: underline;
 }
 
-.source-actions {
-  margin: -0.5rem 0 1.5rem;
+.form-toolbar {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.85rem;
+  row-gap: 0.5rem;
+  margin-block: 0.75rem;
+}
+.form-tools summary {
+  min-height: 2.75rem;
+  padding-block: 0.55rem;
+}
+.form-tools[open] > summary {
+  margin-bottom: 0.25rem;
+}
+@media (max-width: 32rem) {
+  .form-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
 }
 
 .extraction-dialog {
@@ -507,6 +529,12 @@ footer {
   border: 1px solid var(--border);
   border-radius: 0.5rem;
 }
+.candidate-group + .candidate-group {
+  margin-top: 1rem;
+}
+.candidate-group > h3 {
+  margin-block: 0.75rem 0.4rem;
+}
 .candidate-field legend {
   font-weight: 700;
 }
@@ -526,6 +554,9 @@ footer {
 .candidate-field blockquote {
   white-space: pre-wrap;
 }
+.candidate-current {
+  margin-bottom: 0.55rem;
+}
 .candidate-field select {
   margin-bottom: 0.75rem;
 }
@@ -537,4 +568,114 @@ footer {
 }
 .candidate-field blockquote small {
   color: var(--quiet);
+}
+
+.export-panel + .export-panel {
+  margin-top: 1rem;
+}
+
+#record-preview > .actions {
+  justify-content: space-between;
+}
+
+#record-preview h2 {
+  margin: 0;
+}
+
+#record-form {
+  display: block;
+  width: 100%;
+  height: min(76vh, 48rem);
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.record-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-block: 0.75rem;
+  text-align: start;
+}
+
+.record-table th,
+.record-table td {
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.record-table tbody th {
+  white-space: pre-wrap;
+}
+
+.record-table small {
+  display: block;
+  color: var(--quiet);
+  font-weight: normal;
+}
+
+.record-value {
+  white-space: pre-wrap;
+}
+
+.record-settings {
+  margin-block-start: 1rem;
+}
+
+.record-settings > div {
+  margin-block-start: 0.75rem;
+}
+
+.record-settings input[type="file"] {
+  max-width: 100%;
+}
+
+.collection-field {
+  min-width: 0;
+  margin: 0 0 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+fieldset.collection-field {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.collection-field label,
+.collection-field legend {
+  font-weight: 650;
+}
+
+.collection-field .instructions,
+#collection-questions p {
+  white-space: pre-wrap;
+}
+
+.collection-choices label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-weight: normal;
+}
+
+#collection-questions {
+  overflow-wrap: anywhere;
+}
+
+.collection-field > :is(input, textarea, select) {
+  display: block;
+  width: 100%;
+}
+
+.collection-choices input[type="radio"] {
+  flex-shrink: 0;
+  padding: 0;
+  min-height: auto;
+  margin: 0;
 }
