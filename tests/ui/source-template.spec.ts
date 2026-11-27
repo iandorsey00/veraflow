@@ -1847,7 +1847,11 @@ test("PDF export reviews the selected Markdown, configures tools, and reuses the
   const prepared = await page.locator(".output").textContent();
   await page.getByRole("button", { name: "Save as PDF…" }).click();
   const review = page.getByRole("dialog", { name: "Review Markdown for PDF" });
-  await expect(review.locator("pre")).toContainText("\\newpage");
+  await expect(review.locator("pre")).toContainText("mainfont: Helvetica");
+  await expect(review.locator("pre")).not.toContainText("\\newpage");
+  await expect(review.locator("pre")).toContainText(
+    "<alex.lin@example.com> · +1 503 555 0148",
+  );
   await expect(review.locator("pre")).toContainText("林晓");
   await review.getByRole("button", { name: "Choose PDF destination…" }).click();
   const setup = page.getByRole("dialog", { name: "PDF setup" });

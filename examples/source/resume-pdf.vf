@@ -19,13 +19,77 @@
 }
 ---
 ---
-mainfont: Arial Unicode MS
-mainfontoptions: [AutoFakeBold=2]
-geometry: margin=0.8in
+mainfont: Helvetica
+geometry: [margin=0.75in, letterpaper]
 colorlinks: true
 urlcolor: MidnightBlue
 fontsize: 11pt
 pagestyle: empty
+header-includes:
+  - |
+    ```{=latex}
+    % Helvetica handles the Latin text. Switch fonts for Chinese runs in XeTeX.
+    \newfontfamily\ResumeChinese[AutoFakeBold=2]{Arial Unicode MS}
+    \newXeTeXintercharclass\ResumeChineseClass
+    \ExplSyntaxOn
+    \int_step_inline:nnn {"3000} {"303F} {\XeTeXcharclass #1 = \ResumeChineseClass}
+    \int_step_inline:nnn {"3400} {"9FFF} {\XeTeXcharclass #1 = \ResumeChineseClass}
+    \int_step_inline:nnn {"F900} {"FAFF} {\XeTeXcharclass #1 = \ResumeChineseClass}
+    \int_step_inline:nnn {"FF00} {"FFEF} {\XeTeXcharclass #1 = \ResumeChineseClass}
+    \ExplSyntaxOff
+    \XeTeXinterchartoks 0 \ResumeChineseClass = {\begingroup\ResumeChinese}
+    \XeTeXinterchartoks 4095 \ResumeChineseClass = {\begingroup\ResumeChinese}
+    \XeTeXinterchartoks \ResumeChineseClass 0 = {\endgroup}
+    \XeTeXinterchartoks \ResumeChineseClass 4095 = {\endgroup}
+    \XeTeXinterchartokenstate=1
+    \XeTeXlinebreaklocale "zh"
+
+    \makeatletter
+    \renewcommand\section{\@startsection{section}{1}{0pt}
+      {0pt}{5pt}{\normalfont\bfseries\fontsize{24}{28}\selectfont}}
+    \renewcommand\subsection{\@startsection{subsection}{2}{0pt}
+      {-11pt}{4pt}{\normalfont\large\bfseries}}
+    \renewcommand\subsubsection{\@startsection{subsubsection}{3}{0pt}
+      {-8pt}{2pt}{\normalfont\normalsize\bfseries}}
+
+    % Keep the detail line with the first bullet. In flat lists, keep the last
+    % two bullets together while allowing the rest of the job to span pages.
+    \let\ResumeItemize\itemize
+    \let\ResumeEndItemize\enditemize
+    \ExplSyntaxOn
+    \seq_new:N \l_resume_bullets_seq
+    \tl_new:N \l_resume_last_bullet_tl
+    \RenewDocumentEnvironment{itemize}{+b}
+      {
+        \ResumeItemize
+        \@beginparpenalty=10000\relax
+        \tl_if_in:nnTF {#1} {\begin}
+          {#1}
+          {
+            \seq_set_split:Nnn \l_resume_bullets_seq {\item} {#1}
+            \int_compare:nNnTF {\seq_count:N \l_resume_bullets_seq} > {2}
+              {
+                \seq_pop_right:NN \l_resume_bullets_seq \l_resume_last_bullet_tl
+                \seq_use:Nn \l_resume_bullets_seq {\item}
+                \@itempenalty=10000\relax
+                \item \tl_use:N \l_resume_last_bullet_tl
+              }
+              {#1}
+          }
+      }
+      {\ResumeEndItemize}
+    \ExplSyntaxOff
+    \AtBeginDocument{%
+      \raggedright\raggedbottom
+      \setlength{\parskip}{4pt}%
+      \hyphenpenalty=5000\relax
+      \exhyphenpenalty=5000\relax
+      \@clubpenalty=10000\relax
+      \clubpenalty=10000\relax
+      \widowpenalty=10000\relax
+    }
+    \makeatother
+    ```
 ---
 
 # {{name}}
@@ -35,13 +99,17 @@ pagestyle: empty
 
 {{/when}}
 {{#when email is not blank}}
-<{{email}}>\
-{{/when}}
+<{{email}}>{{when phone is not blank: ' · {{phone}}'}}
+
+{{else}}
 {{#when phone is not blank}}
-{{phone}}\
+{{phone}}
+
+{{/when}}
 {{/when}}
 {{#when links_markdown is not blank}}
 {{links_markdown}}
+
 {{/when}}
 
 {{#when summary is not blank}}
@@ -61,8 +129,6 @@ pagestyle: empty
 
 {{/when}}
 {{#when skills_markdown is not blank}}
-\newpage
-
 ## Skills
 
 {{skills_markdown}}

@@ -1,7 +1,12 @@
 import { parse } from "@humanwhocodes/momoa";
 import { normalizeText, validStoredValue } from "./form";
 import type { Session } from "./model";
-import { parseSource, sourceOutput, SourceSyntaxError } from "./source";
+import {
+  parseSource,
+  prefillSource,
+  sourceOutput,
+  SourceSyntaxError,
+} from "./source";
 import { suggestedFilename } from "./filenames";
 
 export function selectedSourceOutput(s: Session) {
@@ -13,6 +18,25 @@ export function recordValues(s: Session) {
       field.name,
       field.status === "skipped" ? "" : field.value,
     ]),
+  );
+}
+
+export function prefilledContent(s: Session) {
+  return prefillSource(
+    s.template.content,
+    recordValues(s),
+    s.unifiedForm || s.typing ? "form" : "scanner",
+    s.template.name.slice(0, 250).trim(),
+    new Map(
+      s.fields.flatMap((field) =>
+        field.status === "verified" && field.value?.trim()
+          ? [[field.name, field.checkedByTyping ? "form" : "scanner"] as const]
+          : [],
+      ),
+    ),
+    s.unifiedForm && parseSource(s.template.content).workflow === "scanner"
+      ? s.template.verificationEnabled
+      : undefined,
   );
 }
 

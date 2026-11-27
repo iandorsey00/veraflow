@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-import { register } from "tsx/esm/api";
-
-register();
-await import("../src/cli.ts");
+const runtime = await import("tsx/esm/api").catch((error) => {
+  if (error.code !== "ERR_MODULE_NOT_FOUND") throw error;
+  console.error(
+    "veraflow: Run npm ci in the VeraFlow checkout before using the CLI.",
+  );
+  process.exitCode = 1;
+});
+if (runtime) {
+  runtime.register();
+  await import("../src/cli.ts");
+}

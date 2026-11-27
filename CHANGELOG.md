@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.25.0
+
+- Expand the source-checkout CLI to inspect forms, validate or merge JSON and JSON5 records, review extraction evidence, read CSV rows, and render outputs.
+- Publish a JSON command catalog and structured errors for scripts and AI tools. Share record and verification rules with Desktop.
+- Update the canonical résumé template with Helvetica, compact job details, and content-based pagination.
+- Document the CLI and PDF workflow in English and Simplified Chinese.
+
 ## 0.24.0
 
 - Review prepared Markdown and save it as PDF on macOS using local Pandoc and XeLaTeX. Save Markdown on its own if needed.

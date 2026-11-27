@@ -4,7 +4,7 @@
 
 ## 首次设置
 
-请安装 Pandoc 和包含 XeLaTeX 及 Pandoc 所需宏包的 TeX 发行版。示例使用 **Arial Unicode MS** 显示中文。如果此字体不可用，可复制示例表单，并将 `mainfont` 改为 Mac 上已安装且支持中文的字体。[Pandoc 的 PDF 依赖](https://pandoc.org/MANUAL.html#creating-a-pdf)
+请安装 Pandoc 和包含 XeLaTeX 及 Pandoc 所需宏包的 TeX 发行版。简历以 **Helvetica** 为主字体，中文使用 **Arial Unicode MS**。如果没有安装 Arial Unicode MS，可复制简历表单，将 `\ResumeChinese` 的字体改为 Mac 上已安装且支持所需汉字的字体。试用派送示例时，请改用该表单的 `mainfont` 设置。[Pandoc 的 PDF 依赖](https://pandoc.org/MANUAL.html#creating-a-pdf)
 
 首次保存 PDF 时，VeraFlow 会在 `/opt/homebrew/bin`、`/usr/local/bin` 和 `/Library/TeX/texbin` 等常见位置查找程序。找不到时，点击 **定位 Pandoc…** 或 **定位 PDF 引擎…**。请选择 `xelatex` 本身，也可选择 MacTeX 提供的同名链接。选择 **使用这些工具** 保存路径。以后可在 **设置 → PDF 设置** 中修改。
 
@@ -13,7 +13,7 @@
 1. 在首页选择 **打开 JSON / JSON5…**，打开 [resume-pdf.json](resume-pdf.json)。
 2. 选择 **使用表单文件…**，打开 [resume-pdf.vf](resume-pdf.vf)。审阅并点击 **应用所有更改**。
 3. 点击 **准备输出区段**，再点击 **另存为 PDF…**。审阅完整的 Markdown 后选择 PDF 的保存位置。若要保留可编辑文本，选择 **保存 Markdown…**。
-4. 打开 PDF。第一页应有姓名「林晓」、联系方式链接及工作经历中的中文条目；第二页应有技能和精选项目。
+4. 打开 PDF，确认双语简历示例排在一页内。邮箱与电话应在同一行。检查联系方式链接、姓名中的「林晓」及工作经历中的中文条目。较长的简历会按内容自然分页，技能和精选项目紧接前面的内容。
 5. 再次导入时，可从 **最近使用的表单文件** 选择 **resume-pdf.vf**。VeraFlow 每次都会从磁盘读取当前文件。
 
 若要试用其他文档，可将 [dispatch-record.json5](dispatch-record.json5) 与 [dispatch-report.vf](dispatch-report.vf) 搭配使用。PDF 应保留派送编号 `000184` 和备注中的两句话。

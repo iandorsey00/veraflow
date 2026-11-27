@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.25.0 release preparation
+
+Passed 102 TypeScript tests, 102 browser tests, 24 Rust tests, nine portable rendering fixtures, and the macOS native text conversion check. Verified the documented extraction, candidate validation, record validation, and structured render commands. The installed-tools test preserved an existing PDF after a failed conversion. The macOS CLI generated a one-page résumé from stdin with Helvetica, extractable Chinese text, and its portfolio link.
+
+Version consistency, formatting, frontend build, isolated test configuration, Clippy, and demo archive checks passed. npm reported zero vulnerabilities. The cached RustSec audit reported no vulnerability-class advisories and 11 informational warnings. Public installer builds and packaged Windows checks are pending.
+
 ## 0.24.0 release preparation
 
 Passed 98 TypeScript unit tests, 102 browser tests, 24 Rust tests, nine portable rendering fixtures, and the macOS native text conversion check. The separate installed-tools test converted the résumé and dispatch fixtures using paths with spaces and Chinese characters, and confirmed that a failed conversion preserved the existing PDF. The 0.24.0 CLI smoke test produced the two-page résumé from stdin and preserved the expected Chinese text and link.

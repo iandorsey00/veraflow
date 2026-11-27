@@ -13,6 +13,7 @@ import {
 } from "./core/candidates";
 import {
   recordValues,
+  prefilledContent,
   planRecordValues,
   readRecordInput,
   recordFormSource,
@@ -25,7 +26,6 @@ import { normalizeText, textLayoutError } from "./core/form";
 import {
   parseSource,
   SourceSyntaxError,
-  prefillSource,
   sourceDefinitionText,
   sourceOutput,
   sourceParts,
@@ -5497,25 +5497,6 @@ function saveActiveDraft(s: Session) {
         templateDocuments.get(s),
       )
     : true;
-}
-
-function prefilledContent(s: Session) {
-  return prefillSource(
-    s.template.content,
-    recordValues(s),
-    s.unifiedForm || s.typing ? "form" : "scanner",
-    s.template.name.slice(0, 250).trim(),
-    new Map(
-      s.fields.flatMap((field) =>
-        field.status === "verified" && field.value?.trim()
-          ? [[field.name, field.checkedByTyping ? "form" : "scanner"] as const]
-          : [],
-      ),
-    ),
-    s.unifiedForm && parseSource(s.template.content).workflow === "scanner"
-      ? s.template.verificationEnabled
-      : undefined,
-  );
 }
 
 async function saveBeforeClose(

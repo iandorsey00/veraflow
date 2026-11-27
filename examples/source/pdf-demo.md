@@ -4,7 +4,7 @@ English · [简体中文](pdf-demo.zh-CN.md)
 
 ## Set up PDF export
 
-Install Pandoc and a TeX distribution with XeLaTeX and Pandoc's required LaTeX packages. The sample forms use **Arial Unicode MS** for Chinese text. If that font is unavailable, use a copy of the form and replace `mainfont` with an installed font that covers the same characters. [Pandoc PDF requirements](https://pandoc.org/MANUAL.html#creating-a-pdf)
+Install Pandoc and a TeX distribution with XeLaTeX and Pandoc's required LaTeX packages. The résumé uses **Helvetica** as its main font and **Arial Unicode MS** for Chinese characters. If Arial Unicode MS is unavailable, use a copy of the résumé form and set `\ResumeChinese` to an installed font with the required glyphs. For the dispatch example, change `mainfont` instead. [Pandoc PDF requirements](https://pandoc.org/MANUAL.html#creating-a-pdf)
 
 On the first PDF save, VeraFlow looks in common locations, including `/opt/homebrew/bin`, `/usr/local/bin`, and `/Library/TeX/texbin`. Use **Locate Pandoc…** and **Locate PDF Engine…** if a path is missing. Select the `xelatex` executable itself, including the `xelatex` link provided by MacTeX. Choose **Use these tools** to remember the paths. Change them later from **Settings → PDF setup**.
 
@@ -13,7 +13,7 @@ On the first PDF save, VeraFlow looks in common locations, including `/opt/homeb
 1. From Home, choose **Open JSON / JSON5…** and open [resume-pdf.json](resume-pdf.json).
 2. Choose **Use a form file…** and open [resume-pdf.vf](resume-pdf.vf). Review the changes and select **Apply all changes**.
 3. Choose **Prepare output sections** and **Save as PDF…**. Review the complete Markdown, then choose a PDF destination. You can also choose **Save Markdown…** to keep the editable output.
-4. Open the PDF and check the name and contact links on page one, including 林晓 and the Chinese bullet under Experience. Skills and Selected Projects start on page two.
+4. Open the PDF and check that the bilingual example fits on one page. Email and phone share a line. Check the contact links, 林晓 in the name, and the Chinese bullet under Experience. In longer records, Skills and Selected Projects flow after the preceding sections.
 5. Import the data again and choose **resume-pdf.vf** under **Recently used form files**. VeraFlow reads the current file from disk each time.
 
 For a separate document, open [dispatch-record.json5](dispatch-record.json5) with [dispatch-report.vf](dispatch-report.vf). The PDF should show dispatch reference `000184` and both sentences from the note.

@@ -2,6 +2,12 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.25.0 automation CLI and résumé layout
+
+Full release cycle for the expanded CLI and the shared prefilled-form export. Verify the [CLI guide](cli.md) examples against the source checkout. On macOS, run the [PDF walkthrough](../examples/source/pdf-demo.md) and check the Helvetica résumé layout, links, and Chinese text. On Windows, run the record validation and structured render examples with Node.js.
+
+To roll back to [0.24.0](https://github.com/iandorsey00/veraflow/releases/tag/v0.24.0), use its source tag for the original `render` and `pdf` commands. Keep a copy of the updated résumé template if you want to continue using its layout with the earlier build.
+
 ## 0.24.0 PDF export and headless rendering
 
 Full release cycle for local PDF conversion, native output writes, and the CLI. Use the [PDF demo](../examples/source/pdf-demo.md) on macOS. Check first-run tool setup, the native save dialog, Unicode text and paths, and the recovery path after a failed conversion. On Windows, verify JSON entry, recent form reuse, Markdown output via the source CLI, and the new icon.
