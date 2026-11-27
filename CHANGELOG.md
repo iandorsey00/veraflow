@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Open JSON or JSON5 from a file or clipboard and review values before creating a summary, writing an output, or filling a reusable form.
+- Import reviewed records into standalone HTML forms and preserve verification for unchanged fields.
+- Use the VeraFlow Desktop 0.25.0 core and honor the template's default named output.
+- Download prepared outputs as versioned JSON compatible with the Desktop CLI.
+- Add English and Simplified Chinese guides for the offline form and Desktop CLI workflow.
+
 ## 0.4.0
 
 - Bring standalone bulk extraction to parity with VeraFlow Desktop 0.22.0.

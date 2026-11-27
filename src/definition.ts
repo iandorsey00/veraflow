@@ -11,13 +11,15 @@ import {
 } from "../vendor/veraflow/core/source";
 
 import {
-  planRecordMerge,
+  planRecordValues,
+  readRecordInput,
   recordValues,
 } from "../vendor/veraflow/core/source-record";
 import {
   applyRecordChanges,
   startSession,
 } from "../vendor/veraflow/core/session";
+import { recordIssue, type RecordValues } from "./records";
 
 export class ExportError extends Error {
   constructor(
@@ -73,6 +75,7 @@ export function sourceName(filename: string) {
 export type PrefillOptions = {
   includeResponses?: boolean;
   responseJson?: string;
+  responseValues?: RecordValues;
 };
 
 export function createDefinition(
@@ -119,44 +122,25 @@ export function createDefinition(
   };
   if (!options.includeResponses) return template;
   const saved = new Map(parseSource(source).responses);
-  if (options.responseJson !== undefined) {
-    const session = startSession(template);
-    try {
-      applyRecordChanges(
-        session,
-        planRecordMerge(session, options.responseJson),
-      );
+  try {
+    const workflow = parsed.workflow ?? "form";
+    if (saved.size) template.content = prefillSource(content, saved, workflow);
+    const incoming =
+      options.responseValues ??
+      (options.responseJson === undefined
+        ? undefined
+        : readRecordInput(options.responseJson));
+    if (incoming?.size) {
+      const session = startSession(template);
+      applyRecordChanges(session, planRecordValues(session, incoming));
       const values = recordValues(session);
       // Keep explicitly supplied keys even when their values equal the default.
-      for (const name of Object.keys(JSON.parse(options.responseJson)))
-        saved.set(name, values.get(name)!);
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : "";
-      if (detail.startsWith("recordUnknownField:"))
-        throw new ExportError(
-          "recordUnknownField",
-          detail.slice("recordUnknownField:".length),
-        );
-      if (detail.startsWith("recordInvalidField:"))
-        throw new ExportError(
-          "recordInvalidField",
-          detail.slice("recordInvalidField:".length),
-        );
-      throw new ExportError("invalidRecord");
+      for (const name of incoming.keys()) saved.set(name, values.get(name)!);
+      template.content = prefillSource(content, saved, workflow);
     }
-  }
-  if (saved.size) {
-    try {
-      template.content = prefillSource(
-        content,
-        saved,
-        parsed.workflow ?? "form",
-      );
-    } catch (error) {
-      if (error instanceof SourceSyntaxError)
-        throw new ExportError("sourceError", undefined, error.detail);
-      throw error;
-    }
+  } catch (failure) {
+    const { key, argument, detail } = recordIssue(failure);
+    throw new ExportError(key, argument, detail);
   }
   return template;
 }

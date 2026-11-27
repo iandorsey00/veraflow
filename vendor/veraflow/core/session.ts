@@ -59,8 +59,15 @@ export function activateFormStep(
 ) {
   s.stepIndex = stepIndex;
   const outputs = currentFormStep(s)?.outputs ?? [];
+  const preferred =
+    output ??
+    (outputs.length
+      ? parseSource(s.template.content).defaultOutput
+      : undefined);
   s.outputId =
-    output !== undefined && outputs.includes(output) ? output : outputs[0];
+    preferred !== undefined && outputs.includes(preferred)
+      ? preferred
+      : outputs[0];
   const active = activeSourceFields(s);
   const own = new Set(currentFormStep(s)?.fields);
   const index = s.fields.findIndex(
@@ -165,7 +172,7 @@ function selectedOutputFields(s: Session) {
     parsed,
     sessionValues(s),
     active,
-    s.outputId ?? parsed.outputs[0].id,
+    sourceOutput(parsed, s.outputId).id,
     s.sourceContext,
   );
   return active;
@@ -620,7 +627,7 @@ function checkedSource(
   const parsed = parseSource(template.content);
   // Validate fields visited by the selected branches. Hidden values can remain in the session.
   const used = new Set<string>();
-  const id = outputId ?? parsed.outputs[0].id;
+  const id = sourceOutput(parsed, outputId).id;
   sourceParts(parsed, values, used, id, context);
   const parts = sourceParts(parsed, values, undefined, id, context);
   validateSourceValues(parsed, values, used);
@@ -730,6 +737,12 @@ export function prepareSections(s: Session) {
     s.outputId,
     s.sourceContext,
   );
+}
+
+export function sectionText(parts: NonNullable<Session["prepared"]>) {
+  return parts.length === 1
+    ? parts[0].text
+    : parts.map((part) => `${part.label}\n${part.text}`).join("\n\n");
 }
 export function renderSession(s: Session): string {
   if (s.template.placeholderStyle === "source")

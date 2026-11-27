@@ -1,0 +1,37 @@
+--- veraflow 2
+{
+  "title": "Dispatch exchange",
+  "workflow": "form",
+  "verify-by-default": false,
+  "defaultOutput": "log",
+  "fields": {
+    "reference": {"type": "text", "label": "Reference"},
+    "route": {
+      "type": "dropdown",
+      "label": "Route",
+      "options": [
+        {"id": "ground", "label": "Ground", "output": "Ground service"},
+        {"id": "air", "label": "Air", "output": "Air service"}
+      ]
+    },
+    "tracking": {"type": "text", "label": "Tracking", "optional": true, "verify": true},
+    "delivery_code": {"type": "text", "label": "Delivery code", "optional": true}
+  }
+}
+---
+{{#output note "Dispatch note"}}
+{{#section subject "Subject"}}
+Dispatch {{reference}}
+{{/section}}
+{{#section body "Body"}}
+Route: {{route}}
+Tracking: {{tracking}}
+Delivery code: {{delivery_code}}
+{{/section}}
+{{/output}}
+
+{{#output log "Dispatch log"}}
+{{#section body "Log entry"}}
+{{reference}} | {{route}} | Tracking: {{tracking}} | Delivery code: {{delivery_code}}
+{{/section}}
+{{/output}}

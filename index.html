@@ -20,11 +20,23 @@
     </div>
     <main>
       <header class="page-header">
-        <h1 data-text="title">Export as standalone HTML</h1>
-        <p class="lead" data-text="lead">
-          Turn a VeraFlow template into one HTML file that works offline.
-        </p>
+        <h1 data-text="title">Create an offline form</h1>
       </header>
+      <section class="export-panel" aria-labelledby="data-label">
+        <h2 id="data-label" data-text="startFromData">Start from data</h2>
+        <p class="help" data-text="recordHomeHelp">
+          Review a JSON record and use it to generate output. Your data stays in this browser.
+        </p>
+        <button type="button" id="open-record" data-text="openRecord">Open JSON / JSON5…</button>
+      </section>
+      <section id="record-preview" class="export-panel" aria-labelledby="record-preview-title" hidden>
+        <div class="actions">
+          <h2 id="record-preview-title" data-text="filledForm" tabindex="-1">Filled form</h2>
+          <button type="button" id="download-record-form" data-text="downloadHtml">Download HTML form</button>
+        </div>
+        <iframe id="record-form" title="Filled form" data-label="filledForm" sandbox="allow-scripts allow-downloads" allow="clipboard-write *"></iframe>
+      </section>
+      <!-- Select the template and optionally prepare the initial working record. -->
       <section class="export-panel" aria-labelledby="source-label">
         <h2 id="source-label" data-text="source">VeraFlow template</h2>
         <div class="file-picker">
@@ -55,40 +67,30 @@
               <dd id="export-filename" class="filename"></dd>
             </div>
           </dl>
-          <label class="checkbox">
-            <input type="checkbox" id="timestamp-filename" />
-            <span data-text="timestampFilename"
-              >Add a timestamp to the filename</span
-            >
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="include-source" />
-            <span data-text="provenanceOption"
-              >Include the source filename in Form details</span
-            >
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="include-responses" />
-            <span data-text="includeResponses"
-              >Include prefilled responses</span
-            >
-          </label>
-          <div id="prefill-options" class="prefill-options" hidden>
-            <label for="prefill-record" data-text="prefillRecord"
-              >Response JSON file (optional)</label
-            >
-            <input
-              type="file"
-              id="prefill-record"
-              accept=".json,application/json"
-              aria-describedby="prefill-help"
-            />
-            <p id="prefill-help" class="help" data-text="prefillHelp">
-              Use the responses saved in the template, or choose a JSON record
-              to add or replace values. Included responses are readable in the
-              exported file.
+          <details class="form-tools" id="export-tools">
+            <summary data-text="formTools">Form tools</summary>
+            <label class="checkbox">
+              <input type="checkbox" id="timestamp-filename" />
+              <span data-text="timestampFilename"
+                >Add a timestamp to the filename</span
+              >
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" id="include-source" />
+              <span data-text="provenanceOption"
+                >Include the source filename in Form details</span
+              >
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" id="include-responses" />
+              <span data-text="includeResponses"
+                >Include prefilled responses</span
+              >
+            </label>
+            <p class="help" data-text="prefillHelp">
+              Include the responses saved in the template. They are readable in the exported file.
             </p>
-          </div>
+          </details>
         </div>
         <div id="export-error" role="alert" class="error">
           <p id="error-summary"></p>

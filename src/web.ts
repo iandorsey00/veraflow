@@ -5,6 +5,7 @@ import { exportHtml } from "./export";
 import { timestampedFilename } from "./filenames";
 import { getLanguage, setText, setupLanguage } from "./locale";
 import { type Language } from "./strings";
+import { setupRecordAuthoring } from "./record-authoring";
 import { compareVersions, isReleaseVersion } from "./versions";
 
 const input = document.querySelector<HTMLInputElement>("#source")!;
@@ -17,9 +18,6 @@ const timestampFilename = document.querySelector<HTMLInputElement>(
 )!;
 const includeResponses =
   document.querySelector<HTMLInputElement>("#include-responses")!;
-const prefillRecord =
-  document.querySelector<HTMLInputElement>("#prefill-record")!;
-const prefillOptions = document.getElementById("prefill-options")!;
 const selectedFile = document.getElementById("selected-file")!;
 const exportOptions = document.getElementById("export-options")!;
 const exportFilename = document.getElementById("export-filename")!;
@@ -36,6 +34,7 @@ try {
 } catch {
   // Preferences are optional when storage is unavailable.
 }
+setupRecordAuthoring();
 setupLanguage(
   document.getElementById("language")!,
   (value) => {
@@ -50,51 +49,6 @@ setupLanguage(
 
 let prepared: { file: File; name: string; content: string } | undefined;
 let selection = 0;
-let recordSelection = 0;
-let responseJson: string | undefined;
-let recordError: ExportError | undefined;
-let readingRecord = false;
-
-function updateExportButton() {
-  exportButton.disabled =
-    !prepared || (includeResponses.checked && readingRecord);
-}
-
-includeResponses.addEventListener("change", () => {
-  prefillOptions.hidden = !includeResponses.checked;
-  setText(error);
-  detail.textContent = "";
-  updateExportButton();
-});
-prefillRecord.addEventListener("change", async () => {
-  const current = ++recordSelection;
-  responseJson = undefined;
-  recordError = undefined;
-  setText(error);
-  detail.textContent = "";
-  const file = prefillRecord.files?.[0];
-  readingRecord = Boolean(file);
-  updateExportButton();
-  if (!file) return;
-  try {
-    if (file.size > 4 * 1024 * 1024) throw new ExportError("tooBig");
-    const content = await file.text();
-    if (current === recordSelection) responseJson = content;
-  } catch (failure) {
-    if (current === recordSelection) {
-      recordError =
-        failure instanceof ExportError
-          ? failure
-          : new ExportError("recordReadError");
-      if (includeResponses.checked) showError(recordError);
-    }
-  } finally {
-    if (current === recordSelection) {
-      readingRecord = false;
-      updateExportButton();
-    }
-  }
-});
 choose.addEventListener("click", () => input.click());
 input.addEventListener("change", async () => {
   const current = ++selection;
@@ -103,12 +57,6 @@ input.addEventListener("change", async () => {
   exportOptions.hidden = true;
   includeSource.checked = false;
   includeResponses.checked = false;
-  prefillOptions.hidden = true;
-  prefillRecord.value = "";
-  ++recordSelection;
-  responseJson = undefined;
-  recordError = undefined;
-  readingRecord = false;
   setText(message);
   setText(error);
   detail.textContent = "";
@@ -131,7 +79,7 @@ input.addEventListener("change", async () => {
     prepared = { file, name, content };
     updateFilename();
     exportOptions.hidden = false;
-    updateExportButton();
+    exportButton.disabled = false;
   } catch (failure) {
     if (current === selection) showError(failure);
   } finally {
@@ -153,10 +101,8 @@ exportButton.addEventListener("click", () => {
   setText(error);
   detail.textContent = "";
   try {
-    if (includeResponses.checked && recordError) throw recordError;
     const html = exportHtml(content, file.name, {
       includeResponses: includeResponses.checked,
-      responseJson,
       language: getLanguage(),
       includeSourceName: includeSource.checked,
     });

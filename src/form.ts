@@ -23,6 +23,9 @@ import {
 import { button, download, element } from "./dom";
 import { setupExtraction } from "./extraction";
 import { timestampedFilename } from "./filenames";
+import { outputJson } from "./output-json";
+import { setupRecordDialog } from "./record-dialog";
+import { reviewRecordMerge } from "./records";
 import { responseJson } from "./responses";
 import { coreVersion } from "./branding";
 import { setLabel, setText, setupLanguage, text } from "./locale";
@@ -86,10 +89,21 @@ const attentionTitle = text("h2", "attention");
 attention.className = "attention field-attention";
 attentionTitle.id = "attention-title";
 const attentionList = element("ul");
-attention.append(attentionTitle, attentionList);
-const attentionStatus = element("p");
-attentionStatus.className = "sr-only";
+const attentionStatus = element("div");
+attentionStatus.className = "attention-counts";
 attentionStatus.setAttribute("role", "status");
+const missingCount = element("span");
+const checkCount = element("span");
+const invalidCount = element("span");
+attentionStatus.append(missingCount, checkCount, invalidCount);
+const jump = action("jumpToField", () =>
+  attentionList.querySelector("a")?.click(),
+);
+attention.append(attentionTitle, attentionStatus, jump, attentionList);
+const readyStatus = element("p");
+readyStatus.className = "sr-only";
+readyStatus.setAttribute("role", "status");
+document.getElementById("field-checks")!.append(attention, readyStatus);
 
 const required = element("div");
 const optional = element("details");
@@ -100,7 +114,7 @@ const toolbar = element("div");
 toolbar.className = "actions output-actions";
 const selector = element("select");
 selector.id = "output-name";
-if (!steps) session.outputId = source.outputs[0]?.id;
+if (!steps) session.outputId = sourceOutput(source).id;
 selector.addEventListener("change", () => {
   session.outputId = selector.value;
   invalidateOutput();
@@ -147,7 +161,7 @@ const outputPanel = document.getElementById("output-panel")!;
 const previous = action("previousStep", () => openStep(stepIndex - 1));
 const next = action("nextStep", () => {
   if (steps?.[stepIndex].outputs.length === 0 && !attention.hidden) {
-    attentionList.querySelector("a")?.focus();
+    jump.focus();
     return;
   }
   openStep(stepIndex + 1);
@@ -168,16 +182,17 @@ outputPanel.append(
 document.getElementById("step-context")!.append(stepHeader, warnings);
 document.getElementById("record-fields")!.append(earlier, required, optional);
 const formActions = document.getElementById("form-actions")!;
-const recordActions = element("div");
-recordActions.className = "actions record-actions";
-const recordFeedback = element("p");
-recordFeedback.setAttribute("role", "status");
-recordActions.append(
+const formTools = document.querySelector<HTMLDetailsElement>("#form-tools")!;
+const recordFeedback = document.getElementById("record-feedback")!;
+document.getElementById("form-tool-actions")!.append(
   action("downloadResponses", downloadResponses),
-  recordFeedback,
 );
-formActions.append(attention, attentionStatus, stepActions, recordActions);
-setupExtraction(session, (changes, names) => {
+formTools.hidden = false;
+formActions.append(stepActions);
+function applyReviewedValues(
+  changes: Parameters<typeof applyRecordChanges>[1],
+  names: Iterable<string>,
+) {
   for (const name of names) includedResponses.add(name);
   if (changes.length) {
     applyRecordChanges(session, changes);
@@ -186,19 +201,37 @@ setupExtraction(session, (changes, names) => {
     refreshStep();
     refresh();
   }
+}
+setupExtraction(session, (changes, names) => {
+  applyReviewedValues(changes, names);
   setText(
     recordFeedback,
     changes.length ? "candidateApplied" : "candidateNoChanges",
   );
 });
+setupRecordDialog(
+  document.querySelector<HTMLButtonElement>("#import-record")!,
+  (values) => {
+    const { changes, rows } = reviewRecordMerge(session, values);
+    return {
+      action: "recordApply",
+      rows,
+      apply() {
+        applyReviewedValues(changes, values.keys());
+        setText(recordFeedback, changes.length ? "recordApplied" : "recordNoChanges");
+      },
+    };
+  },
+);
 refreshOutputChoices();
 refreshOutputInfo();
 refreshStep();
 const details = element("details");
 details.className = "form-details";
-const provenance: { sourceName?: string } = JSON.parse(
+const provenance: { sourceName?: string; openPreview?: boolean } = JSON.parse(
   document.getElementById("provenance")!.textContent!,
 );
+preview.open = provenance.openPreview ?? false;
 const properties = element("dl");
 properties.className = "details-list";
 if (provenance.sourceName)
@@ -382,7 +415,6 @@ function createField(field: (typeof session.fields)[number], index: number) {
     invalidateOutput();
     refresh();
   });
-  row.addEventListener("focusout", () => queueMicrotask(refresh));
   row.append(label, input, help, status, verifyButton, checkArea);
   return state;
 }
@@ -502,7 +534,7 @@ function invalidateOutput() {
 
 function outputIssues(outputId = session.outputId) {
   const candidate = { ...session, outputId };
-  const issues = new Map(
+  const issues = new Map<number, "enter" | "verify" | "fix">(
     formAttention(candidate).map(({ index, check }) => [
       index,
       check ? "verify" : "enter",
@@ -615,11 +647,21 @@ function refresh() {
   )
     attentionList.replaceChildren(...links);
   attention.hidden = !links.length;
+  const kinds = [...issues.values()];
   setText(
-    attentionStatus,
-    links.length ? "remaining" : "ready",
-    String(links.length),
+    missingCount,
+    "missingValues",
+    String(kinds.filter((kind) => kind === "enter").length),
   );
+  setText(
+    checkCount,
+    "pendingChecks",
+    String(kinds.filter((kind) => kind === "verify").length),
+  );
+  const invalid = kinds.filter((kind) => kind === "fix").length;
+  invalidCount.hidden = invalid === 0;
+  setText(invalidCount, "invalidValues", String(invalid));
+  setText(readyStatus, links.length ? undefined : "ready");
   refreshWarnings();
   refreshPreview();
 }
@@ -663,6 +705,10 @@ function downloadResponses() {
     invalid.input.focus();
     return;
   }
+  if (!includedResponses.size) {
+    setText(recordFeedback, "recordNoResponses");
+    return;
+  }
   setText(recordFeedback);
   download(
     "responses.json",
@@ -684,7 +730,7 @@ function createOutput(all: boolean) {
     session.outputId = selector.value = blocked;
     refreshOutputInfo();
     refresh();
-    attentionList.querySelector("a")?.focus();
+    jump.focus();
     return;
   }
   try {
@@ -692,9 +738,31 @@ function createOutput(all: boolean) {
       output: sourceOutput(source, id),
       sections: prepareSections({ ...session, outputId: id }),
     }));
+    const multiple = prepared.length > 1;
+    const filename = multiple ? "outputs.json" : `${prepared[0].output.id}.json`;
+    const downloadJson = action("downloadOutputJson", () => {
+      const outputs = prepared.map(({ output: { id, label }, sections }) => ({
+        id,
+        label,
+        sections,
+      }));
+      download(
+        timestampText.checked ? timestampedFilename(filename) : filename,
+        outputJson(outputs),
+        "application/json",
+      );
+    });
     result.append(timestampOption);
+    if (multiple) result.append(downloadJson);
     for (const { output, sections } of prepared)
-      result.append(renderPrepared(output, sections, prepared.length > 1));
+      result.append(
+        renderPrepared(
+          output,
+          sections,
+          multiple,
+          multiple ? undefined : downloadJson,
+        ),
+      );
     session.prepared = prepared[0].sections;
     preview.open = false;
     preview.hidden = true;
@@ -714,6 +782,7 @@ function renderPrepared(
   output: ReturnType<typeof sourceOutput>,
   sections: Prepared,
   showInstructions: boolean,
+  downloadJson?: HTMLButtonElement,
 ) {
   const group = element("section");
   group.className = "prepared-output";
@@ -748,6 +817,7 @@ function renderPrepared(
       ),
     ),
   );
+  if (downloadJson) actions.append(downloadJson);
   const complete = textArea("", full, () => transferred());
   setLabel(complete.value, "entireOutput");
   complete.value.hidden = true;

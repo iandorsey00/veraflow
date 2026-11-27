@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rename, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -64,11 +64,19 @@ test("moved and renamed form, offline entry, verification and blocked clipboard 
     await page.getByRole("heading", { name: "Needs attention" }).count(),
     1,
   );
+  await page.getByText("Missing values: 3", { exact: true }).waitFor();
+  await page.getByText("Pending checks: 0", { exact: true }).waitFor();
+  assert.equal(
+    await page.locator("#field-checks").evaluate((checks) =>
+      checks.nextElementSibling?.matches("#record-fields"),
+    ),
+    true,
+  );
   await page.getByRole("button", { name: "Create output" }).click();
   await page.keyboard.press("Enter");
   assert.equal(
     await page.locator(":focus").getAttribute("id"),
-    await page.getByLabel("Case number").getAttribute("id"),
+    await page.getByLabel("Case number", { exact: true }).getAttribute("id"),
   );
   assert.match(
     await page
@@ -76,13 +84,19 @@ test("moved and renamed form, offline entry, verification and blocked clipboard 
       .getAttribute("aria-describedby"),
     /-help/,
   );
-  assert.equal(await page.getByLabel("Airport code").isVisible(), false);
-  assert.equal(await page.getByLabel("Internal note").isVisible(), false);
+  const airport = page.getByLabel("Airport code", { exact: true });
+  assert.equal(await airport.isVisible(), false);
+  assert.equal(
+    await page.getByLabel("Internal note", { exact: true }).isVisible(),
+    false,
+  );
 
-  await page.getByLabel("Case number").fill(inputs.case);
+  await page.getByLabel("Case number", { exact: true }).fill(inputs.case);
   const tracking = page.getByLabel("Tracking number", { exact: true });
   await tracking.fill(inputs.tracking);
   await page.getByLabel("Customer", { exact: true }).fill(inputs.customer);
+  await page.getByText("Missing values: 0", { exact: true }).waitFor();
+  await page.getByText("Pending checks: 1", { exact: true }).waitFor();
   await page.getByRole("link", { name: "Verify Tracking number" }).click();
   const candidate = page.getByLabel("Independent value for Tracking number");
   await candidate.fill("ZX 902 71");
@@ -156,9 +170,9 @@ test("moved and renamed form, offline entry, verification and blocked clipboard 
     await page.getByRole("textbox", { name: "Note", exact: true }).inputValue(),
     expected.note,
   );
-  await page.getByLabel("Route").selectOption("air");
+  await page.getByLabel("Route", { exact: true }).selectOption("air");
   await page.getByRole("link", { name: "Enter Airport code" }).click();
-  await page.getByLabel("Airport code").fill("LAX");
+  await airport.fill("LAX");
   await tracking.fill("ZX 902 18");
   assert.equal(
     await page
@@ -196,11 +210,12 @@ test("the authoring page exposes a newer deployed version and downloads an HTML 
   await update.waitFor();
   assert.match(await update.getAttribute("href"), /\?v=10\.2\.0$/);
   await page
-    .getByLabel("VeraFlow template")
+    .locator("#source")
     .setInputFiles(fileURLToPath(example));
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download HTML form" }).click();
   assert.equal((await downloading).suggestedFilename(), "service-case.html");
+  await page.getByText("Form tools", { exact: true }).press("Enter");
   await page
     .getByRole("checkbox", { name: "Add a timestamp to the filename" })
     .check();
@@ -214,25 +229,7 @@ test("the authoring page exposes a newer deployed version and downloads an HTML 
     (await downloadingAgain).suggestedFilename(),
     await page.locator("#export-filename").textContent(),
   );
-  await page
-    .getByLabel("VeraFlow template")
-    .setInputFiles(fileURLToPath(housingExample));
-  const prefill = page.getByRole("checkbox", {
-    name: "Include prefilled responses",
-  });
-  await prefill.waitFor();
-  assert.equal(await prefill.isChecked(), false);
-  await prefill.check();
-  await page
-    .getByLabel("Response JSON file (optional)")
-    .setInputFiles(fileURLToPath(housingResponse));
-  const prefilled = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download HTML form" }).click();
-  const downloadedHtml = await readFile(await (await prefilled).path(), "utf8");
-  assert.match(
-    embeddedTemplate(downloadedHtml).content,
-    /"legal_name": "Drew Example"/,
-  );
+
 });
 
 test("offline shipment steps preserve later inputs and require recopy after a revision", async (t) => {
@@ -419,7 +416,10 @@ test("prefilled housing export runs offline and downloads reviewable response JS
   const candidate = page.getByRole("textbox", {
     name: /Independent value for Legal name/,
   });
-  const name = page.getByRole("textbox", { name: "Legal name / 法定姓名" });
+  const name = page.getByRole("textbox", {
+    name: "Legal name / 法定姓名",
+    exact: true,
+  });
   const next = page.getByRole("button", { name: "Next step" });
   const prepareAll = page.getByRole("button", {
     name: "Prepare all step outputs",
@@ -440,6 +440,8 @@ test("prefilled housing export runs offline and downloads reviewable response JS
   await candidate.fill("Drew Example");
   await candidate.press("Enter");
   await next.click();
+
+  assert.equal(await page.getByLabel("Output", { exact: true }).inputValue(), "review");
 
   await page.getByText("Optional fields", { exact: true }).click();
   const reason = page.getByRole("textbox", {
@@ -467,6 +469,34 @@ test("prefilled housing export runs offline and downloads reviewable response JS
     await review.getByText("请核对姓名、就业状态及原文。").isVisible(),
     true,
   );
+  const outputDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download output JSON" }).click();
+  const output = await outputDownload;
+  assert.equal(output.suggestedFilename(), "outputs.json");
+  assert.deepEqual(JSON.parse(await readFile(await output.path(), "utf8")), {
+    format: "veraflow-render",
+    version: 1,
+    outputs: [
+      {
+        id: "application",
+        label: "English application",
+        sections: [{ id: "body", label: "Body", text: englishText }],
+      },
+      {
+        id: "review",
+        label: "中文核对",
+        sections: [{
+          id: "body",
+          label: "Body",
+          text: "姓名：Drew Example\n就业状态：在职\n搬家原因：现在的住处离公司太远。",
+        }],
+      },
+    ],
+  });
+  await page.getByRole("button", { name: "简体中文" }).click();
+  assert.equal(await page.locator("html").getAttribute("lang"), "zh-CN");
+  await page.getByText("表单工具", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "English" }).click();
   await application.getByRole("button", { name: "Copy entire output" }).click();
   await page.getByText(/Clipboard access is blocked/).waitFor();
   assert.equal(
@@ -486,6 +516,7 @@ test("prefilled housing export runs offline and downloads reviewable response JS
     /English application · Inputs changed/,
   );
   assert.match(await warnings.textContent(), /中文核对 · Inputs changed/);
+  await page.getByText("Form tools", { exact: true }).press("Enter");
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download response JSON" }).click();
   const downloaded = await downloading;
@@ -573,6 +604,10 @@ test("offline bulk extraction applies only reviewed values and exports a flat re
     .setInputFiles(fileURLToPath(serviceFile("service-intake-source.txt")));
   await acquisition.getByRole("button", { name: "Find candidates" }).click();
   assert.equal(await serialCheck.isChecked(), false);
+  assert.match(
+    await review.getByRole("heading", { level: 3 }).first().textContent(),
+    /Needs a decision/,
+  );
   assert.equal(await quantity.getByRole("checkbox").isChecked(), true);
   assert.equal(await serial.getByText("序列号：ABC123458").isVisible(), true);
   await serial.getByRole("combobox").selectOption({ label: "ABC123458" });
@@ -589,7 +624,12 @@ test("offline bulk extraction applies only reviewed values and exports a flat re
   assert.equal(await record.inputValue(), "ABC123458");
 
   async function importCandidates(textName, fileName) {
-    await extract.click();
+    const tools = page.locator("#form-tools");
+    if ((await tools.getAttribute("open")) === null)
+      await tools.getByText("Form tools", { exact: true }).press("Enter");
+    await tools
+      .getByRole("button", { name: "External extraction files" })
+      .click();
     await source.fill(await readFile(serviceFile(textName), "utf8"));
     await page
       .locator("#candidate-file")
@@ -600,6 +640,7 @@ test("offline bulk extraction applies only reviewed values and exports a flat re
     "service-intake-email.txt",
     "service-email-candidates.json",
   );
+  await review.getByText(/Matches current values/).press("Enter");
   assert.equal(
     await quantity
       .getByRole("textbox", { name: "Proposed value" })
@@ -646,6 +687,26 @@ test("offline bulk extraction applies only reviewed values and exports a flat re
       ),
     /serial ABC123458/,
   );
+  await importCandidates(
+    "service-intake-call.txt",
+    "service-call-candidates.json",
+  );
+  const matches = review.getByText(/Matches current values/);
+  assert.equal(await serial.isVisible(), false);
+  await matches.press("Enter");
+  assert.equal(await serial.isVisible(), true);
+  await serialCheck.check();
+  await apply.click();
+  assert.equal(await record.inputValue(), "ABC123458");
+  await page.getByText("Verified.", { exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole("textbox", { name: "Contact name", exact: true }).inputValue(),
+    "Sarah Example",
+  );
+  await record.fill("ABC123459");
+  await page.getByText("Pending checks: 1", { exact: true }).waitFor();
+  await record.fill("ABC123458");
+  await page.getByText("Pending checks: 1", { exact: true }).waitFor();
   const responseDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download response JSON" }).click();
   const data = JSON.parse(
@@ -657,4 +718,241 @@ test("offline bulk extraction applies only reviewed values and exports a flat re
   assert.equal(Object.hasOwn(data, "candidates"), false);
   assert.deepEqual(requests, []);
   assert.deepEqual(errors, []);
+});
+
+test("dispatch JSON creates output and merges reviewed values in a file opened offline", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "veraflow-json-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const browser = await launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  const dispatchFile = fileURLToPath(new URL("../examples/dispatch-record.json5", import.meta.url));
+  const formFile = fileURLToPath(new URL("../examples/dispatch-form.vf", import.meta.url));
+  const dispatch = await readFile(dispatchFile, "utf8");
+  await page.route("https://veraflow.test/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    await route.fulfill({ path: join("dist", path === "/" ? "index.html" : path.slice(1)) });
+  });
+  await page.goto("https://veraflow.test/");
+  const open = page.getByRole("button", { name: "Open JSON / JSON5…" });
+  const dialog = page.getByRole("dialog");
+  const review = dialog.getByRole("button", { name: "Review data" });
+  const openFilled = dialog.getByRole("button", { name: "Open filled form" });
+  const form = page.frameLocator("#record-form");
+  const input = dialog.getByLabel("Paste JSON or JSON5");
+
+  await open.press("Enter");
+  assert.equal(await input.evaluate((control) => control === document.activeElement), true);
+  await dialog.locator('input[accept=".json,.json5"]').setInputFiles(dispatchFile);
+  await review.press("Enter");
+  await dialog.getByRole("cell", { name: "000184", exact: true }).waitFor();
+  await dialog.getByRole("cell", { name: "Unanswered", exact: true }).waitFor();
+  await openFilled.press("Enter");
+  await form.locator(".output-preview pre").filter({ hasText: "Ask for a receipt." }).waitFor();
+  assert.match(await form.locator(".output-preview pre").textContent(), /reference: 000184/);
+
+  await open.click();
+  for (const [malformed, error] of [
+    ["{reference: 'first', reference: 'second'}", /reference occurs more than once/],
+    ["{notes: ['nested']}", /notes contains an object or array/],
+    ["{packages: NaN}", /packages needs a finite number/],
+  ]) {
+    await input.fill(malformed);
+    await review.click();
+    await dialog.getByRole("alert").getByText(error).waitFor();
+  }
+  const precise = "9007199254740993.23000000001";
+  const literal = "<b>{{reference}}</b>";
+  await input.fill(dispatch.replace("packages: 3", `packages: ${precise}`).replace("tracking: null,", "tracking: null, delivery_code: '', extra: '" + literal + "',"));
+  await review.click();
+  await dialog.getByRole("cell", { name: "Explicitly empty", exact: true }).waitFor();
+  await dialog.getByLabel("Use data for").selectOption("custom");
+  await dialog.getByLabel("Output text").fill("Dispatch {{reference}} to {{destination}} for {{contact}}.\nPackages: {{packages}}\n{{extra}}");
+  await openFilled.click();
+  const customPreview = form.locator(".output-preview pre");
+  const customText = `Dispatch 000184 to North Depot for 林晓 / Alex Lin.\nPackages: ${precise}\n${literal}`;
+  await customPreview.filter({ hasText: literal }).waitFor();
+  assert.equal(await customPreview.textContent(), customText);
+  assert.equal(await customPreview.locator("b").count(), 0);
+
+  await open.click();
+  await input.fill(dispatch.replace("tracking: null,", "tracking: null, delivery_code: '',"));
+  await review.click();
+  await dialog.getByLabel("Use data for").selectOption("reusable");
+  await dialog.getByLabel("Reusable form file").setInputFiles(formFile);
+  await dialog.getByRole("cell", { name: "East Depot", exact: true }).waitFor();
+  await dialog.getByRole("cell", { name: "North Depot", exact: true }).waitFor();
+  await openFilled.click();
+  const htmlDownload = page.waitForEvent("download");
+  await page.locator("#download-record-form").click();
+  const localHtml = join(directory, "renamed-dispatch.html");
+  await (await htmlDownload).saveAs(localHtml);
+
+  const context = await browser.newContext({ offline: true });
+  const offline = await context.newPage();
+  await offline.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText(value) {
+          if (window.blockCopy) return Promise.reject(new Error("Blocked"));
+          window.copiedValue = value;
+          return Promise.resolve();
+        },
+      },
+    });
+  });
+  const requests = [];
+  const errors = [];
+  offline.on("request", (request) => {
+    if (/^https?:/.test(request.url())) requests.push(request.url());
+  });
+  offline.on("pageerror", (error) => errors.push(error.message));
+  await offline.goto(pathToFileURL(localHtml).href);
+  const tools = offline.locator("#form-tools > summary");
+  const status = (label) => offline.getByLabel(label, { exact: true }).evaluate(
+    (control) => document.getElementById(control.id + "-status").textContent,
+  );
+  async function verify(label, value) {
+    await offline.getByRole("button", { name: `Verify field: ${label}` }).click();
+    const entry = offline.getByLabel(`Independent value for ${label}`, { exact: true });
+    await entry.fill(value);
+    await entry.press("Enter");
+    assert.equal(await status(label), "Verified.");
+  }
+
+  await verify("Reference", "000184");
+  await verify("Destination", "North Depot");
+  await offline.locator(".output-preview pre").filter({ hasText: "Dispatch 000184" }).waitFor();
+  await tools.press("Enter");
+  await offline.getByRole("button", { name: "Open JSON / JSON5…" }).press("Enter");
+  const offlineDialog = offline.getByRole("dialog", { name: "Open JSON / JSON5…" });
+  await offlineDialog.getByLabel("Paste JSON or JSON5").fill('{reference: "000184", destination: "South Depot"}');
+  await offlineDialog.getByRole("button", { name: "Review data" }).press("Enter");
+  const merge = offline.getByRole("dialog", { name: "Review JSON data" });
+  await merge.getByRole("cell", { name: "South Depot", exact: true }).waitFor();
+  assert.equal(await offline.getByLabel("Destination", { exact: true }).inputValue(), "North Depot");
+  await merge.getByRole("button", { name: "Apply reviewed values" }).press("Enter");
+  assert.equal(await status("Reference"), "Verified.");
+  assert.equal(await status("Destination"), "Verification required.");
+  assert.equal(await offline.getByLabel("Notes", { exact: true }).inputValue(), "Leave at the front desk.\nAsk for a receipt.");
+  await verify("Destination", "South Depot");
+  await offline.getByRole("button", { name: "Create output", exact: true }).click();
+  const full = offline.getByRole("button", { name: "Copy entire output" });
+  await full.click();
+  await offline.getByText("Copied.", { exact: true }).waitFor();
+  assert.match(await offline.evaluate(() => window.copiedValue), /Dispatch 000184 to South Depot/);
+  await offline.evaluate(() => { window.blockCopy = true; });
+  await full.click();
+  await offline.getByText(/Clipboard access is blocked/).waitFor();
+  const selected = await offline.locator("textarea:focus").evaluate(
+    (control) => control.value.slice(control.selectionStart, control.selectionEnd),
+  );
+  assert.match(selected, /Leave at the front desk\.\nAsk for a receipt\./);
+
+  const recordDownload = offline.waitForEvent("download");
+  await offline.getByRole("button", { name: "Download response JSON" }).click();
+  const saved = await readFile(await (await recordDownload).path(), "utf8");
+  assert.deepEqual(JSON.parse(saved), {
+    reference: "000184",
+    contact: "林晓 / Alex Lin",
+    destination: "South Depot",
+    packages: "3",
+    priority: "true",
+    notes: "Leave at the front desk.\nAsk for a receipt.",
+    tracking: null,
+    delivery_code: "",
+  });
+  await open.click();
+  await input.fill(saved);
+  await review.click();
+  await dialog.getByRole("cell", { name: "South Depot", exact: true }).waitFor();
+  await dialog.getByRole("cell", { name: "Unanswered", exact: true }).waitFor();
+  await dialog.getByRole("cell", { name: "Explicitly empty", exact: true }).waitFor();
+  assert.deepEqual(requests, []);
+  assert.deepEqual(errors, []);
+});
+
+test("offline default output, reviewed JSON, and versioned output downloads agree", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "veraflow-output-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const form = fileURLToPath(new URL("../examples/dispatch-exchange.vf", import.meta.url));
+  const record = join(directory, "record.json");
+  const html = join(directory, "dispatch.html");
+  const accepted = {
+    reference: "000184",
+    route: "ground",
+    tracking: null,
+    delivery_code: "",
+  };
+  await writeFile(record, JSON.stringify(accepted));
+  execFileSync(process.execPath, [
+    fileURLToPath(script), "--responses", record, form, html,
+  ]);
+  const browser = await launch();
+  t.after(() => browser.close());
+  const context = await browser.newContext({ offline: true });
+  const page = await context.newPage();
+  const requests = [];
+  page.on("request", (request) => {
+    if (/^https?:/.test(request.url())) requests.push(request.url());
+  });
+  await page.goto(pathToFileURL(html).href);
+
+  const picker = page.getByLabel("Output", { exact: true });
+  const create = page.getByRole("button", { name: "Create output", exact: true });
+  const downloadOutput = page.getByRole("button", { name: "Download output JSON" });
+  async function downloadJson(button) {
+    const pending = page.waitForEvent("download");
+    await button.click();
+    const file = await pending;
+    return JSON.parse(await readFile(await file.path(), "utf8"));
+  }
+
+  assert.equal(await picker.inputValue(), "log");
+  await page.getByText("Preview output", { exact: true }).click();
+  const logText = "000184 | Ground service | Tracking:  | Delivery code: ";
+  assert.equal(await page.locator(".output-preview pre").textContent(), logText);
+  await create.click();
+  const downloadedLog = await downloadJson(downloadOutput);
+  assert.deepEqual(downloadedLog, {
+    format: "veraflow-render",
+    version: 1,
+    outputs: [{
+      id: "log",
+      label: "Dispatch log",
+      sections: [{ id: "body", label: "Log entry", text: logText }],
+    }],
+  });
+  if (process.env.VERAFLOW_DESKTOP_DIR) {
+    const cli = join(process.env.VERAFLOW_DESKTOP_DIR, "scripts", "veraflow");
+    const rendered = execFileSync(process.execPath, [
+      cli, "render", record, form, "--format", "json",
+    ], { encoding: "utf8" });
+    assert.deepEqual(downloadedLog, JSON.parse(rendered));
+  }
+
+  await picker.selectOption("note");
+  await create.click();
+  const downloadedNote = await downloadJson(downloadOutput);
+  assert.deepEqual(downloadedNote.outputs[0].sections, [
+    { id: "subject", label: "Subject", text: "Dispatch 000184" },
+    { id: "body", label: "Body", text: "Route: Ground service\nTracking: \nDelivery code: " },
+  ]);
+  await page.getByLabel("Reference", { exact: true }).fill("000185");
+  assert.equal(await picker.inputValue(), "note");
+  assert.equal(await downloadOutput.count(), 0);
+  await page.locator("#form-tools > summary").click();
+  await page.getByRole("button", { name: "Open JSON / JSON5…" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Paste JSON or JSON5").fill('{reference: "000184"}');
+  await dialog.getByRole("button", { name: "Review data" }).click();
+  await dialog.getByRole("cell", { name: "000185", exact: true }).waitFor();
+  await dialog.getByRole("cell", { name: "000184", exact: true }).waitFor();
+  await dialog.getByRole("button", { name: "Apply reviewed values" }).click();
+  assert.equal(await picker.inputValue(), "note");
+  assert.deepEqual(
+    await downloadJson(page.getByRole("button", { name: "Download response JSON" })),
+    accepted,
+  );
+  assert.deepEqual(requests, []);
 });

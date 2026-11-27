@@ -25,11 +25,15 @@ export function exportHtml(
   options: PrefillOptions & {
     language?: Language;
     includeSourceName?: boolean;
+    openPreview?: boolean;
   } = {},
 ) {
   const { content, ...template } = createDefinition(source, filename, options);
   const language = options.language ?? "en";
-  const provenance = options.includeSourceName ? { sourceName: filename } : {};
+  const provenance = {
+    ...(options.includeSourceName ? { sourceName: filename } : {}),
+    ...(options.openPreview ? { openPreview: true } : {}),
+  };
   // Keep the source in readable lines while retaining original newline bytes.
   const sourceLines =
     content.match(/[^\r\n]+(?:\r\n|\r|\n)?|\r\n|\r|\n/g) ?? [];
@@ -50,16 +54,24 @@ export function exportHtml(
   <body class="standalone">
     <div class="topbar" id="language"></div>
 
-    <!-- Form sections are populated by the offline runtime. -->
+    <!-- Form markup. The runtime fills the step, fields, and outputs. -->
     <main id="form">
       <header>
         <h1>${escapeHtml(template.name)}</h1>
       </header>
       <noscript>${translate(language, "noScriptForm")}</noscript>
-      <div class="actions source-actions">
-        <button id="extract-source" type="button" data-text="extractSource" disabled>Extract from source…</button>
-      </div>
       <div id="step-context"></div>
+      <div class="form-toolbar">
+        <button id="extract-source" type="button" data-text="extractSource" disabled>Extract from source…</button>
+        <details id="form-tools" class="form-tools" hidden>
+          <summary data-text="formTools">Form tools</summary>
+          <div class="actions" id="form-tool-actions">
+            <button id="import-record" type="button" data-text="openRecord">Open JSON / JSON5…</button>
+          </div>
+        </details>
+      </div>
+      <p id="record-feedback" class="status" role="status"></p>
+      <div id="field-checks"></div>
       <div id="record-fields"></div>
       <section id="output-panel" class="output-panel"></section>
       <div id="form-actions"></div>
@@ -79,7 +91,7 @@ export function exportHtml(
           <button id="extract-clipboard" type="button" data-text="readClipboard">Read clipboard</button>
           <button id="extract-open" type="button" data-text="openSourceText">Open text file…</button>
         </div>
-        <details>
+        <details id="candidate-file-tools">
           <summary data-text="candidateFileTools">External extraction files</summary>
           <p class="help" data-text="candidateFileHelp">Add the original text above to check imported quotations against it.</p>
           <div class="actions">

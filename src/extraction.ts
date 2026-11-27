@@ -11,7 +11,7 @@ import {
 } from "../vendor/veraflow/core/candidates";
 import { type Session } from "../vendor/veraflow/core/model";
 import { planRecordValues } from "../vendor/veraflow/core/source-record";
-import { download, element } from "./dom";
+import { button, download, element } from "./dom";
 import { setText, text } from "./locale";
 import { type Message } from "./strings";
 
@@ -65,6 +65,8 @@ export function setupExtraction(
     document.querySelector<HTMLDialogElement>("#source-extraction")!;
   const source = document.querySelector<HTMLTextAreaElement>("#extract-text")!;
   const sourceError = document.getElementById("extract-error")!;
+  const fileTools =
+    document.querySelector<HTMLDetailsElement>("#candidate-file-tools")!;
   const openFile = document.querySelector<HTMLButtonElement>("#extract-open")!;
   const clipboard =
     document.querySelector<HTMLButtonElement>("#extract-clipboard")!;
@@ -84,17 +86,26 @@ export function setupExtraction(
   let reviewRows: ReturnType<typeof candidateRow>[] = [];
   let reading = false;
   let generation = 0;
+  let opener = trigger;
 
   trigger.hidden = !fields.length;
   trigger.disabled = false;
-  trigger.addEventListener("click", () => {
+  const externalTools = button("", () => openSource(externalTools, true));
+  setText(externalTools, "candidateFileTools");
+  if (fields.length)
+    document.getElementById("form-tool-actions")!.append(externalTools);
+  trigger.addEventListener("click", () => openSource(trigger, false));
+
+  function openSource(control: HTMLButtonElement, showFileTools: boolean) {
+    opener = control;
     source.value = "";
+    fileTools.open = showFileTools;
     setText(sourceError);
     generation++;
     setReading(false);
     sourceDialog.showModal();
     source.focus();
-  });
+  }
   document
     .getElementById("extract-cancel")!
     .addEventListener("click", () => sourceDialog.close());
@@ -108,7 +119,7 @@ export function setupExtraction(
     reviewResults.replaceChildren();
     candidates = new Map();
     reviewRows = [];
-    trigger.focus();
+    opener.focus();
   });
 
   function setReading(value: boolean) {
@@ -220,6 +231,9 @@ export function setupExtraction(
       session.fields.map(({ name, value }) => [name, value]),
     );
     reviewResults.replaceChildren();
+    const decisions: HTMLElement[] = [];
+    const additions: HTMLElement[] = [];
+    const matches: HTMLElement[] = [];
     for (const [index, field] of fields.entries()) {
       const candidate = found.get(field.name);
       if (!candidate || candidate.status === "not_found") {
@@ -233,9 +247,37 @@ export function setupExtraction(
         current.get(field.name)!,
       );
       reviewRows.push(row);
-      reviewResults.append(row.group);
+      const group =
+        row.status === "candidateFound"
+          ? additions
+          : row.status === "candidateSame"
+            ? matches
+            : decisions;
+      group.push(row.group);
     }
-    if (!reviewRows.length) reviewResults.prepend(text("p", "noCandidates"));
+    if (!reviewRows.length) reviewResults.append(text("p", "noCandidates"));
+    for (const [key, rows] of [
+      ["candidateDecisions", decisions],
+      ["candidateNewValues", additions],
+    ] as const) {
+      if (!rows.length) continue;
+      const section = element("section");
+      section.className = "candidate-group";
+      const heading = text("h3", key, String(rows.length));
+      heading.id = key;
+      section.setAttribute("aria-labelledby", heading.id);
+      section.append(heading, ...rows);
+      reviewResults.append(section);
+    }
+    if (matches.length) {
+      const details = element("details");
+      details.className = "candidate-group";
+      details.append(
+        text("summary", "candidateMatches", String(matches.length)),
+        ...matches,
+      );
+      reviewResults.append(details);
+    }
     if (missing.childElementCount) {
       const summary = element("details");
       summary.append(
@@ -330,6 +372,7 @@ function candidateRow(
     for (const [i, alternative] of candidate.alternatives.entries())
       choices.add(new Option(alternative.value, String(i)));
     choices.addEventListener("change", () => {
+      checked.checked = false;
       proposed.value =
         choices.value === ""
           ? ""
@@ -339,6 +382,10 @@ function candidateRow(
     label.htmlFor = choices.id;
     group.append(label, choices);
   }
+  if (status !== "candidateFound")
+    proposed.addEventListener("input", () => {
+      checked.checked = false;
+    });
   const valueLabel = text("label", "candidateIncoming");
   valueLabel.htmlFor = proposed.id;
   const accept = element("label");
@@ -377,5 +424,5 @@ function candidateRow(
     }
   }
   group.append(valueLabel, proposed, accept, evidence);
-  return { group, checked, proposed, name: field.name };
+  return { group, checked, proposed, status, name: field.name };
 }
