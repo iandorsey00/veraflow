@@ -1,0 +1,41 @@
+--- veraflow 2
+{
+  "title": "Service shipment",
+  "instructions": "Enter the synthetic service case. Check the tracking number against the shipping label.",
+  "workflow": "form",
+  "verify-by-default": true,
+  "fields": {
+    "case": {"type":"text", "label":"Case number", "verify":false},
+    "tracking": {"type":"text", "label":"Tracking number", "instructions":"Use the tracking value from the shipping confirmation. Verify it against the label."},
+    "customer": {"type":"text", "label":"Customer", "verify":false},
+    "route": {"type":"dropdown", "label":"Route", "default":"ground", "verify":false, "options":[{"id":"ground","label":"Ground","output":"Ground service"},{"id":"air","label":"Air","output":"Air service"}]},
+    "airport": {"type":"text", "label":"Airport code", "verify":false},
+    "notes": {"type":"textarea", "label":"Internal note", "optional":true, "verify":false}
+  },
+  "delivery": {"separator":"\n\n"}
+}
+---
+{{#output email "Customer email"}}
+{{#section subject "Subject"}}
+Shipment for case {{case}}
+{{/section}}
+{{#section body "Body"}}
+Hi {{customer}},
+Your {{route}} shipment is on the way. Tracking: {{tracking}}.
+{{#when route=air}}
+Airport: {{airport}}.
+{{/when}}
+{{/section}}
+{{/output}}
+
+{{#output ticket "Ticket note"}}
+{{#section note "Note"}}
+Case {{case}} | Customer: {{customer}} | Tracking: {{tracking}} | {{route}}
+{{#when route=air}}
+Airport: {{airport}}
+{{/when}}
+{{#when notes is not blank}}
+Internal note: {{notes}}
+{{/when}}
+{{/section}}
+{{/output}}

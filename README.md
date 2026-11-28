@@ -4,6 +4,8 @@ English · [简体中文](README.zh-CN.md)
 
 VeraFlow is a local desktop app for collecting information, checking it in one form, and reusing the same record for outputs such as emails, tickets, and spreadsheet rows. It runs on macOS and Windows. VeraFlow has no account, analytics, or AI service. It contacts GitHub for update checks and downloads.
 
+[VeraFlow Web](apps/web/README.md) builds separately from `apps/web` and uses the same core to export standalone HTML forms and offline questionnaires.
+
 **Source → working record → named outputs → destination**
 
 | What you have                                     | How it fits                                                                                                                                                  |

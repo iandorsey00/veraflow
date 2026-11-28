@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="data:," />
+    <!-- Authoring page styles and runtime are linked here. Exports bundle both inline. -->
+    <link rel="stylesheet" href="./style.css" />
+    <title>VeraFlow Web</title>
+    <script defer src="./web.js"></script>
+  </head>
+  <body class="authoring">
+    <div class="topbar">
+      <span class="wordmark">VeraFlow Web</span>
+      <div class="topbar-actions">
+        <a id="update" href="./" data-text="update" hidden>Update app…</a>
+        <div id="language"></div>
+      </div>
+    </div>
+    <main>
+      <header class="page-header">
+        <h1 data-text="title">Create an offline form</h1>
+      </header>
+      <section class="export-panel" aria-labelledby="data-label">
+        <h2 id="data-label" data-text="startFromData">Start from data</h2>
+        <p class="help" data-text="recordHomeHelp">
+          Review a JSON record and use it to generate output. Your data stays in this browser.
+        </p>
+        <button type="button" id="open-record" data-text="openRecord">Open JSON / JSON5…</button>
+      </section>
+      <section id="record-preview" class="export-panel" aria-labelledby="record-preview-title" hidden>
+        <div class="actions">
+          <h2 id="record-preview-title" data-text="filledForm" tabindex="-1">Filled form</h2>
+          <button type="button" id="download-record-form" data-text="downloadHtml">Download HTML form</button>
+        </div>
+        <iframe id="record-form" title="Filled form" data-label="filledForm" sandbox="allow-scripts allow-downloads" allow="clipboard-write *"></iframe>
+      </section>
+      <section class="export-panel" aria-labelledby="collection-label">
+        <h2 id="collection-label" data-text="collectionTitle">Collection questionnaire</h2>
+        <input type="file" id="collection-file" accept=".json,application/json" hidden>
+        <button type="button" id="choose-collection" data-text="openCollectionRequest">Open collection request…</button>
+        <p id="collection-status" role="alert" class="error"></p>
+        <div id="collection-preview" hidden>
+          <h3 tabindex="-1" data-text="collectionQuestions">Requested questions</h3>
+          <ol id="collection-questions"></ol>
+          <button type="button" id="download-questionnaire" class="primary" data-text="downloadQuestionnaire">Download questionnaire HTML</button>
+        </div>
+      </section>
+      <!-- Select the template and optionally prepare the initial working record. -->
+      <section class="export-panel" aria-labelledby="source-label">
+        <h2 id="source-label" data-text="source">VeraFlow template</h2>
+        <div class="file-picker">
+          <p id="selected-file" class="filename" data-text="chooseSource">
+            Choose a .veraflow or .vf file.
+          </p>
+          <input
+            type="file"
+            id="source"
+            class="sr-only"
+            tabindex="-1"
+            accept=".veraflow,.vf"
+            aria-labelledby="source-label"
+          />
+          <button
+            type="button"
+            id="choose"
+            data-text="chooseFile"
+            aria-describedby="selected-file"
+          >
+            Choose template
+          </button>
+        </div>
+        <div class="export-options" id="export-options" hidden>
+          <dl class="details-list">
+            <div>
+              <dt data-text="outputFile">HTML file</dt>
+              <dd id="export-filename" class="filename"></dd>
+            </div>
+          </dl>
+          <details class="form-tools" id="export-tools">
+            <summary data-text="formTools">Form tools</summary>
+            <label class="checkbox">
+              <input type="checkbox" id="timestamp-filename" />
+              <span data-text="timestampFilename"
+                >Add a timestamp to the filename</span
+              >
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" id="include-source" />
+              <span data-text="provenanceOption"
+                >Include the source filename in Form details</span
+              >
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" id="include-responses" />
+              <span data-text="includeResponses"
+                >Include prefilled responses</span
+              >
+            </label>
+            <p class="help" data-text="prefillHelp">
+              Include the responses saved in the template. They are readable in the exported file.
+            </p>
+          </details>
+        </div>
+        <div id="export-error" role="alert" class="error">
+          <p id="error-summary"></p>
+          <p id="error-detail"></p>
+        </div>
+        <div class="actions export-actions">
+          <button
+            type="button"
+            id="export"
+            class="primary"
+            data-text="downloadHtml"
+            disabled
+          >
+            Download HTML form
+          </button>
+          <p id="message" role="status"></p>
+        </div>
+        <p class="help" data-text="localFile">
+          Your template stays in this browser.
+        </p>
+      </section>
+      <noscript
+        >Enable JavaScript to export a form. / 请启用 JavaScript
+        后导出表单。</noscript
+      >
+    </main>
+    <footer>
+      <p>
+        <strong>©</strong> 2026 Ian Dorsey ·
+        <span data-text="licenseNotice">Open source under the MIT license</span>
+        ·
+        <a href="https://github.com/iandorsey00/veraflow-web">GitHub</a>
+      </p>
+    </footer>
+  </body>
+</html>

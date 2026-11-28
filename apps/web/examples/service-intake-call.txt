@@ -1,0 +1,5 @@
+Agent: Can you read the serial number from the faulty unit?
+Caller: The serial number is ABC123456—sorry, the last digit is eight.
+Agent: Is it all three displays?
+Caller: No, just one. It will not turn on. We already tried a new power cable.
+Caller: I can confirm the city is Irvine. I do not have the full street address.

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "export:html": "node scripts/export-standalone-html.mjs",
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",

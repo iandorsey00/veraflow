@@ -1,0 +1,27 @@
+--- veraflow 2
+{
+  "title": "Dispatch record",
+  "workflow": "form",
+  "verify-by-default": false,
+  "fields": {
+    "reference": {"type": "text", "label": "Reference", "verify": true},
+    "contact": {"type": "text", "label": "Contact"},
+    "destination": {"type": "text", "label": "Destination", "default": "East Depot", "verify": true},
+    "packages": {"type": "text", "label": "Packages"},
+    "priority": {"type": "text", "label": "Priority"},
+    "notes": {"type": "textarea", "label": "Notes"},
+    "tracking": {"type": "text", "label": "Tracking", "optional": true},
+    "delivery_code": {"type": "text", "label": "Delivery code", "optional": true}
+  }
+}
+---
+{{#output dispatch "Depot dispatch"}}
+Dispatch {{reference}} to {{destination}} for {{contact}}.
+Packages: {{packages}}
+Priority: {{priority}}
+{{notes}}
+{{/output}}
+
+{{#output log "Dispatch log"}}
+{{reference}} | {{destination}} | Tracking: {{tracking}} | Delivery code: {{delivery_code}}
+{{/output}}

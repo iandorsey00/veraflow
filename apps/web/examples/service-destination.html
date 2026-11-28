@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VeraFlow service intake demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      body {
+        max-width: 48rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      label {
+        display: block;
+        margin-block: 1rem 0.25rem;
+        font-weight: 600;
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.75rem;
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Display replacement intake</h1>
+      <p>Fictional training case. The boxes on this page are local.</p>
+      <h2>Asset label for verification</h2>
+      <p>Serial number <strong>ABC123458</strong></p>
+      <h2>Paste destinations</h2>
+      <label for="ticket">Service ticket</label>
+      <textarea id="ticket" rows="6" autocomplete="off"></textarea>
+      <label for="dispatch">Dispatch note</label>
+      <textarea id="dispatch" rows="6" autocomplete="off"></textarea>
+    </main>
+  </body>
+</html>
