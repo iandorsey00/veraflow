@@ -1,6 +1,6 @@
-import type { Session } from "../vendor/veraflow/core/model";
-import { planRecordValues, recordValues } from "../vendor/veraflow/core/source-record";
-import { SourceSyntaxError } from "../vendor/veraflow/core/source";
+import type { Session } from "../../../src/core/model";
+import { planRecordValues, recordValues } from "../../../src/core/source-record";
+import { SourceSyntaxError } from "../../../src/core/source";
 import type { Message } from "./strings";
 
 export type RecordValues = ReadonlyMap<string, string | null>;

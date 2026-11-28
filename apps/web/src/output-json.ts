@@ -1,4 +1,4 @@
-import type { Session } from "../vendor/veraflow/core/model";
+import type { Session } from "../../../src/core/model";
 
 type RenderedOutput = {
   id: string;

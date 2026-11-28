@@ -2,14 +2,14 @@
 
 [English](desktop-cli.md)
 
-本教程使用虚构的派送记录、可复用表单及 VeraFlow Desktop 0.25.0。请在 VeraFlow Web 仓库目录中运行命令，并将桌面端仓库放在同一级目录。首次使用 CLI 前，请在桌面端仓库运行一次 `npm ci`。[派送表单](../examples/dispatch-exchange.vf) · [来源文本](../examples/dispatch-exchange.txt) · [桌面端 CLI 指南](https://github.com/iandorsey00/veraflow/blob/d2bac40/docs/cli.zh-CN.md)
+本教程使用虚构的派送记录、可复用表单及本仓库的 VeraFlow Desktop。请从 `apps/web` 运行示例。首次使用 CLI 前，请在仓库根目录运行一次 `npm ci`。[派送表单](../examples/dispatch-exchange.vf) · [来源文本](../examples/dispatch-exchange.txt) · [桌面端 CLI 指南](../../../docs/cli.zh-CN.md)
 
 ## 查看表单并生成候选值
 
 ```sh
-../veraflow/scripts/veraflow inspect examples/dispatch-exchange.vf
-../veraflow/scripts/veraflow fields examples/dispatch-exchange.vf > dispatch-fields.json
-../veraflow/scripts/veraflow extract examples/dispatch-exchange.txt \
+../../scripts/veraflow inspect examples/dispatch-exchange.vf
+../../scripts/veraflow fields examples/dispatch-exchange.vf > dispatch-fields.json
+../../scripts/veraflow extract examples/dispatch-exchange.txt \
   examples/dispatch-exchange.vf > dispatch-candidates.json
 ```
 
@@ -26,9 +26,9 @@
 ## 验证并生成已接受记录的输出
 
 ```sh
-../veraflow/scripts/veraflow validate examples/dispatch-exchange.vf \
+../../scripts/veraflow validate examples/dispatch-exchange.vf \
   --record responses.json
-../veraflow/scripts/veraflow render responses.json examples/dispatch-exchange.vf \
+../../scripts/veraflow render responses.json examples/dispatch-exchange.vf \
   --format json > desktop-log.json
 ```
 

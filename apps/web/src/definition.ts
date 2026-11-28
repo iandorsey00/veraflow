@@ -1,25 +1,18 @@
-import { parseSourceMetadata, sourceHeader } from "../vendor/veraflow/core/source-header";
 import { translate, type Message } from "./strings";
-import {
-  defaultComparison,
-  type Template,
-} from "../vendor/veraflow/core/model";
+import { defaultComparison, type Template } from "../../../src/core/model";
 import {
   parseSource,
   prefillSource,
   sourceDefinitionText,
   SourceSyntaxError,
-} from "../vendor/veraflow/core/source";
+} from "../../../src/core/source";
 
 import {
   planRecordValues,
   readRecordInput,
   recordValues,
-} from "../vendor/veraflow/core/source-record";
-import {
-  applyRecordChanges,
-  startSession,
-} from "../vendor/veraflow/core/session";
+} from "../../../src/core/source-record";
+import { applyRecordChanges, startSession } from "../../../src/core/session";
 import { recordIssue, type RecordValues } from "./records";
 
 export class ExportError extends Error {
@@ -73,19 +66,6 @@ export function sourceName(filename: string) {
   );
 }
 
-function stripRecordState(source: string) {
-  const header = sourceHeader(source.replace(/^\uFEFF/, ""));
-  if (!header) return source;
-  const metadata = parseSourceMetadata(header.metadata, (detail, line) => {
-    throw new SourceSyntaxError(detail, line);
-  });
-  if (!metadata || typeof metadata !== "object" || !Object.hasOwn(metadata, "recordState"))
-    return source;
-  const { recordState: _privateState, ...definition } = metadata as Record<string, unknown>;
-  const lines = header.metadata.match(/\n/g)?.length ?? 1;
-  return `--- veraflow 2\n${JSON.stringify(definition)}${"\n".repeat(lines)}---\n${header.body}`;
-}
-
 export type PrefillOptions = {
   includeResponses?: boolean;
   responseJson?: string;
@@ -101,7 +81,6 @@ export function createDefinition(
   if (!source.trim()) throw new ExportError("emptyFile");
   let content: string;
   try {
-    source = stripRecordState(source);
     content = sourceDefinitionText(source);
   } catch (error) {
     if (error instanceof SourceSyntaxError) {

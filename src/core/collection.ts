@@ -21,7 +21,7 @@ import { normalizeText, validStoredValue, type Control } from "./form";
 const invalidRequest = "invalidCollectionRequest";
 const invalidResponse = "invalidCollectionResponse";
 
-type Question = {
+export type CollectionQuestion = {
   id: string;
   label: string;
   type: Control["kind"];
@@ -36,7 +36,7 @@ export type CollectionRequest = {
   format: "veraflow-collection-request";
   version: 1;
   requestId: string;
-  questions: Question[];
+  questions: CollectionQuestion[];
 };
 
 const questionTypes = new Set<unknown>([
@@ -157,7 +157,7 @@ export function collectionQuestions(
     ...gaps.missingOptional,
     ...gaps.invalid,
   ]);
-  const questions: Question[] = [];
+  const questions: CollectionQuestion[] = [];
   for (const field of gaps.fields) {
     if (!needed.has(field.id)) continue;
     const control = s.controls?.get(field.id);
@@ -188,7 +188,7 @@ export function collectionQuestions(
 export async function prepareCollectionRequest(
   s: Session,
   scope: CollectionScope,
-  questions: Question[],
+  questions: CollectionQuestion[],
 ) {
   if (!questions.length) throw Error("collectionNoQuestions");
   const requests = s.recordState?.requests ?? [];
@@ -268,6 +268,27 @@ export function readCollectionResponse(text: string) {
   return { requestId: root.requestId, responseId: root.responseId, fields };
 }
 
+export function normalizeCollectionAnswer(
+  question: CollectionQuestion,
+  value: string | null,
+) {
+  const control: Control = {
+    kind: question.type,
+    optional: !question.required,
+    multiline: question.multiline,
+    allowBlankLines: question.allowBlankLines,
+    options:
+      question.options &&
+      new Map(question.options.map(({ id, label }) => [id, label])),
+  };
+  const normalized = value === null ? null : normalizeText(control, value);
+  if (question.required && !normalized?.trim())
+    throw Error("collectionRequired");
+  if (normalized !== null && !validStoredValue(control, normalized))
+    throw Error("recordInvalidField:" + question.id);
+  return normalized;
+}
+
 export function createCollectionResponse(
   request: CollectionRequest,
   answers: ReadonlyMap<string, string | null>,
@@ -279,21 +300,7 @@ export function createCollectionResponse(
   for (const [id, value] of answers) {
     const question = questions.get(id);
     if (!question) throw Error("collectionUnexpected");
-    const control: Control = {
-      kind: question.type,
-      optional: !question.required,
-      multiline: question.multiline,
-      allowBlankLines: question.allowBlankLines,
-      options:
-        question.options &&
-        new Map(question.options.map(({ id, label }) => [id, label])),
-    };
-    const normalized = value === null ? null : normalizeText(control, value);
-    if (question.required && !normalized?.trim())
-      throw Error("collectionRequired");
-    if (normalized !== null && !validStoredValue(control, normalized))
-      throw Error("recordInvalidField:" + id);
-    fields.set(id, normalized);
+    fields.set(id, normalizeCollectionAnswer(question, value));
   }
   if (request.questions.some(({ id, required }) => required && !fields.has(id)))
     throw Error("collectionRequired");

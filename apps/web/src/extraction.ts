@@ -8,9 +8,9 @@ import {
   sourceTextLimit,
   validSourceText,
   type Candidate,
-} from "../vendor/veraflow/core/candidates";
-import { type Session } from "../vendor/veraflow/core/model";
-import { planRecordValues } from "../vendor/veraflow/core/source-record";
+} from "../../../src/core/candidates";
+import { type Session } from "../../../src/core/model";
+import { planRecordValues } from "../../../src/core/source-record";
 import { button, download, element } from "./dom";
 import { setText, text } from "./locale";
 import { type Message } from "./strings";

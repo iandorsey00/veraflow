@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Turn Desktop collection requests into self-contained offline questionnaires and download correlated responses for review in Desktop.
+- Build from `apps/web` in the VeraFlow repository using the shared core. Web keeps its own version, dependencies, static assets, and `web-v` release tags.
+
 ## 0.5.0
 
 - Open JSON or JSON5 from a file or clipboard and review values before creating a summary, writing an output, or filling a reusable form.

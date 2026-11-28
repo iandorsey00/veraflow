@@ -2,14 +2,14 @@
 
 [简体中文](desktop-cli.zh-CN.md)
 
-This walkthrough uses a fictional dispatch, its reusable form, and VeraFlow Desktop 0.25.0. Run the commands from the VeraFlow Web checkout with the Desktop repository checked out next to it. Run `npm ci` in the Desktop checkout once before using its CLI. [Dispatch form](../examples/dispatch-exchange.vf) · [Source text](../examples/dispatch-exchange.txt) · [Desktop CLI guide](https://github.com/iandorsey00/veraflow/blob/d2bac40/docs/cli.md)
+This walkthrough uses a fictional dispatch, its reusable form, and VeraFlow Desktop from this repository. Run the commands from `apps/web`. Run `npm ci` at the repository root once before using the Desktop CLI. [Dispatch form](../examples/dispatch-exchange.vf) · [Source text](../examples/dispatch-exchange.txt) · [Desktop CLI guide](../../../docs/cli.md)
 
 ## Inspect the form and generate candidates
 
 ```sh
-../veraflow/scripts/veraflow inspect examples/dispatch-exchange.vf
-../veraflow/scripts/veraflow fields examples/dispatch-exchange.vf > dispatch-fields.json
-../veraflow/scripts/veraflow extract examples/dispatch-exchange.txt \
+../../scripts/veraflow inspect examples/dispatch-exchange.vf
+../../scripts/veraflow fields examples/dispatch-exchange.vf > dispatch-fields.json
+../../scripts/veraflow extract examples/dispatch-exchange.txt \
   examples/dispatch-exchange.vf > dispatch-candidates.json
 ```
 
@@ -26,9 +26,9 @@ Look for `reference`, `route`, `tracking`, and `delivery_code`. The Route labels
 ## Validate and render the accepted record
 
 ```sh
-../veraflow/scripts/veraflow validate examples/dispatch-exchange.vf \
+../../scripts/veraflow validate examples/dispatch-exchange.vf \
   --record responses.json
-../veraflow/scripts/veraflow render responses.json examples/dispatch-exchange.vf \
+../../scripts/veraflow render responses.json examples/dispatch-exchange.vf \
   --format json > desktop-log.json
 ```
 

@@ -18,6 +18,7 @@ const {
   format: "iife",
   target: ["safari15.4", "chrome100"],
   write: false,
+  nodePaths: [resolve("node_modules")],
 });
 const hash = (value) => createHash("sha256").update(value).digest("base64");
 const style = await readFile("src/style.css", "utf8");
@@ -33,6 +34,7 @@ const {
   format: "esm",
   platform: "node",
   write: false,
+  nodePaths: [resolve("node_modules")],
   define: {
     COLLECTION_RUNTIME: JSON.stringify(runtime.text),
     COLLECTION_SCRIPT_HASH: JSON.stringify(hash(runtime.text)),
@@ -173,15 +175,16 @@ test("response keeps choice IDs, strips blank lines and reuses the ID on downloa
 });
 
 const desktop =
-  process.env.VERAFLOW_DESKTOP_DIR && resolve(process.env.VERAFLOW_DESKTOP_DIR);
+  resolve(process.env.VERAFLOW_DESKTOP_DIR ?? fileURLToPath(new URL("../../../", import.meta.url)));
 const hasCollection =
-  desktop && existsSync(join(desktop, "src/core/collection.ts"));
+  existsSync(join(desktop, "src/core/collection.ts")) &&
+  existsSync(join(desktop, "node_modules/tsx/package.json"));
 test(
   "Mandarin answers from Web review in the originating Desktop record",
   {
     skip: hasCollection
       ? false
-      : "Point VERAFLOW_DESKTOP_DIR at Desktop with the v1 collection CLI.",
+      : "Run npm ci at the repository root to enable the Desktop CLI test.",
   },
   async (t) => {
     const directory = await scratch(t);

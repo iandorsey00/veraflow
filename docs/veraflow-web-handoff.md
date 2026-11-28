@@ -1,5 +1,7 @@
 # VeraFlow Web handoff
 
+For the current source layout, build, and release instructions, see [VeraFlow Web](../apps/web/README.md). The sections below describe the original design.
+
 VeraFlow Web exports a `.veraflow` or `.vf` source file as a self-contained HTML form. A recipient can double-click the HTML file, fill it in, check critical fields against the original information, and copy named text sections. The HTML file carries the form, styles, validation, and rendering code. Recipients need only a browser with local scripts enabled. Form data stays on the device.
 
 ## Start with the workflow

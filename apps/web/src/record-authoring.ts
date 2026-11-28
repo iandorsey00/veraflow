@@ -1,5 +1,5 @@
-import { startSession } from "../vendor/veraflow/core/session";
-import { recordFormSource } from "../vendor/veraflow/core/source-record";
+import { startSession } from "../../../src/core/session";
+import { recordFormSource } from "../../../src/core/source-record";
 import { createDefinition, ExportError, sourceName } from "./definition";
 import { download, element } from "./dom";
 import { exportHtml } from "./export";

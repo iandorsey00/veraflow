@@ -1,5 +1,7 @@
 # VeraFlow Web handoff for offline collection
 
+The offline questionnaire implementation is now in [VeraFlow Web](../apps/web/README.md). It builds directly from the shared repository core. The sections below preserve the design and acceptance requirements for the integration.
+
 Desktop now generates minimal requests from the active native form or step. Web should turn a request into a standalone questionnaire that produces a compatible response. Keep the existing full-form exporter available.
 
 ## Shared contract

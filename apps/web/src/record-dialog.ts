@@ -1,4 +1,4 @@
-import { readRecordInput, recordInputLimit } from "../vendor/veraflow/core/source-record";
+import { readRecordInput, recordInputLimit } from "../../../src/core/source-record";
 import { ExportError } from "./definition";
 import { button, element } from "./dom";
 import { setText, text } from "./locale";

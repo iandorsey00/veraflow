@@ -1,0 +1,92 @@
+name: VeraFlow Web
+on:
+  push:
+    branches: ["**"]
+    tags: ["web-v*"]
+    paths:
+      - "apps/web/**"
+      - "src/core/**"
+      - "src/cli*.ts"
+      - "scripts/veraflow"
+      - "examples/source/**"
+      - "package*.json"
+      - "LICENSE"
+      - ".github/workflows/web.yml"
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "src/core/**"
+      - "src/cli*.ts"
+      - "scripts/veraflow"
+      - "examples/source/**"
+      - "package*.json"
+      - "LICENSE"
+      - ".github/workflows/web.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
+      - run: npm ci --prefix apps/web
+      - run: npm --prefix apps/web run build
+      # Only the round-trip checks need Desktop's command-line dependencies.
+      - run: npm ci
+      - run: npm --prefix apps/web test
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: npm --prefix apps/web run test:browser
+      - name: Package the static site
+        if: startsWith(github.ref, 'refs/tags/web-v')
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./package.json").version')
+          test "$GITHUB_REF_NAME" = "web-v$version"
+          test "$(node -p 'require("./dist/version.json").version')" = "$version"
+          artifact="veraflow-web-v$version-static.zip"
+          (cd dist && zip -qr "../$artifact" .)
+          unzip -t "$artifact"
+          sha256sum "$artifact" > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/web-v')
+        with:
+          name: web-static
+          path: |
+            apps/web/veraflow-web-v*-static.zip
+            apps/web/SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/web-v')
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-static
+          path: web-dist
+      - name: Publish Web assets
+        working-directory: web-dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=${GITHUB_REF_NAME#web-v}
+          artifact="veraflow-web-v$version-static.zip"
+          sha256sum --check SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" "$artifact" SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --latest=false \
+            --title "VeraFlow Web v$version" \
+            --notes "Static VeraFlow Web build for offline HTML forms and questionnaires. Extract the archive and serve its contents together."

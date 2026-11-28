@@ -6,7 +6,8 @@ import { repo, version } from "./branding";
 
 export async function updateApp() {
   const cwd = fileURLToPath(new URL("../", import.meta.url));
-  const releases = `${repo}/releases/latest`;
+  const releases = `${repo}/releases?q=web-v`;
+  const tagPrefix = "refs/tags/web-v";
   const git = (...args: string[]) =>
     execFileSync("git", args, {
       cwd,
@@ -20,7 +21,7 @@ export async function updateApp() {
     );
     if (
       manifest.name !== "veraflow-web" ||
-      git("rev-parse", "--show-prefix") !== ""
+      git("rev-parse", "--show-prefix") !== "apps/web/"
     )
       throw new Error("Not a VeraFlow Web source checkout");
     checkoutVersion = manifest.version;
@@ -43,7 +44,7 @@ export async function updateApp() {
 
   let tags: string;
   try {
-    tags = git("ls-remote", "--refs", "--tags", "origin", "refs/tags/v*");
+    tags = git("ls-remote", "--refs", "--tags", "origin", `${tagPrefix}*`);
   } catch {
     throw new Error(
       `Could not check release tags on origin. Release downloads are at ${releases}.`,
@@ -51,7 +52,9 @@ export async function updateApp() {
   }
   const newest = tags
     .split("\n")
-    .map((line) => line.split("\t")[1]?.replace(/^refs\/tags\/v/, ""))
+    .map((line) => line.split("\t")[1])
+    .filter((ref) => ref?.startsWith(tagPrefix))
+    .map((ref) => ref.slice(tagPrefix.length))
     .filter(isReleaseVersion)
     .sort(compareVersions)
     .at(-1);
@@ -63,14 +66,14 @@ export async function updateApp() {
   }
   if (updateAvailable) {
     try {
-      git("fetch", "--no-tags", "origin", `refs/tags/v${newest}`);
-      const tagged = JSON.parse(git("show", "FETCH_HEAD:package.json"));
+      git("fetch", "--no-tags", "origin", `${tagPrefix}${newest}`);
+      const tagged = JSON.parse(git("show", "FETCH_HEAD:apps/web/package.json"));
       if (tagged.name !== "veraflow-web" || tagged.version !== newest)
         throw new Error("Release metadata does not match the tag");
       git("merge", "--ff-only", "FETCH_HEAD");
     } catch {
       throw new Error(
-        `Could not fast-forward to v${newest}. Check the Git checkout before retrying.`,
+        `Could not fast-forward to web-v${newest}. Check the Git checkout before retrying.`,
       );
     }
   }

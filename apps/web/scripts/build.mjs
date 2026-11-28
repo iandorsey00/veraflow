@@ -1,8 +1,16 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
+// Resolve shared-core dependencies against Web's own installation.
+const alias = {
+  "@humanwhocodes/momoa": fileURLToPath(
+    import.meta.resolve("@humanwhocodes/momoa"),
+  ),
+};
 const options = {
+  alias,
   bundle: true,
   target: ["safari15.4", "chrome100"],
   minify: false,
@@ -40,7 +48,7 @@ const script = inline(
   "\n" + runtime.outputFiles[0].text.trimEnd() + "\n    ",
   "script",
 );
-const license = await readFile("vendor/veraflow/LICENSE", "utf8");
+const license = await readFile("../../LICENSE", "utf8");
 const momoaLicense = await readFile("vendor/momoa-LICENSE", "utf8");
 const define = {
   COLLECTION_RUNTIME: JSON.stringify(collectionScript),
@@ -68,6 +76,7 @@ const index = (await readFile("index.html", "utf8"))
 await Promise.all([
   writeFile(`dist/${webName}`, webScript),
   build({
+    alias,
     bundle: true,
     define,
     target: "node22",

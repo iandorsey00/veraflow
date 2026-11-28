@@ -12,9 +12,10 @@ Use **Open collection request…** to turn a Desktop request into a standalone o
 
 ## Run the exporter
 
-Use Node.js 22 or later. To open the authoring page locally, run:
+Use Node.js 22 or later. From the VeraFlow checkout, install and start Web:
 
 ```sh
+cd apps/web
 npm ci
 npm start
 ```
@@ -32,7 +33,7 @@ The command accepts `.veraflow` and `.vf` with JSON or JSON5 metadata headers. T
 
 On the authoring page, choose the template and click **Download HTML form**. The page reads the template locally and shows the name of the HTML file before download. Under **Form tools**, turn on **Add a timestamp to the filename** to keep successive exports, for example `service-case-2026-11-24_13-05-22.410Z.html`. Both the authoring page and exported forms can switch between English and Simplified Chinese. Template titles, field labels, instructions, and output text come from the template and stay in the language in which they were authored. The **Update app…** button appears beside the language switch when the hosting site advertises a newer version.
 
-In a clean VeraFlow Web Git checkout, run `npm run export:html -- --update` to fast-forward to the latest stable release tag on `origin`, install the locked dependencies, and rebuild. Run the command from an already built checkout. For a prebuilt site, use the latest release ZIP. For an exported offline form, re-export it to get the newer runtime.
+From an already built `apps/web` directory in a clean VeraFlow checkout, run `npm run export:html -- --update`. It fast-forwards to the newest stable `web-v` tag on `origin`, installs the Web lockfile, and rebuilds Web. Previously exported HTML files keep their bundled runtime. Re-export a form to use a newer version.
 
 ### Prefill and response exchange
 
@@ -40,17 +41,15 @@ Exports start with the template's authored defaults and omit saved responses by 
 
 Use **Form tools → Download response JSON** to save a partial or complete record. VeraFlow Web writes stable field IDs and string or null values. An omitted key leaves the receiving form's value alone, `null` clears it, and `""` records an explicit empty value. Untouched fields without saved responses are omitted, including any defaults they display. Find the record in VeraFlow Desktop using **Form tools → Import JSON / JSON5…**, review the proposed changes, and choose **Apply all changes**. In an open HTML form, **Form tools → Open JSON / JSON5…** reviews an import against the current values. Unchanged fields keep their verification. Changed fields need any required checks again. Try the [dispatch walkthrough](examples/README.md#dispatch-from-json) or the [Desktop CLI and Web walkthrough](docs/desktop-cli.md).
 
-### Desktop command
+### Export from the repository root
 
-The desktop integration is provided as a patch for the companion [VeraFlow repository](https://github.com/iandorsey00/veraflow). With the two repositories checked out as siblings, build VeraFlow Web as above. Then run these commands from VeraFlow Web.
+Build the Web package, then run the same exporter with paths relative to the repository root.
 
 ```sh
-git -C ../veraflow apply --check ../veraflow-web/integration/veraflow-desktop-export.patch
-git -C ../veraflow apply ../veraflow-web/integration/veraflow-desktop-export.patch
-npm --prefix ../veraflow run export:html -- ../veraflow-web/examples/service-case.veraflow
+npm ci --prefix apps/web
+npm --prefix apps/web run build
+npm run export:html -- apps/web/examples/service-case.veraflow
 ```
-
-For another checkout layout, set `VERAFLOW_WEB_DIR` to the VeraFlow Web project directory. The desktop command calls the same build as the authoring page.
 
 ## Standalone form
 
@@ -121,10 +120,12 @@ The macOS Safari run used three manual field entries, one default, two compariso
 
 ## Releases
 
-Build from a clean checkout and publish `index.html`, fingerprinted JavaScript and CSS, and `version.json` together. Keep `index.html` and `version.json` revalidatable, and bump the package version for each release. Verify that the published `version.json` matches the version shown in a newly exported form’s footer. Roll back by redeploying the previous static version, including its original version manifest and assets. Published forms are self-contained files and should be re-exported when they need a newer runtime.
+Web versions live in [its own package manifest](package.json). A `web-vX.Y.Z` tag on the shared repository runs the Web workflow and publishes `veraflow-web-vX.Y.Z-static.zip` and checksums on that tag's release page. Desktop continues using its `vX.Y.Z` tags. The last standalone release remains available in the [original Web repository](https://github.com/iandorsey00/veraflow-web/releases/tag/v0.5.0).
+
+To deploy Web, extract the static ZIP or build `apps/web` and serve `apps/web/dist/` from your static host. Publish `index.html`, its fingerprinted JavaScript and CSS, and `version.json` together. Revalidate the index and version manifest. Roll back by redeploying the previous complete static directory. Building or publishing a Web archive does not deploy the live site.
 
 ## Development
 
-`npm test` builds the application and checks export errors, privacy, CSP integrity and named output fixtures. Set `VERAFLOW_DESKTOP_DIR` to a desktop checkout to compare against its `src/core` directly. `npm run test:browser` runs the end-to-end tests in Chromium. Set `VERAFLOW_BROWSER=edge` for installed Edge or `VERAFLOW_BROWSER=webkit` for the Playwright WebKit build. The browser runner requires a supported browser installed in the test environment.
+From `apps/web`, `npm test` checks export errors, privacy, CSP, named outputs, and release selection. Run `npm ci` at the repository root to include the Desktop CLI round-trip tests. `npm run test:browser` runs the browser suite in Chromium. With the appropriate browser installed, use `VERAFLOW_BROWSER=webkit` for Playwright WebKit or `VERAFLOW_BROWSER=edge` for Edge.
 
-The MIT-licensed files in `vendor/veraflow/core/` are copied from VeraFlow desktop. The metadata in `vendor/veraflow/revision.json` records the desktop release and commit used for the build. Refresh the core, dependency metadata, and shared fixtures together when upgrading. Desktop 0.25.1 and the Web exporter use Momoa 3.3.13.
+Web builds directly from the [shared core](../../src/core/) and uses its own dependency installation. The form footer shows the Web version and **Form details** shows the version of the shared core from the root package manifest.

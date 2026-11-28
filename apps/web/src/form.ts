@@ -1,5 +1,5 @@
-import { type Control } from "../vendor/veraflow/core/form";
-import { type Template } from "../vendor/veraflow/core/model";
+import { type Control } from "../../../src/core/form";
+import { type Template } from "../../../src/core/model";
 import {
   activateFormStep,
   activeSourceFields,
@@ -14,12 +14,12 @@ import {
   prepareWorkflow,
   startSession,
   verify,
-} from "../vendor/veraflow/core/session";
+} from "../../../src/core/session";
 import {
   parseSource,
   sourceOutput,
   sourceParts,
-} from "../vendor/veraflow/core/source";
+} from "../../../src/core/source";
 import { button, download, element } from "./dom";
 import { setupExtraction } from "./extraction";
 import { timestampedFilename } from "./filenames";

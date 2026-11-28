@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +27,17 @@ const launch = () =>
     ? webkit.launch()
     : chromium.launch(engine === "edge" ? { channel: "msedge" } : {});
 
+async function offlineContext(browser, options = {}) {
+  if (engine !== "webkit")
+    return browser.newContext({ ...options, offline: true });
+  // WebKit's offline switch also blocks file URLs. Block network protocols
+  // explicitly while leaving the exported local document accessible.
+  const context = await browser.newContext(options);
+  await context.route(/^https?:/, (route) => route.abort());
+  await context.routeWebSocket(/^wss?:/, (socket) => socket.close());
+  return context;
+}
+
 test("moved and renamed form, offline entry, verification and blocked clipboard recovery", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "veraflow-browser-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -39,7 +51,7 @@ test("moved and renamed form, offline entry, verification and blocked clipboard 
   await rename(original, renamed);
   const browser = await launch();
   t.after(() => browser.close());
-  const context = await browser.newContext({ offline: true });
+  const context = await offlineContext(browser);
   const page = await context.newPage();
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", {
@@ -189,26 +201,25 @@ test("moved and renamed form, offline entry, verification and blocked clipboard 
 });
 
 test("the authoring page exposes a newer deployed version and downloads an HTML form", async (t) => {
-  let offered = "0.0.1";
+  let offered = JSON.parse(await readFile("dist/version.json", "utf8")).version;
   const browser = await launch();
   t.after(() => browser.close());
   const page = await browser.newPage();
-  await page.route("https://veraflow.test/**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (path === "/version.json") {
+  await page.route("https://veraflow.test/web/**", async (route) => {
+    const path = new URL(route.request().url()).pathname.slice("/web/".length);
+    if (path === "version.json") {
       await route.fulfill({ json: { version: offered } });
       return;
     }
-    const name = path === "/" ? "index.html" : path.slice(1);
-    await route.fulfill({ path: join("dist", name) });
+    await route.fulfill({ path: join("dist", path || "index.html") });
   });
-  await page.goto("https://veraflow.test/");
+  await page.goto("https://veraflow.test/web/");
   const update = page.getByRole("link", { name: "Update app…" });
   assert.equal(await update.isVisible(), false);
   offered = "10.2.0";
   await page.reload();
   await update.waitFor();
-  assert.match(await update.getAttribute("href"), /\?v=10\.2\.0$/);
+  assert.equal(await update.getAttribute("href"), "https://veraflow.test/web/?v=10.2.0");
   await page
     .locator("#source")
     .setInputFiles(fileURLToPath(example));
@@ -243,7 +254,7 @@ test("offline shipment steps preserve later inputs and require recopy after a re
   ]);
   const browser = await launch();
   t.after(() => browser.close());
-  const context = await browser.newContext({ offline: true });
+  const context = await offlineContext(browser);
   const page = await context.newPage();
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", {
@@ -391,8 +402,7 @@ test("prefilled housing export runs offline and downloads reviewable response JS
   await rename(original, renamed);
   const browser = await launch();
   t.after(() => browser.close());
-  const context = await browser.newContext({
-    offline: true,
+  const context = await offlineContext(browser, {
     viewport: { width: 390, height: 844 },
   });
   const page = await context.newPage();
@@ -551,8 +561,7 @@ test("offline bulk extraction applies only reviewed values and exports a flat re
   ]);
   const browser = await launch();
   t.after(() => browser.close());
-  const context = await browser.newContext({
-    offline: true,
+  const context = await offlineContext(browser, {
     viewport: { width: 390, height: 844 },
   });
   const page = await context.newPage();
@@ -788,7 +797,7 @@ test("dispatch JSON creates output and merges reviewed values in a file opened o
   const localHtml = join(directory, "renamed-dispatch.html");
   await (await htmlDownload).saveAs(localHtml);
 
-  const context = await browser.newContext({ offline: true });
+  const context = await offlineContext(browser);
   const offline = await context.newPage();
   await offline.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", {
@@ -890,7 +899,7 @@ test("offline default output, reviewed JSON, and versioned output downloads agre
   ]);
   const browser = await launch();
   t.after(() => browser.close());
-  const context = await browser.newContext({ offline: true });
+  const context = await offlineContext(browser);
   const page = await context.newPage();
   const requests = [];
   page.on("request", (request) => {
@@ -997,7 +1006,7 @@ test("collection questionnaire opens from disk and downloads the same response o
   const html = join(directory, "renamed-questionnaire.html");
   await (await pending).saveAs(html);
 
-  const context = await browser.newContext({ offline: true });
+  const context = await offlineContext(browser);
   const offline = await context.newPage();
   const requests = [];
   const errors = [];
@@ -1029,4 +1038,61 @@ test("collection questionnaire opens from disk and downloads the same response o
   await offline.getByRole("button", { name: "下载回答 JSON" }).waitFor();
   assert.deepEqual(requests, []);
   assert.deepEqual(errors, []);
+});
+
+const desktopRoot = process.env.VERAFLOW_DESKTOP_DIR ??
+  fileURLToPath(new URL("../../../", import.meta.url));
+test("Desktop reviews the response downloaded by an offline Web questionnaire", {
+  skip: !existsSync(join(desktopRoot, "node_modules/tsx/package.json")) &&
+    "Run npm ci at the repository root to enable the Desktop CLI test.",
+}, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "veraflow-collection-roundtrip-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const browser = await launch();
+  t.after(() => browser.close());
+  const cli = join(desktopRoot, "scripts/veraflow");
+  const demo = join(desktopRoot, "examples/source/collection");
+  const command = (...args) => execFileSync(process.execPath, [cli, ...args], { encoding: "utf8" });
+  const mapped = join(directory, "mapped.vf");
+  await writeFile(mapped, command(
+    "map", join(demo, "veradata-selection.json"),
+    join(demo, "veradata-mapping.json"), "--form", join(demo, "employment.vf"),
+  ));
+  const working = join(directory, "private.vf");
+  const request = command("collection-request", mapped, "--output", working);
+  const authoring = await browser.newPage();
+  await authoring.route("https://veraflow.test/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    await route.fulfill({ path: join("dist", path === "/" ? "index.html" : path.slice(1)) });
+  });
+  await authoring.goto("https://veraflow.test/");
+  await authoring.locator("#collection-file").setInputFiles({
+    name: "request.json", mimeType: "application/json", buffer: Buffer.from(request),
+  });
+  const downloaded = authoring.waitForEvent("download");
+  await authoring.getByRole("button", { name: "Download questionnaire HTML" }).click();
+  const html = join(directory, "questionnaire.html");
+  await (await downloaded).saveAs(html);
+  assert.doesNotMatch(await readFile(html, "utf8"), /Xiaoming Example|Juniper Example Labs/);
+
+  const context = await offlineContext(browser);
+  const page = await context.newPage();
+  const requests = [];
+  page.on("request", (request) => {
+    if (/^https?:/.test(request.url())) requests.push(request.url());
+  });
+  await page.goto(pathToFileURL(html).href);
+  await page.getByRole("textbox", { name: /^职位/ }).fill("软件架构师");
+  await page.getByRole("textbox", { name: /^补充说明/ }).fill("可以远程办公。");
+  const response = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download response JSON" }).click();
+  const file = join(directory, "incoming.json");
+  await (await response).saveAs(file);
+  const review = JSON.parse(command("collection-review", file, working));
+  assert.equal(review.status, "review");
+  assert.deepEqual(Object.fromEntries(review.changes.map(({ field, value }) => [field, value])), {
+    job_title: "软件架构师",
+    comments: "可以远程办公。",
+  });
+  assert.deepEqual(requests, []);
 });

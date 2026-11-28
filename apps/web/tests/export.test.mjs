@@ -72,7 +72,7 @@ test("exports a locked-down file and strips saved session data", async (t) => {
   assert.match(html, /form-action 'none'/);
   assert.match(
     html,
-    /Created with<\/span> <a href="https:\/\/github\.com\/iandorsey00\/veraflow-web"[^>]*>VeraFlow Web<\/a> v/,
+    /Created with<\/span> <a href="https:\/\/github\.com\/iandorsey00\/veraflow\/tree\/main\/apps\/web"[^>]*>VeraFlow Web<\/a> v/,
   );
   assert.ok(html.includes(`VeraFlow Web</a> v${version}`));
   for (const [tag, directive] of [
@@ -180,15 +180,17 @@ async function loadCore(coreDir) {
     platform: "node",
     format: "esm",
     write: false,
+    tsconfig: resolve("tsconfig.json"),
+    nodePaths: [resolve("node_modules")],
   });
   return import(
     `data:text/javascript;base64,${Buffer.from(core.outputFiles[0].contents).toString("base64")}`
   );
 }
 
-const vendoredCore = resolve("vendor/veraflow/core");
+const sharedCore = fileURLToPath(new URL("../../../src/core", import.meta.url));
 const desktop = process.env.VERAFLOW_DESKTOP_DIR;
-const desktopCore = desktop ? resolve(desktop, "src/core") : vendoredCore;
+const desktopCore = desktop ? resolve(desktop, "src/core") : sharedCore;
 
 test("same named sections and literal Unicode as VeraFlow desktop", async (t) => {
   const directory = await sandbox(t);
@@ -209,7 +211,7 @@ test("same named sections and literal Unicode as VeraFlow desktop", async (t) =>
 
 test("shipment steps share verified values and retain copied-section warnings until recopy", async (t) => {
   const directory = await sandbox(t);
-  const runtime = await loadCore(vendoredCore);
+  const runtime = await loadCore(sharedCore);
   const desktopRuntime = await loadCore(desktopCore);
   if (desktop) {
     assert.equal(
@@ -359,7 +361,7 @@ test("prefill is opt-in and discards saved verification while preserving explici
   run(input, blank);
   assert.doesNotMatch(await readFile(blank, "utf8"), /Private Name/);
   run(input, included, ["--include-responses"]);
-  const core = await loadCore(vendoredCore);
+  const core = await loadCore(sharedCore);
   const template = embeddedTemplate(await readFile(included, "utf8"));
   const parsed = core.parseSource(template.content);
   assert.deepEqual(Object.fromEntries(parsed.responses), {
@@ -406,7 +408,7 @@ test("the bilingual housing form renders desktop outputs and its response JSON c
     fileURLToPath(housingResponse),
   ]);
   const template = embeddedTemplate(await readFile(output, "utf8"));
-  const core = await loadCore(vendoredCore);
+  const core = await loadCore(sharedCore);
   const desktop = await loadCore(desktopCore);
   const browserResponseModule = await build({
     entryPoints: ["src/responses.ts"],
@@ -539,7 +541,7 @@ test("the bilingual housing form renders desktop outputs and its response JSON c
   );
 });
 
-test("CLI update fast-forwards to the latest stable tag and protects local edits", async (t) => {
+test("CLI update follows stable Web tags and protects local edits anywhere in the repository", async (t) => {
   const directory = await sandbox(t);
   const upstream = join(directory, "upstream");
   const checkout = join(directory, "checkout");
@@ -549,10 +551,13 @@ test("CLI update fast-forwards to the latest stable tag and protects local edits
   git("-C", upstream, "config", "user.name", "VeraFlow Test");
   git("-C", upstream, "config", "user.email", "test@example.com");
   await writeFile(join(upstream, ".gitignore"), "dist/\nnode_modules/\n");
+  await writeFile(join(upstream, "package.json"), '{"name":"veraflow","version":"99.0.0"}');
+  const upstreamWeb = join(upstream, "apps/web");
+  await mkdir(upstreamWeb, { recursive: true });
   async function commitRelease(release) {
     const name = "veraflow-web";
     await writeFile(
-      join(upstream, "package.json"),
+      join(upstreamWeb, "package.json"),
       JSON.stringify({
         name,
         version: release,
@@ -563,7 +568,7 @@ test("CLI update fast-forwards to the latest stable tag and protects local edits
       }),
     );
     await writeFile(
-      join(upstream, "package-lock.json"),
+      join(upstreamWeb, "package-lock.json"),
       JSON.stringify({
         name,
         version: release,
@@ -573,12 +578,13 @@ test("CLI update fast-forwards to the latest stable tag and protects local edits
     );
     git("-C", upstream, "add", ".");
     git("-C", upstream, "commit", "-m", `Test release ${release}`);
-    git("-C", upstream, "tag", `v${release}`);
+    git("-C", upstream, "tag", `web-v${release}`);
   }
   await commitRelease(version);
   git("clone", upstream, checkout);
-  await mkdir(join(checkout, "dist"));
-  const cli = join(checkout, "dist", "export-html.mjs");
+  const web = join(checkout, "apps/web");
+  await mkdir(join(web, "dist"));
+  const cli = join(web, "dist", "export-html.mjs");
   await copyFile(script, cli);
   const runUpdate = () =>
     execFileSync(process.execPath, [cli, "--update"], {
@@ -590,7 +596,8 @@ test("CLI update fast-forwards to the latest stable tag and protects local edits
   const parts = version.split(".");
   const newer = `${parts[0]}.${parts[1]}.${Number(parts[2]) + 1}`;
   await commitRelease(newer);
-  git("-C", upstream, "tag", "v99.0.0-beta.1");
+  git("-C", upstream, "tag", "v99.0.0");
+  git("-C", upstream, "tag", "web-v99.0.0-beta.1");
   const dirty = join(checkout, "draft.txt");
   await writeFile(dirty, "uncommitted");
   assert.throws(runUpdate, /local changes before updating/);
@@ -598,7 +605,7 @@ test("CLI update fast-forwards to the latest stable tag and protects local edits
   await rm(dirty);
   assert.match(runUpdate(), /Updated VeraFlow Web to/);
   assert.equal(
-    await readFile(join(checkout, "dist", "version.json"), "utf8"),
+    await readFile(join(web, "dist", "version.json"), "utf8"),
     newer,
   );
   assert.equal(
@@ -617,7 +624,7 @@ test("display replacement candidates stay separate from the desktop response rou
   assert.match(html, /<dialog id="candidate-review"/);
   assert.match(html, /function setupExtraction/);
   assert.doesNotMatch(html, /ABC123458|Sarah Example/);
-  const core = await loadCore(vendoredCore);
+  const core = await loadCore(sharedCore);
   const desktopCoreApi = await loadCore(desktopCore);
   const session = core.startSession(template);
   session.unifiedForm = true;
@@ -776,7 +783,7 @@ test("dispatch exchange shares candidate fields, response values, and ordered ou
   const lead = fileURLToPath(new URL("../examples/dispatch-exchange.txt", import.meta.url));
   const html = join(directory, "dispatch.html");
   run(form, html);
-  const core = await loadCore(vendoredCore);
+  const core = await loadCore(sharedCore);
   const template = embeddedTemplate(await readFile(html, "utf8"));
   const session = core.startSession(template);
   const source = core.parseSource(template.content);
@@ -857,4 +864,17 @@ test("dispatch exchange shares candidate fields, response values, and ordered ou
       JSON.parse(desktopCli("render", record, form, "--all", "--format", "json")),
     );
   }
+});
+
+test("static assets use relative hashed paths and the independent Web version", async () => {
+  const index = await readFile("dist/index.html", "utf8");
+  const assets = [...index.matchAll(/(?:src|href)="\.\/((?:web|style)-([0-9a-f]{12})\.(?:js|css))"/g)];
+  assert.equal(assets.length, 2);
+  for (const [, file, fingerprint] of assets) {
+    const bytes = await readFile(join("dist", file));
+    assert.equal(createHash("sha256").update(bytes).digest("hex").slice(0, 12), fingerprint);
+  }
+  assert.deepEqual(JSON.parse(await readFile("dist/version.json", "utf8")), { version });
+  const core = JSON.parse(await readFile("../../package.json", "utf8"));
+  assert.match(await readFile(join("dist", assets.find((match) => match[1].endsWith(".js"))[1]), "utf8"), new RegExp(core.version.replaceAll(".", "\\.")));
 });

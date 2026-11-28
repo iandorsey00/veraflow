@@ -1,5 +1,5 @@
-import { type Session } from "../vendor/veraflow/core/model";
-import { recordValues } from "../vendor/veraflow/core/source-record";
+import { type Session } from "../../../src/core/model";
+import { recordValues } from "../../../src/core/source-record";
 
 export function responseJson(session: Session, included: ReadonlySet<string>) {
   const entries = [...recordValues(session)].filter(([name]) =>
