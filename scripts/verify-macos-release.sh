@@ -20,7 +20,7 @@ verify_app() {
   codesign --verify --deep --strict --verbose=2 "$app"
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "$version"
   executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
-  lipo -verify_arch "$arch" "$app/Contents/MacOS/$executable"
+  lipo "$app/Contents/MacOS/$executable" -verify_arch "$arch"
 }
 
 for input in "$@"; do

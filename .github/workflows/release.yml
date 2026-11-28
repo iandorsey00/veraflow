@@ -131,7 +131,7 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             test "$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true
           else
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --title "VeraFlow $GITHUB_REF_NAME — unsigned preview" --notes-file ../docs/binary-release-notes.md
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --title "VeraFlow $GITHUB_REF_NAME — preview" --notes-file ../docs/binary-release-notes.md
           fi
           gh release upload "$GITHUB_REF_NAME" VeraFlow_* latest.json SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
           mkdir downloaded
