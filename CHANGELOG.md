@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.1
+
+- Seal macOS preview app bundles with ad hoc signing and verify both Apple Silicon and Intel bundles after extracting the install ZIP and updater archive.
+
 ## 0.26.0
 
 - Analyze gaps in native forms and steps, stage questions for unresolved branches, and exchange minimal collection requests and correlated responses.

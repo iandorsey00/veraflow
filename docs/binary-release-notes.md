@@ -1,13 +1,9 @@
-VeraFlow 0.26.0 is a public preview for Windows x64, macOS Apple Silicon, and macOS Intel.
+VeraFlow 0.26.1 is a Desktop packaging correction for the macOS preview. Replace the 0.26.0 Mac app with the Apple Silicon or Intel ZIP for your Mac.
 
-- Use **Form tools → Record tools…** to find gaps, export a minimal request, and review replies against the originating record.
-- Review proposed transformations while keeping original values and their sources. Export a scoped, approved record when the required checks are complete.
-- The CLI adds gap analysis, collection exchange, nested source mapping, transformation review, and reviewed-record validation. Follow the [fictional employment walkthrough](https://github.com/iandorsey00/veraflow/blob/v0.26.0/docs/record-interoperability.md).
-
-Packages have VeraFlow updater signatures. Apple notarization and Windows publisher signing are pending. Verify downloads against `SHA256SUMS.txt`.
+The macOS app bundles use ad hoc signing to seal their resources. The release checks bundle integrity after extracting both the installation ZIP and updater archive. Developer ID signing and Apple notarization are pending. macOS may require a per-app authorization in Privacy & Security on first launch. The Windows x64 preview remains publisher unsigned. The updater packages use VeraFlow's existing signatures. Compare downloads with `SHA256SUMS.txt`.
 
 ### 简体中文
 
-在 **表单工具 → 记录工具…** 中查看缺项、导出最小收集请求，并在原工作记录中审阅答复。审阅转换建议时可保留原值和来源。完成必需的核验后，可批准并导出当前范围内的记录。命令行支持缺项分析、收集交换、嵌套资料映射、转换审阅及已审阅记录校验。[虚构就业资料演示](https://github.com/iandorsey00/veraflow/blob/v0.26.0/docs/record-interoperability.zh-CN.md)
+VeraFlow 0.26.1 修复 macOS 预览版的打包问题。请根据芯片类型选择 Apple 芯片或 Intel 的 ZIP，替换 0.26.0 版应用。
 
-安装包具有 VeraFlow 更新签名，尚无 Apple 公证和 Windows 发布者签名。请使用 `SHA256SUMS.txt` 核对下载文件。
+macOS 应用包使用临时签名（ad hoc）封存资源。发布流程会解压安装 ZIP 和更新包，核验应用包的签名完整性。Developer ID 签名和 Apple 公证尚未完成，首次启动时可能需要在「隐私与安全性」中单独授权。Windows x64 预览版尚无发布者签名。更新包仍使用核流原有的更新签名。请用 `SHA256SUMS.txt` 核对下载文件。

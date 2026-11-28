@@ -2,6 +2,10 @@
 
 Public release workflows also attach `VeraFlow_VSCode.vsix` and include it in `SHA256SUMS.txt`. The updater feed continues to reference the desktop packages.
 
+## 0.26.1 macOS package integrity
+
+Tauri applies the macOS ad hoc identity (`-`) to the complete app bundle before creating updater artifacts. The release job checks the bundle before ZIP creation and checks fresh extractions of the ZIP and updater tarball on both Mac targets. Keep the updater signature checks and authenticated version requirement as separate gates. Use 0.26.1 or later to replace the damaged 0.26.0 Mac application.
+
 ## 0.26.0 selective collection and reviewed records
 
 Full release cycle for new JSON exchange formats and private working-record persistence. On packaged Windows and macOS, follow the [fictional employment walkthrough](record-interoperability.md). Export a minimal request, close and reopen the working record, review a response, and check that a repeated import leaves the saved values alone. Inspect the approved JSON before sending it to the local demo adapter.

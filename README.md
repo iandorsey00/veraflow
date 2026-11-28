@@ -25,9 +25,9 @@ Use **Form tools → Record tools…** to collect only missing fields, review co
 
 ## Install
 
-Get the [v0.26.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.26.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.26.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.26.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
 
-- **macOS 12+**: Extract the ZIP and move VeraFlow.app to Applications. The preview is not Developer ID signed or notarized. If macOS blocks it and you trust the download, use the per-app **Open Anyway** option in Privacy & Security. Give VeraFlow Accessibility permission for cross-app capture and paste.
+- **macOS 12+**: Extract the 0.26.1 ZIP and move VeraFlow.app to Applications. If 0.26.0 would not open, replace it with this copy. This preview uses ad hoc signing to seal the bundle. Developer ID signing and Apple notarization are pending. After confirming the download's checksum and source, you may need to open VeraFlow once and approve it with **System Settings → Privacy & Security → Open Anyway**. Give VeraFlow Accessibility permission for cross-app capture and paste. [Apple’s app-opening guidance](https://support.apple.com/en-us/102445)
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
 
 If an update is available, **Update app…** appears in the menu-bar or tray menu. You can also check from Settings. Back up [your local library](#local-data-and-rollback) before upgrading.

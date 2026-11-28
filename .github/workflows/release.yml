@@ -59,12 +59,22 @@ jobs:
           TARGET: ${{ matrix.target }}
           PLATFORM: ${{ matrix.platform }}
         run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          case "$TARGET" in
+            aarch64-apple-darwin) arch=arm64 ;;
+            x86_64-apple-darwin) arch=x86_64 ;;
+            *) exit 1 ;;
+          esac
+          bundle_dir="src-tauri/target/$TARGET/release/bundle/macos"
+          archive_base="release-assets/VeraFlow_${GITHUB_REF_NAME}_${PLATFORM}"
           mkdir -p release-assets
-          file "src-tauri/target/$TARGET/release/bundle/macos/VeraFlow.app/Contents/MacOS/veraflow"
-          ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/$TARGET/release/bundle/macos/VeraFlow.app" "release-assets/VeraFlow_${GITHUB_REF_NAME}_${PLATFORM}.zip"
-          unzip -t "release-assets/VeraFlow_${GITHUB_REF_NAME}_${PLATFORM}.zip"
-          cp "src-tauri/target/$TARGET/release/bundle/macos/VeraFlow.app.tar.gz" "release-assets/VeraFlow_${GITHUB_REF_NAME}_${PLATFORM}.app.tar.gz"
-          cp "src-tauri/target/$TARGET/release/bundle/macos/VeraFlow.app.tar.gz.sig" "release-assets/VeraFlow_${GITHUB_REF_NAME}_${PLATFORM}.app.tar.gz.sig"
+          # Tauri signs the app first and uses that bundle for its updater archive.
+          bash scripts/verify-macos-release.sh "$arch" "$version" "$bundle_dir/VeraFlow.app"
+          ditto -c -k --sequesterRsrc --keepParent "$bundle_dir/VeraFlow.app" "$archive_base.zip"
+          cp "$bundle_dir/VeraFlow.app.tar.gz" "$archive_base.app.tar.gz"
+          cp "$bundle_dir/VeraFlow.app.tar.gz.sig" "$archive_base.app.tar.gz.sig"
+          bash scripts/verify-macos-release.sh "$arch" "$version" "$archive_base.zip" "$archive_base.app.tar.gz"
       - name: Collect Windows installer
         if: runner.os == 'Windows'
         shell: pwsh

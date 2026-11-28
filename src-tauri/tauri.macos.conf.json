@@ -1,5 +1,8 @@
 {
   "bundle": {
+    "macOS": {
+      "signingIdentity": "-"
+    },
     "fileAssociations": [
       {
         "ext": ["veraflow", "vf"],
