@@ -462,6 +462,9 @@ export const platform = {
       target,
     });
   },
+  async openWorkflows() {
+    await invoke("open_workflows");
+  },
   async openRepository() {
     await invoke("open_repository");
   },

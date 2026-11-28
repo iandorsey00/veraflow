@@ -353,6 +353,17 @@ async function main(args: string[]) {
     else console.log(helpText(name));
     return;
   }
+  if (name.startsWith("workflow-")) {
+    const { runWorkflowCommand } = await import("./workflow/cli");
+    await runWorkflowCommand(
+      name,
+      [first, second, third],
+      values,
+      readText,
+      json,
+    );
+    return;
+  }
   switch (name) {
     case "inspect":
       json(inspectForm(await readForm(first)));

@@ -81,10 +81,18 @@ fn take_text(ptr: *mut c_char, error: i32) -> Result<String, String> {
     unsafe { vf_free(ptr) };
     result
 }
-// Fixed destination only: the webview cannot launch arbitrary commands or URLs.
+// Fixed destinations only: the webview cannot launch arbitrary commands or URLs.
 #[tauri::command]
 fn open_repository() -> Result<(), String> {
     open_fixed_url("https://github.com/iandorsey00/veraflow")
+}
+#[tauri::command]
+fn open_workflows() -> Result<(), String> {
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], 49337));
+    std::net::TcpStream::connect_timeout(&address, std::time::Duration::from_millis(250))
+        .map_err(|_| "workflowDashboardUnavailable".to_string())?;
+    open_fixed_url("http://127.0.0.1:49337/")
+        .map_err(|_| "workflowDashboardUnavailable".to_string())
 }
 fn open_fixed_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
@@ -483,6 +491,7 @@ fn main() {
             output_history::trim_outputs,
             session_window,
             open_repository,
+            open_workflows,
             updater::check_update,
             updater::install_update,
             export_templates,

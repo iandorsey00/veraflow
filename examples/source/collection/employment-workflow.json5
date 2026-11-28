@@ -1,0 +1,44 @@
+{
+  // Pair with employment.vf. Import this as a definition in Workflows.
+  format: "veraflow-workflow",
+  version: 1,
+  id: "employment-intake",
+  revision: "1",
+  title: "Fictional employment intake / 就业信息采集示例",
+  scope: { outputId: "main" },
+  collection: { provider: "google-forms" },
+  destination: {
+    adapter: "playwright-employment",
+    id: "fictional-employment",
+    pages: ["intake"],
+    fields: {
+      full_name: "full_name",
+      employment_status: "employment_status",
+      employer: "employer",
+      job_title: "job_title",
+      business: "business",
+      incorporated: "incorporated",
+      registration: "registration",
+      seeking_role: "seeking_role",
+      comments: "comments",
+    },
+  },
+  transformations: {
+    job_title: {
+      kind: "translation",
+      from: "软件架构师",
+      to: "Software Architect",
+    },
+    comments: {
+      kind: "translation",
+      from: "可以远程办公。",
+      to: "Available to work remotely.",
+    },
+  },
+  policy: {
+    autofill: "automatic",
+    defaults: "confirm",
+    maxAttempts: 3,
+    completion: "human-review",
+  },
+}

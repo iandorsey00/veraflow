@@ -19,11 +19,13 @@ JSON 是记录交换格式。直接填写表单时，工作记录保存在内存
 
 用 **表单工具 → 记录工具…** 收集缺失字段、关联并审阅答复、核对转换建议，以及导出已批准的记录。[试用虚构就业资料流程](docs/record-interoperability.zh-CN.md)。
 
+对于反复收集信息的问卷，[本地工作流自动化](docs/workflow-automation.zh-CN.md)可监控答复，在需要核验或处理冲突时暂停，并填写示例目标页面等待复核。
+
 ## 安装
 
-从 [v0.26.1 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.26.1) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。直接使用安装包不需要安装 Node.js 或 Rust。
+从 [v0.27.0 预览版发布页](https://github.com/iandorsey00/veraflow/releases/tag/v0.27.0) 下载适合你的安装包。使用发布页上的 `SHA256SUMS.txt` 核对下载文件。桌面版可独立运行。可选的工作流后台进程和命令行需在源码目录中使用 Node.js 24。
 
-- **macOS 12 或更新版本**：Apple 芯片选 `macos-arm64.zip`，Intel 芯片选 `macos-x64.zip`。解压 0.26.1 后将 VeraFlow.app 移到「应用程序」。如果 0.26.0 无法打开，请用此版本替换。预览版使用临时签名（ad hoc）封存应用包，尚无 Developer ID 签名和 Apple 公证。确认下载来源及校验值后，如 macOS 要求授权，请先尝试打开应用，再前往「系统设置 → 隐私与安全性 → 仍要打开」。跨应用采集和粘贴需要「辅助功能」权限。[Apple 的打开应用指南](https://support.apple.com/zh-cn/102445)
+- **macOS 12 或更新版本**：Apple 芯片选 `macos-arm64.zip`，Intel 芯片选 `macos-x64.zip`。解压 0.27.0 后将 VeraFlow.app 移到「应用程序」。预览版使用临时签名（ad hoc）封存应用包，尚无 Developer ID 签名和 Apple 公证。确认下载来源及校验值后，如 macOS 要求授权，请先尝试打开应用，再前往「系统设置 → 隐私与安全性 → 仍要打开」。跨应用采集和粘贴需要「辅助功能」权限。[Apple 的打开应用指南](https://support.apple.com/zh-cn/102445)
 - **Windows**：运行 `windows-x64-setup.exe`。Windows 可能提示发布者未知。如果系统缺少 WebView2，安装程序可能会安装它。
 
 在 **设置 → 语言** 选择 **简体中文**，然后点击 **保存设置**。应用可从设置或托盘菜单检查更新。

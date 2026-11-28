@@ -23,11 +23,13 @@ Try the [Dispatch note example](examples/source/dispatch-note.veraflow) to see t
 
 Use **Form tools → Record tools…** to collect only missing fields, review correlated responses and transformations, and export an approved record. Try the [fictional employment workflow](docs/record-interoperability.md).
 
+For recurring questionnaires, [local workflow automation](docs/workflow-automation.md) watches for responses, pauses for verification or conflicts, and fills a fictional destination for review.
+
 ## Install
 
-Get the [v0.26.1 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.26.1): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. Node.js and Rust are only needed to build from source.
+Get the [v0.27.0 preview binaries](https://github.com/iandorsey00/veraflow/releases/tag/v0.27.0): macOS Apple Silicon (`macos-arm64.zip`), macOS Intel (`macos-x64.zip`), or Windows x64 (`windows-x64-setup.exe`). Compare downloads with the release’s `SHA256SUMS.txt`. The Desktop installer runs independently. The optional workflow worker and CLI run from a source checkout using Node.js 24.
 
-- **macOS 12+**: Extract the 0.26.1 ZIP and move VeraFlow.app to Applications. If 0.26.0 would not open, replace it with this copy. This preview uses ad hoc signing to seal the bundle. Developer ID signing and Apple notarization are pending. After confirming the download's checksum and source, you may need to open VeraFlow once and approve it with **System Settings → Privacy & Security → Open Anyway**. Give VeraFlow Accessibility permission for cross-app capture and paste. [Apple’s app-opening guidance](https://support.apple.com/en-us/102445)
+- **macOS 12+**: Extract the 0.27.0 ZIP and move VeraFlow.app to Applications. This preview uses ad hoc signing to seal the bundle. Developer ID signing and Apple notarization are pending. After confirming the download's checksum and source, you may need to open VeraFlow once and approve it with **System Settings → Privacy & Security → Open Anyway**. Give VeraFlow Accessibility permission for cross-app capture and paste. [Apple’s app-opening guidance](https://support.apple.com/en-us/102445)
 - **Windows**: Run the installer. Windows may show an unrecognized-publisher warning, and the installer may install WebView2 if needed.
 
 If an update is available, **Update app…** appears in the menu-bar or tray menu. You can also check from Settings. Back up [your local library](#local-data-and-rollback) before upgrading.

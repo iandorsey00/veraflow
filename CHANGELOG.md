@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.27.0
+
+- Add versioned workflows, persistent instances, a local response inbox and a background autofill queue. Desktop opens the local workflow dashboard, and the source-checkout CLI manages the same records and queue.
+- Preserve the source of transformed values and require independent checks for fields configured for verification. Separate respondents by request ID, and hold conflicting answers for review.
+- Add the fictional employment workflow and verify the Phase 1 handoff to VeraFlow Integrations v0.1.0 in Experiment 11. See the [live acceptance and limits](docs/workflow-automation.md#experiment-11-live-acceptance) and [简体中文](docs/workflow-automation.zh-CN.md).
+
 ## 0.26.1
 
 - Seal macOS preview app bundles with ad hoc signing and verify both Apple Silicon and Intel bundles after extracting the install ZIP and updater archive.

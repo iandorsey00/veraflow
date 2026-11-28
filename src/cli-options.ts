@@ -24,12 +24,116 @@ const options = {
   "request-id": { type: "string" },
   accept: { type: "boolean" },
   form: { type: "string" },
+  state: { type: "string" },
+  revision: { type: "string" },
+  acknowledge: { type: "boolean" },
 } as const;
 
 type Option = keyof typeof options;
 type Command = { args: string[]; flags: Option[]; description: string };
 
 const commands = {
+  "workflow-add": {
+    args: ["workflow", "form"],
+    flags: ["state"],
+    description:
+      "Register a portable workflow and blank form as an immutable revision.",
+  },
+  "workflow-create": {
+    args: ["workflow-id"],
+    flags: ["state", "revision", "source"],
+    description:
+      "Create a private workflow instance, optionally from a source record.",
+  },
+  "workflow-status": {
+    args: [],
+    flags: ["state"],
+    description: "Show workflow instances, inbox results and worker status.",
+  },
+  "workflow-request": {
+    args: ["instance-id"],
+    flags: ["state"],
+    description: "Prepare a native questionnaire request for an instance.",
+  },
+  "workflow-request-inspect": {
+    args: ["instance-id", "request-id"],
+    flags: ["state"],
+    description: "Re-export a previously prepared questionnaire request.",
+  },
+  "workflow-link": {
+    args: ["instance-id", "request-id", "respondent-url"],
+    flags: ["state"],
+    description: "Associate an existing questionnaire’s respondent link.",
+  },
+  "workflow-close": {
+    args: ["instance-id", "request-id"],
+    flags: ["state"],
+    description: "Close a local questionnaire request after provider recovery.",
+  },
+  "workflow-import": {
+    args: ["response"],
+    flags: ["state"],
+    description: "Import a native collection response file.",
+  },
+  "workflow-scan": {
+    args: ["inbox-directory"],
+    flags: ["state"],
+    description:
+      "Reconcile a response directory once without executing destinations.",
+  },
+  "workflow-values": {
+    args: ["instance-id", "record"],
+    flags: ["state"],
+    description: "Supply or correct values in a workflow instance.",
+  },
+  "workflow-verify": {
+    args: ["instance-id", "field-id", "independent-text"],
+    flags: ["state"],
+    description:
+      "Compare a pending field with independent text from a file or stdin.",
+  },
+  "workflow-resolve": {
+    args: ["instance-id", "response-id", "accept-or-keep"],
+    flags: ["state"],
+    description: "Resolve a conflicting response explicitly.",
+  },
+  "workflow-action": {
+    args: ["instance-id", "queue-retry-cancel-or-complete"],
+    flags: ["state", "acknowledge"],
+    description: "Change destination execution state.",
+  },
+  "workflow-pause": {
+    args: ["workflow-id", "on-or-off"],
+    flags: ["state"],
+    description: "Pause or resume autofill for all revisions of a workflow.",
+  },
+  "workflow-stop": {
+    args: ["on-or-off"],
+    flags: ["state"],
+    description: "Stop or enable all local destination execution.",
+  },
+  "workflow-record": {
+    args: ["instance-id"],
+    flags: ["state"],
+    description: "Export the validated record and provenance.",
+  },
+  "workflow-working-form": {
+    args: ["instance-id"],
+    flags: ["state"],
+    description: "Export the editable working form and verification state.",
+  },
+  "workflow-test": {
+    args: ["workflow-id"],
+    flags: ["state", "revision"],
+    description:
+      "Check the configured fictional destination without populating fields.",
+  },
+  "workflow-worker": {
+    args: ["inbox-directory"],
+    flags: ["state"],
+    description:
+      "Watch the response inbox, run queued autofill and serve the local workflow controls.",
+  },
   inspect: {
     args: ["form"],
     flags: [],
@@ -263,6 +367,7 @@ Use --version to print the installed version.
 Multi-output forms need --output-id unless they declare a default or you use --all.
 render defaults to text. Use --format json for named sections or --all.
 pdf reads from stdin only with --output and requires --force for replacement.
+Workflow commands use a local state directory. Set --state to use a separate workspace.
 Use only trusted forms and data with PDF conversion.`;
 }
 

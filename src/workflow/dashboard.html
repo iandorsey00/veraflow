@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VeraFlow Workflows</title>
+    <link rel="stylesheet" href="/dashboard.css" />
+    <script type="module" src="/dashboard.js"></script>
+  </head>
+  <body>
+    <header>
+      <span class="wordmark">VeraFlow</span>
+      <button type="button" id="language" class="secondary" lang="zh-CN">
+        简体中文
+      </button>
+    </header>
+    <main>
+      <h1 id="title">Workflows</h1>
+      <p id="notice" aria-live="polite"></p>
+      <form id="unlock" hidden>
+        <label for="access">Worker access key</label>
+        <input id="access" type="password" required autocomplete="off" />
+        <button type="submit" id="unlock-button">Connect</button>
+      </form>
+      <div id="dashboard" hidden>
+        <div id="controls" class="actions"></div>
+        <section aria-labelledby="definitions-heading">
+          <h2 id="definitions-heading">Workflow definitions</h2>
+          <div id="definitions"></div>
+        </section>
+        <section aria-labelledby="instances-heading">
+          <h2 id="instances-heading">Instances</h2>
+          <div id="instances"></div>
+        </section>
+        <details id="activity">
+          <summary id="activity-heading">Response inbox</summary>
+          <div id="inbox"></div>
+        </details>
+      </div>
+    </main>
+    <dialog id="editor" aria-labelledby="editor-title">
+      <form id="edit-form">
+        <h2 id="editor-title"></h2>
+        <div id="editor-fields"></div>
+        <p id="editor-error" role="alert"></p>
+        <div class="actions">
+          <button type="button" id="dismiss" class="secondary">Cancel</button>
+          <button type="submit" id="save">Continue</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

@@ -503,6 +503,7 @@ function render() {
   click("update-recent", updateApp);
   click("nav-recent", () => navigate("recent"));
   click("open-document", pickDocument);
+  click("open-workflows", () => platform.openWorkflows());
   click("nav-settings", () => navigate("settings"));
   click("nav-session", () => navigate("session"));
   click("resume-task", () => navigate("session"));
@@ -810,7 +811,7 @@ function formatHistoryTime(time: number) {
 }
 
 function recentView() {
-  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentForms"))}</h1><div class="toolbar">${button("nav-scanner", layoutOverride === null ? "createForm" : "freeScanner")}${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-json", "openRecordInput")}${button("open-document", "openDocument", "primary")}</div></div>
+  return `<main class="settings recent-documents"><div class="section-head"><h1>${esc(t("recentForms"))}</h1><div class="toolbar">${button("nav-scanner", layoutOverride === null ? "createForm" : "freeScanner")}${desktop ? button("open-workflows", "workflows") : ""}${button("open-outputs", "recentOutputs")}${button("open-folder", "openFolder")}${button("open-json", "openRecordInput")}${button("open-document", "openDocument", "primary")}</div></div>
     ${templateFolderView()}
     ${recentDocuments.length ? `<ul class="recent-list">${recentDocuments.map((item, index) => `<li><button class="template-item" data-recent="${index}"><strong>${esc(item.title)}</strong><span>${item.file ? esc(item.file) + " · " : ""}${esc(formatHistoryTime(item.time))}</span></button></li>`).join("")}</ul>${button("clear-recent", "clearRecent", "quiet")}` : `<p>${esc(t("recentEmpty"))}</p>`}
     ${!session && lastTemplate ? sessionRecovery() : ""}</main>`;

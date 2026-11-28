@@ -7,11 +7,7 @@ type FormValue = {
   select?: boolean;
 };
 
-/** Fill this fictional destination and report readback separately from source verification. */
-export async function fillEmployment(
-  page: Page,
-  values: Record<string, unknown>,
-) {
+export function employmentValues(values: Record<string, unknown>) {
   const status = values.employment_status;
   const branches = new Map<string, FormValue[]>([
     [
@@ -43,7 +39,7 @@ export async function fillEmployment(
     !["true", "false"].includes(String(values.incorporated))
   )
     throw Error("Missing registration choice");
-  const fields = [
+  return [
     { id: "full_name", label: "Full name" },
     { id: "employment_status", label: "Employment", select: true },
     ...branches.get(status)!,
@@ -55,14 +51,26 @@ export async function fillEmployment(
       throw Error(`Expected a value for ${id}`);
     return [{ id, label, select, value }];
   });
+}
+
+/** Fill this fictional destination and report readback separately from source verification. */
+export async function fillEmployment(
+  page: Page,
+  values: Record<string, unknown>,
+  beforeInteraction?: (write: boolean) => void | Promise<void>,
+) {
+  const fields = employmentValues(values);
   for (const { label, select, value } of fields) {
+    await beforeInteraction?.(true);
     const control = page.getByLabel(label, { exact: true });
     if (select) await control.selectOption(value);
     else await control.fill(value);
   }
   const mismatches: string[] = [];
-  for (const { id, label, value } of fields)
+  for (const { id, label, value } of fields) {
+    await beforeInteraction?.(false);
     if ((await page.getByLabel(label, { exact: true }).inputValue()) !== value)
       mismatches.push(id);
+  }
   return { checked: fields.map(({ id }) => id), mismatches };
 }

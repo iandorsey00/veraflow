@@ -1,0 +1,154 @@
+:root {
+  color-scheme: light dark;
+  font:
+    100%/1.5 "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
+  --surface: Canvas;
+  --ink: CanvasText;
+  --rule: color-mix(in srgb, CanvasText 22%, Canvas);
+  --subdued: color-mix(in srgb, CanvasText 68%, Canvas);
+  --accent: #2159b8;
+  color: var(--ink);
+  background: var(--surface);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #8cb6ff;
+  }
+}
+body {
+  margin: 0;
+}
+header,
+main {
+  max-width: 65rem;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 3rem);
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-block: 1.25rem;
+}
+.wordmark {
+  font-weight: 700;
+  font-size: 1.4rem;
+  letter-spacing: -0.04em;
+}
+main {
+  padding-bottom: 3rem;
+}
+h1 {
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  margin-block: 0.5rem;
+}
+h2 {
+  font-size: 1.25rem;
+}
+h3 {
+  font-size: 1.05rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+section,
+main > div > details {
+  margin-top: 2rem;
+}
+article {
+  padding-block: 0.9rem;
+  border-top: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+}
+article p,
+article ul {
+  margin-block: 0.35rem 0.65rem;
+}
+small,
+.muted {
+  color: var(--subdued);
+}
+.actions {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button {
+  min-height: 2.45rem;
+  padding: 0.33rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--accent);
+  color: var(--surface);
+  cursor: pointer;
+}
+button.secondary {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--rule);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+a {
+  color: var(--accent);
+}
+.stack {
+  display: grid;
+  gap: 0.65rem;
+}
+label {
+  font-weight: 600;
+  display: block;
+}
+input,
+textarea {
+  display: block;
+  margin-top: 0.25rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+#unlock {
+  max-width: 24rem;
+}
+#unlock button {
+  margin-top: 0.5rem;
+}
+dialog {
+  width: min(34rem, calc(100vw - 3.5rem));
+  max-height: 85vh;
+  padding: 1.3rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.4rem;
+}
+dialog h2 {
+  margin-top: 0;
+}
+dialog::backdrop {
+  background: #0007;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 18rem;
+  overflow: auto;
+  font-size: 0.85rem;
+}
+summary {
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 0.16rem solid var(--accent);
+  outline-offset: 0.15rem;
+}

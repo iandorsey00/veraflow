@@ -1,4 +1,50 @@
 export const en = {
+  workflows: "Workflows",
+  workflowDashboardUnavailable:
+    "Could not open Workflows. Start the local worker first.",
+  invalidWorkflow: "Check the workflow definition and its format version.",
+  workflowNeedsForm: "Choose a VeraFlow form with record outputs.",
+  workflowNeedsBlankForm:
+    "Register a blank form without saved values or collection history.",
+  workflowUnknownField:
+    "A workflow rule refers to a field that is absent from the form.",
+  workflowDefinitionNotFound: "No matching workflow revision is registered.",
+  workflowInstanceNotFound: "The workflow instance does not exist.",
+  workflowRevisionExists:
+    "This workflow revision already exists. Use a new revision ID.",
+  workflowInstanceLocked:
+    "Resolve the destination review before changing this record.",
+  workflowVerificationNotPending:
+    "This field does not have a pending verification.",
+  workflowRequestHasConflict:
+    "Resolve the pending response conflict before closing this request.",
+  workflowConflictNotFound:
+    "There is no unresolved conflict for that response.",
+  workflowConflictDecision: "Choose accept or keep for the incoming response.",
+  workflowInvalidTransition:
+    "This action is unavailable for the current execution state. An uncertain or previously autofilled attempt requires acknowledgement before retry.",
+  workflowWorkerAlreadyRunning: "A worker already owns this state directory.",
+  workflowWorkerInterrupted:
+    "The worker could not save the result. Restart it to review the interrupted attempt.",
+  workflowReviewUnavailable:
+    "The review page is unavailable. Check the previous attempt before retrying.",
+  workflowMissingArgument: "A required workflow argument is missing.",
+  workflowResponseNotReadable:
+    "The response is temporarily unreadable. Retry after synchronization.",
+  workflowResponseNeedsFile: "Choose a regular response JSON file.",
+  invalidRespondentUrl:
+    "Choose a respondent URL. For Google Forms use the form's public answer link.",
+  unsupportedCollectionProvider:
+    "Choose google-forms or native-file as the collection provider.",
+  unsupportedWorkflowDestination:
+    "Choose the fictional employment destination and its intake page.",
+  destinationPageChanged:
+    "The destination page did not match the expected layout.",
+  destinationBrowserUnavailable:
+    "Chromium is unavailable. Run npx playwright install chromium.",
+  workflowStoreBusy: "The workflow store is busy. Retry the operation.",
+  workflowInputTooLarge: "The workflow input is too large.",
+  workflowUnsupportedStore: "This workflow database version is not supported.",
   booleanYes: "Yes",
   booleanNo: "No",
   openSource: "Import template file",
